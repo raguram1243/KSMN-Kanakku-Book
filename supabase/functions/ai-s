@@ -1,0 +1,146 @@
+// ============================================
+// Response Parser & Validator
+// ============================================
+// Parses and validates AI responses
+
+export interface ClassificationResult {
+  document_type: 'credit_invoice' | 'payment_receipt' | 'bank_receipt' | 'unknown';
+  confidence: number;
+  reason: string;
+}
+
+export interface CreditExtractionResult {
+  customer_name: string | null;
+  phone: string | null;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  items: Array<{
+    item: string | null;
+    quantity: number;
+    unit: string | null;
+    rate: number;
+    amount: number;
+  }>;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  grand_total: number;
+  notes: string | null;
+}
+
+export interface PaymentExtractionResult {
+  customer_name: string | null;
+  payment_amount: number;
+  payment_date: string | null;
+  payment_method: string | null;
+  reference_number: string | null;
+  upi_id: string | null;
+  bank_name: string | null;
+  notes: string | null;
+}
+
+// Extract JSON from AI response text
+export function extractJsonFromText(text: string): any {
+  try {
+    // Remove markdown code blocks if present
+    const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+    return JSON.parse(cleaned);
+  } catch (error) {
+    console.error('Failed to parse AI response:', text);
+    throw new Error('Invalid AI response format');
+  }
+}
+
+// Validate classification result
+export function validateClassification(data: any): ClassificationResult {
+  const validTypes = ['credit_invoice', 'payment_receipt', 'bank_receipt', 'unknown'];
+  
+  if (!data.document_type || !validTypes.includes(data.document_type)) {
+    throw new Error('Invalid document_type in classification');
+  }
+
+  const confidence = parseFloat(data.confidence);
+  if (isNaN(confidence) || confidence < 0 || confidence > 1) {
+    throw new Error('Invalid confidence value in classification');
+  }
+
+  return {
+    document_type: data.document_type,
+    confidence,
+    reason: data.reason || 'No reason provided',
+  };
+}
+
+// Validate credit extraction result
+export function validateCreditExtraction(data: any): CreditExtractionResult {
+  if (!data.customer_name && !data.invoice_number && !data.grand_total) {
+    throw new Error('Credit extraction missing required fields');
+  }
+
+  // Validate items array
+  const items = Array.isArray(data.items) ? data.items.map((item: any) => ({
+    item: item.item || null,
+    quantity: parseFloat(item.quantity) || 0,
+    unit: item.unit || null,
+    rate: parseFloat(item.rate) || 0,
+    amount: parseFloat(item.amount) || 0,
+  })) : [];
+
+  return {
+    customer_name: data.customer_name || null,
+    phone: data.phone || null,
+    invoice_number: data.invoice_number || null,
+    invoice_date: data.invoice_date || null,
+    items,
+    subtotal: parseFloat(data.subtotal) || 0,
+    discount: parseFloat(data.discount) || 0,
+    tax: parseFloat(data.tax) || 0,
+    grand_total: parseFloat(data.grand_total) || 0,
+    notes: data.notes || null,
+  };
+}
+
+// Validate payment extraction result
+export function validatePaymentExtraction(data: any): PaymentExtractionResult {
+  if (!data.payment_amount && !data.customer_name) {
+    throw new Error('Payment extraction missing required fields');
+  }
+
+  return {
+    customer_name: data.customer_name || null,
+    payment_amount: parseFloat(data.payment_amount) || 0,
+    payment_date: data.payment_date || null,
+    payment_method: data.payment_method || null,
+    reference_number: data.reference_number || null,
+    upi_id: data.upi_id || null,
+    bank_name: data.bank_name || null,
+    notes: data.notes || null,
+  };
+}
+
+// Generate confidence scores for extracted fields
+export function generateFieldConfidence(
+  documentType: string,
+  data: CreditExtractionResult | PaymentExtractionResult
+): Record<string, number> {
+  const confidence: Record<string, number> = {};
+
+  if (documentType === 'credit_invoice') {
+    const credit = data as CreditExtractionResult;
+    if (credit.customer_name) confidence.customer_name = 0.9;
+    if (credit.phone) confidence.phone = 0.85;
+    if (credit.invoice_number) confidence.invoice_number = 0.9;
+    if (credit.invoice_date) confidence.invoice_date = 0.9;
+    if (credit.grand_total > 0) confidence.grand_total = 0.95;
+    if (credit.items.length > 0) confidence.items = 0.9;
+  } else if (documentType === 'payment_receipt' || documentType === 'bank_receipt') {
+    const payment = data as PaymentExtractionResult;
+    if (payment.customer_name) confidence.customer_name = 0.9;
+    if (payment.payment_amount > 0) confidence.payment_amount = 0.95;
+    if (payment.payment_date) confidence.payment_date = 0.9;
+    if (payment.payment_method) confidence.payment_method = 0.85;
+    if (payment.reference_number) confidence.reference_number = 0.9;
+  }
+
+  return confidence;
+}

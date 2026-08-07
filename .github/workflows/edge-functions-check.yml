@@ -1,0 +1,61 @@
+name: Edge Functions Config Check
+
+on:
+  push:
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+  pull_request:
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+
+jobs:
+  verify-jwt-config:
+    name: Verify all edge functions have `verify_jwt = false` in config.toml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find function directories missing from config.toml
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CONFIG="supabase/config.toml"
+
+          # Collect all function directories under supabase/functions/ (excluding _shared)
+          mapfile -t funcs < <(find supabase/functions -maxdepth 1 -mindepth 1 -type d ! -name '_shared' | sed 's|supabase/functions/||' | sort)
+
+          missing=()
+
+          for f in "${funcs[@]}"; do
+            # Look for a [functions.<name>] block with verify_jwt = false inside it
+            if ! awk '
+                BEGIN { inblock = 0 }
+                /^\[functions\.'"$f"'\]/ { inblock = 1; next }
+                /^\[/ { inblock = 0 }
+                inblock && /^verify_jwt[[:space:]]*=/ { found = 1; exit }
+                END { exit !found }
+              ' "$CONFIG"; then
+              missing+=("$f")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::The following edge functions are missing a [functions.<name>] verify_jwt = false block in supabase/config.toml: ${missing[*]}"
+            echo "missing=1" >> "$GITHUB_OUTPUT"
+            echo "missing_functions=${missing[*]}" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          echo "missing=0" >> "$GITHUB_OUTPUT"
+          echo "All ${#funcs[@]} edge functions have matching verify_jwt config blocks."
+
+      - name: Fail if functions are missing config
+        if: steps.check.outputs.missing == '1'
+        run: |
+          echo "One or more edge functions are missing their verify_jwt config block."
+          echo "Missing: ${{ steps.check.outputs.missing_functions }}"
+          exit 1

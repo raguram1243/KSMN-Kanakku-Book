@@ -1,0 +1,78 @@
+// ============================================
+// AI Prompts for Document Processing
+// ============================================
+// Prompt templates for Qwen 2.5 VL
+
+export const CLASSIFICATION_PROMPT = `You are a document classifier. Analyze this image/PDF and determine what type of document it is.
+
+Possible types:
+1. credit_invoice - A bill/invoice for goods or services sold on credit (e.g., construction materials invoice, shop bill)
+2. payment_receipt - A receipt confirming payment was made (e.g., UPI screenshot, payment confirmation)
+3. bank_receipt - A bank statement or bank transaction receipt
+4. unknown - Cannot determine the document type
+
+Respond with ONLY a JSON object (no markdown, no explanation):
+{
+  "document_type": "credit_invoice|payment_receipt|bank_receipt|unknown",
+  "confidence": 0.0-1.0,
+  "reason": "brief explanation (1 sentence)"
+}
+
+Examples:
+- Invoice with items, quantities, prices → credit_invoice
+- UPI payment screenshot with amount and date → payment_receipt
+- Bank statement with transactions → bank_receipt`;
+
+export const CREDIT_EXTRACTION_PROMPT = `You are an expert at extracting data from invoices and bills. Extract all information from this document.
+
+Extract the following fields and respond with ONLY valid JSON (no markdown, no explanation):
+{
+  "customer_name": "full name or business name",
+  "phone": "phone number if visible",
+  "invoice_number": "invoice/bill number",
+  "invoice_date": "date in YYYY-MM-DD format",
+  "items": [
+    {
+      "item": "item description",
+      "quantity": 1.0,
+      "unit": "pcs/kg/ltr/etc",
+      "rate": 0.00,
+      "amount": 0.00
+    }
+  ],
+  "subtotal": 0.00,
+  "discount": 0.00,
+  "tax": 0.00,
+  "grand_total": 0.00,
+  "notes": "any additional notes"
+}
+
+Rules:
+- Use null for fields that cannot be found
+- Numbers should be numeric values, not strings
+- Dates should be in YYYY-MM-DD format
+- If multiple items exist, include all of them
+- Grand total should be the final amount payable
+- For Indian invoices, look for "GSTIN", "GST", "Tax" fields`;
+
+export const PAYMENT_EXTRACTION_PROMPT = `You are an expert at extracting data from payment receipts and bank statements. Extract all information from this document.
+
+Extract the following fields and respond with ONLY valid JSON (no markdown, no explanation):
+{
+  "customer_name": "payer name",
+  "payment_amount": 0.00,
+  "payment_date": "YYYY-MM-DD format",
+  "payment_method": "cash/upi/bank_transfer/cheque/etc",
+  "reference_number": "transaction/receipt number",
+  "upi_id": "UPI ID if visible",
+  "bank_name": "bank name if visible",
+  "notes": "any additional notes"
+}
+
+Rules:
+- Use null for fields that cannot be found
+- Numbers should be numeric values
+- Dates should be in YYYY-MM-DD format
+- Payment method should be lowercase (upi, cash, bank_transfer, etc.)
+- For UPI screenshots, look for UPI ID, amount, and date
+- For bank receipts, look for account number, transaction ID`;

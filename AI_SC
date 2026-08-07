@@ -1,0 +1,241 @@
+# AI Scan Feature - Deployment Guide
+
+## ✅ What's Been Completed
+
+### Backend (Supabase Edge Functions)
+- ✅ `supabase/functions/ai-scan/index.ts` - Main edge function
+- ✅ `supabase/functions/ai-scan/ai-provider.ts` - Provider abstraction
+- ✅ `supabase/functions/ai-scan/qwen-provider.ts` - Qwen implementation
+- ✅ `supabase/functions/ai-scan/prompts.ts` - AI prompts
+- ✅ `supabase/functions/ai-scan/parser.ts` - JSON extraction & validation
+- ✅ `supabase/functions/ai-scan/customer-matcher.ts` - Customer matching
+- ✅ `supabase/functions/ai-scan/types.ts` - Type definitions
+- ✅ `supabase/config.toml` - Function configuration added (`[functions.ai-scan]` with `verify_jwt = false`)
+
+### ⚠️ Mandatory Rule for All New Edge Functions
+
+Every new edge function **must** have a `[functions.<name>]` config block in `supabase/config.toml` with `verify_jwt = false`. This project uses custom `APP_JWT_SECRET` tokens verified internally via `_shared/jwt-utils.ts` — without this block, Supabase's gateway rejects requests with 401 before the function code runs.
+
+**Checklist when adding any new function:**
+- [ ] Create function under `supabase/functions/<name>/`
+- [ ] Add `[functions.<name>]` / `verify_jwt = false` to `supabase/config.toml`
+- [ ] Deploy: `supabase functions deploy <name>`
+- [ ] Verify: `supabase functions list` shows `ACTIVE`
+
+### Frontend (React/TypeScript)
+- ✅ `src/services/ai/` - Complete AI module
+- ✅ `src/store/aiScanStore.ts` - Zustand state management
+- ✅ `src/components/ai/` - All UI components
+- ✅ `src/pages/DashboardPage.tsx` - AI Scan button added
+- ✅ `src/pages/QuickAddPage.tsx` - AI Scan integration
+- ✅ `src/pages/RecordPaymentPage.tsx` - AI Scan integration
+- ✅ `src/lib/api.ts` - aiScan method added
+
+## 🚀 What You Need To Do
+
+### 1. Install Dependencies
+
+```bash
+cd d:\Projects\KSMN Kanakku-book
+npm install
+```
+
+**Verify these packages are installed:**
+- `zustand` - State management
+- All existing dependencies from package.json
+
+### 2. Deploy the Edge Function
+
+```bash
+# Deploy the ai-scan function to Supabase
+supabase functions deploy ai-scan
+```
+
+### 3. Configure Environment Variables/Secrets
+
+You need to set these secrets in Supabase. Run these commands:
+
+```bash
+# Set the AI provider (currently using Qwen)
+supabase secrets set AI_PROVIDER=qwen
+
+# Set your hosted Qwen 2.5 VL endpoint URL
+supabase secrets set QWEN_API_URL=https://your-qwen-endpoint.com/v1/chat/completions
+
+# Set your Qwen API key
+supabase secrets set QWEN_API_KEY=your_api_key_here
+
+# Optional: Set model name (defaults to qwen2.5-vl-72b-instruct)
+supabase secrets set QWEN_MODEL=qwen2.5-vl-72b-instruct
+```
+
+**Important:** Replace `https://your-qwen-endpoint.com/v1/chat/completions` with your actual hosted Qwen endpoint URL.
+
+### 4. Verify Supabase Storage
+
+Ensure you have a storage bucket for attachments. The existing `upload-attachment` edge function should already handle this, but verify:
+
+```bash
+# Check existing buckets
+supabase storage ls
+```
+
+If no bucket exists, create one:
+```bash
+supabase storage create attachments
+```
+
+### 5. Test the Feature
+
+#### Test Checklist:
+
+**Dashboard:**
+- [ ] Navigate to Dashboard
+- [ ] Verify "✨ AI Scan" button appears in Quick Actions
+- [ ] Click the button - modal should open
+
+**Upload Flow:**
+- [ ] Upload an invoice image (JPG/PNG)
+- [ ] Upload a PDF bill
+- [ ] Verify upload progress shows
+- [ ] Verify processing dialog appears with steps
+
+**AI Processing:**
+- [ ] Document classification completes
+- [ ] Data extraction completes
+- [ ] Customer matching works
+- [ ] Results display in review screen
+
+**Review Screen:**
+- [ ] Document type is shown with confidence
+- [ ] Extracted data is displayed
+- [ ] Low-confidence fields are highlighted in yellow/red
+- [ ] Customer matches are shown with scores
+- [ ] Document preview image/PDF is visible
+- [ ] "Confirm & Fill Form" button works
+
+**Auto-Fill (Credit Invoice):**
+- [ ] Navigate to Add Credit page
+- [ ] Click "✨ AI Scan"
+- [ ] Upload invoice
+- [ ] Review and confirm
+- [ ] Verify form is pre-filled with:
+  - Customer name/phone
+  - Line items
+  - Total amount
+  - Notes
+
+**Auto-Fill (Payment Receipt):**
+- [ ] Navigate to Record Payment page
+- [ ] Click "✨ AI Scan"
+- [ ] Upload payment receipt
+- [ ] Review and confirm
+- [ ] Verify form is pre-filled with:
+  - Customer selection
+  - Payment amount
+  - Payment date
+  - Payment method
+  - Reference number
+
+### 6. Error Handling Testing
+
+Test these scenarios:
+- [ ] Upload blurry/unreadable image → Should show error
+- [ ] Upload unsupported file type → Should show error
+- [ ] Disconnect network during processing → Should show error
+- [ ] Upload very large PDF → Should show error or timeout message
+- [ ] Upload unknown document type → Should ask for manual classification
+
+## 🔧 Troubleshooting
+
+### Issue: "Cannot find module 'zustand'"
+**Solution:**
+```bash
+npm install zustand
+```
+
+### Issue: Edge function deployment fails
+**Solution:**
+```bash
+# Check you're logged in
+supabase login
+
+# Check project is linked
+supabase link --project-ref YOUR_PROJECT_ID
+
+# Try deploying again
+supabase functions deploy ai-scan
+```
+
+### Issue: "Invalid or expired token" error
+**Solution:** The edge function uses custom JWT tokens. Ensure your `verify-pin` function is working and tokens are being stored correctly.
+
+### Issue: AI service timeout
+**Solution:** 
+- Check your Qwen endpoint is accessible
+- Verify API key is correct
+- Check network connectivity from Supabase to your AI endpoint
+
+### Issue: TypeScript errors in VS Code
+**Solution:** These are likely caching issues. Try:
+```bash
+# Restart TypeScript server in VS Code
+# Press Ctrl+Shift+P → "TypeScript: Restart TS Server"
+```
+
+## 📝 Configuration Files
+
+### AI Provider Configuration
+
+To switch AI providers in the future, edit these files:
+
+**Backend (`supabase/functions/ai-scan/ai-provider.ts`):**
+```typescript
+// Change this line to switch providers:
+const providerName = Deno.env.get('AI_PROVIDER') || 'qwen';
+```
+
+**Frontend (`src/services/ai/config.ts`):**
+```typescript
+export const AI_CONFIG = {
+  provider: 'qwen', // Change this to: 'gemini' | 'claude' | 'gpt' | 'llama' | 'deepseek'
+  // ...
+};
+```
+
+## 🎯 Next Steps After Deployment
+
+1. **User Training:** Create a quick guide for users on how to use the AI scan feature
+2. **Monitor Usage:** Track scan success rates and common failure modes
+3. **Optimize Prompts:** Fine-tune the AI prompts based on real document samples
+4. **Add Analytics:** Track which document types are most common
+5. **Improve Error Messages:** Based on user feedback, make error messages more helpful
+
+## 📊 Feature is Ready When:
+
+- ✅ All dependencies installed
+- ✅ Edge function deployed
+- ✅ Environment variables configured
+- ✅ Storage bucket exists
+- ✅ All test checklist items pass
+- ✅ No console errors during normal usage
+- ✅ Users can successfully scan documents and create entries/payments
+
+## 🆘 Support
+
+If you encounter issues:
+1. Check Supabase logs: `supabase functions logs ai-scan`
+2. Check browser console for frontend errors
+3. Verify network requests in DevTools
+4. Test the edge function directly with curl/Postman
+
+## 🎉 Success Criteria
+
+The feature is working when:
+- Users can upload documents from Dashboard, Add Credit, and Record Payment pages
+- AI correctly classifies documents (invoice vs payment receipt)
+- Data is extracted accurately with confidence scores
+- Customer matching works (exact and similar matches)
+- Forms are pre-filled correctly
+- Users can review and edit before saving
+- Scanned documents are attached to entries/payments

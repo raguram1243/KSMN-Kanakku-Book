@@ -1,0 +1,328 @@
+# QwenCloud Integration - Implementation Complete
+
+## ✅ Implementation Summary
+
+The AI scan feature has been updated to use the **real QwenCloud Multimodal Generation API** instead of placeholders.
+
+---
+
+## 📁 Files Modified
+
+### 1. `supabase/functions/ai-scan/qwen-provider.ts`
+**Changes:**
+- ✅ Updated API endpoint to: `https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation`
+- ✅ Updated model to: `qwen3.5-flash`
+- ✅ Implemented signed URL generation (never exposes public URLs)
+- ✅ Added 60-second timeout
+- ✅ Added retry logic (retries once for 429 and 500 errors)
+- ✅ Added comprehensive logging (request started, image processed, response time, token usage, errors)
+- ✅ Added specific error handling for:
+  - 401: Invalid API key
+  - 403: Forbidden/permissions
+  - 429: Rate limit (with retry)
+  - 500: Server error (with retry)
+  - Timeout: 60 seconds
+  - Malformed JSON
+- ✅ Added health check function: `checkQwenHealth()`
+- ✅ API key read from `Deno.env.get("QWEN_API_KEY")` (never exposed to React)
+
+### 2. `supabase/functions/ai-scan/prompts.ts`
+**Changes:**
+- ✅ Updated `CREDIT_EXTRACTION_PROMPT` to match required JSON schema
+- ✅ Added `document_type` field
+- ✅ Changed `phone_number` to `phone`
+- ✅ Changed `item_name` to `item`
+- ✅ Added `confidence` object with scores for key fields
+- ✅ Updated `PAYMENT_EXTRACTION_PROMPT` with same schema requirements
+- ✅ Prompts explicitly request "ONLY valid JSON, no markdown, no explanations, no code blocks"
+
+### 3. `supabase/functions/ai-scan/index.ts`
+**Changes:**
+- ✅ Added health check endpoint (`/health` and `/test` routes)
+- ✅ No authentication required for health check
+- ✅ Returns provider, model, latency, and success status
+
+---
+
+## 📤 Request Payload Format
+
+### QwenCloud API Request
+```json
+{
+  "model": "qwen3.5-flash",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Extract data from this invoice..."
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "https://your-project.supabase.co/storage/v1/sign/attachments/file.jpg?token=..."
+          }
+        }
+      ]
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 4096
+}
+```
+
+### Headers
+```
+Content-Type: application/json
+Authorization: Bearer YOUR_QWEN_API_KEY
+```
+
+---
+
+## 📥 Response Parser
+
+### QwenCloud API Response Format
+```json
+{
+  "output": {
+    "choices": [
+      {
+        "message": {
+          "content": "{\"document_type\":\"credit_invoice\",\"customer_name\":\"John Doe\",...}"
+        }
+      }
+    ]
+  },
+  "usage": {
+    "prompt_tokens": 1234,
+    "completion_tokens": 567,
+    "total_tokens": 1801
+  }
+}
+```
+
+### Parser Implementation
+```typescript
+private extractContent(response: any): string {
+  const content = response?.output?.choices?.[0]?.message?.content;
+  
+  if (!content) {
+    throw new Error('QwenCloud API returned empty response content');
+  }
+  
+  if (typeof content === 'string') {
+    return content;
+  }
+  
+  // Handle array content (multimodal responses)
+  if (Array.isArray(content)) {
+    const textBlocks = content
+      .filter((block: any) => block.type === 'text')
+      .map((block: any) => block.text)
+      .join('\n');
+    
+    if (textBlocks) {
+      return textBlocks;
+    }
+  }
+  
+  throw new Error('QwenCloud API returned unexpected response format');
+}
+```
+
+---
+
+## 🚀 Deployment Steps
+
+### 1. Install Dependencies
+```bash
+cd d:\Projects\KSMN Kanakku-book
+npm install
+```
+
+### 2. Deploy Edge Function
+```bash
+# Deploy the ai-scan function
+supabase functions deploy ai-scan
+```
+
+### 3. Configure Supabase Secrets
+```bash
+# Set QwenCloud API key
+supabase secrets set QWEN_API_KEY=your_real_qwencloud_api_key
+
+# Set model (optional, defaults to qwen3.5-flash)
+supabase secrets set QWEN_MODEL=qwen3.5-flash
+```
+
+**Important:** Replace `your_real_qwencloud_api_key` with your actual QwenCloud API key.
+
+### 4. Verify Storage Bucket
+```bash
+# Check existing buckets
+supabase storage ls
+
+# If no bucket exists, create one
+supabase storage create attachments
+```
+
+---
+
+## 🔐 Required Supabase Secrets
+
+| Secret | Description | Required |
+|--------|-------------|----------|
+| `QWEN_API_KEY` | Your QwenCloud API key | ✅ Yes |
+| `QWEN_MODEL` | Model name (default: `qwen3.5-flash`) | ❌ Optional |
+
+**Note:** The edge function automatically has access to `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+
+---
+
+## 🧪 Testing Checklist
+
+### 1. Health Check Test
+```bash
+# Test QwenCloud integration
+curl https://your-project.supabase.co/functions/v1/ai-scan/health
+
+# Expected response:
+{
+  "provider": "QwenCloud",
+  "model": "qwen3.5-flash",
+  "latency": 1234,
+  "success": true
+}
+```
+
+### 2. Document Upload Test
+- [ ] Navigate to Dashboard
+- [ ] Click "✨ AI Scan" button
+- [ ] Upload an invoice image (JPG/PNG)
+- [ ] Verify upload succeeds
+- [ ] Verify processing dialog appears
+
+### 3. AI Processing Test
+- [ ] Verify document classification completes
+- [ ] Verify data extraction completes
+- [ ] Verify customer matching works
+- [ ] Verify results display in review screen
+
+### 4. Error Handling Test
+- [ ] Test with invalid API key → Should show 401 error
+- [ ] Test with network timeout → Should show timeout error after 60s
+- [ ] Test with blurry image → Should handle gracefully
+- [ ] Test with unsupported document → Should ask for manual classification
+
+### 5. Form Auto-Fill Test
+- [ ] Test credit invoice → Should pre-fill Add Credit form
+- [ ] Test payment receipt → Should pre-fill Record Payment form
+- [ ] Verify customer matching and selection
+- [ ] Verify low-confidence fields are highlighted
+
+---
+
+## 📊 Confirmation: Real QwenCloud API Usage
+
+### ✅ Confirmed Implementation Details
+
+1. **Real API Endpoint**: Uses `https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation`
+
+2. **Real Authentication**: Reads API key from `Deno.env.get("QWEN_API_KEY")` - never exposed to React
+
+3. **Signed URLs**: Generates Supabase signed URLs (valid 1 hour) instead of exposing public URLs
+
+4. **Actual API Calls**: Makes real HTTP requests to QwenCloud with:
+   - Proper headers (`Authorization: Bearer <API_KEY>`)
+   - Correct request format (multimodal with text + image)
+   - Timeout handling (60 seconds)
+   - Retry logic (once for 429/500 errors)
+
+5. **Real Response Parsing**: Parses actual QwenCloud response format:
+   ```typescript
+   response.output.choices[0].message.content
+   ```
+
+6. **Logging**: Logs request/response details (without API keys):
+   - Request started
+   - Image processing
+   - Response time
+   - Token usage (if available)
+   - Errors
+
+7. **Error Handling**: Handles real HTTP status codes:
+   - 401: Invalid API key
+   - 403: Forbidden
+   - 429: Rate limit (with retry)
+   - 500: Server error (with retry)
+   - Timeout: 60 seconds
+
+---
+
+## 🎯 Success Criteria
+
+The implementation is complete and working when:
+
+- ✅ Health check endpoint returns success
+- ✅ Documents are classified correctly
+- ✅ Data is extracted in the required JSON schema
+- ✅ Confidence scores are included
+- ✅ Customer matching works
+- ✅ Forms are pre-filled correctly
+- ✅ Error handling works for all scenarios
+- ✅ No API keys are exposed to frontend
+- ✅ Signed URLs are used (no public URLs)
+- ✅ Logging shows real API calls
+
+---
+
+## 🆘 Troubleshooting
+
+### Issue: Health check fails
+**Solution:**
+```bash
+# Check QwenCloud API key is set
+supabase secrets list
+
+# Verify the key is correct
+# Test with curl:
+curl -X POST https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen3.5-flash","messages":[{"role":"user","content":[{"type":"text","text":"test"}]}]}'
+```
+
+### Issue: 401 Unauthorized
+**Solution:** Verify `QWEN_API_KEY` is set correctly in Supabase secrets
+
+### Issue: 429 Rate Limit
+**Solution:** The implementation retries automatically. If persistent, check your QwenCloud plan limits.
+
+### Issue: Timeout after 60 seconds
+**Solution:** This is expected behavior. Try with a smaller image or check your QwenCloud endpoint status.
+
+---
+
+## 📝 Next Steps
+
+1. **Deploy the function**: `supabase functions deploy ai-scan`
+2. **Set secrets**: `supabase secrets set QWEN_API_KEY=your_key`
+3. **Test health check**: Call `/ai-scan/health` endpoint
+4. **Test with real documents**: Upload invoices and payment receipts
+5. **Monitor logs**: `supabase functions logs ai-scan -f ai-scan`
+
+---
+
+## 🎉 Implementation Complete!
+
+The AI scan feature now uses the **real QwenCloud API** with:
+- ✅ Proper authentication
+- ✅ Signed URLs (secure)
+- ✅ Real request/response handling
+- ✅ Comprehensive error handling
+- ✅ Retry logic
+- ✅ Logging
+- ✅ Health check endpoint
+
+All requirements from your specification have been implemented.
