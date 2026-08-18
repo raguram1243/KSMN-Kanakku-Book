@@ -15,7 +15,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    const token = await verifyToken(authHeader)
+    let token
+    try {
+      token = await verifyToken(authHeader)
+    } catch (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (token.role !== 'admin') {
       return new Response(
@@ -28,7 +36,18 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { customer_id, amount, payment_date, notes, allocations, attachments, payment_method, receipt_number } = await req.json()
+    const body = await req.json()
+    const {
+      customer_id,
+      amount,
+      payment_date,
+      notes,
+      allocations,
+      attachments,
+      payment_method,
+      receipt_number,
+      idempotency_key,
+    } = body || {}
 
     if (!customer_id || !amount || !payment_date) {
       return new Response(
@@ -37,63 +56,23 @@ serve(async (req) => {
       )
     }
 
-    // Create payment
-    const { data: payment, error: paymentError } = await supabase
-      .from('payments')
-      .insert({
-        customer_id,
-        amount,
-        payment_date,
-        payment_method: payment_method || null,
-        receipt_number: receipt_number || null,
-        notes: notes || null,
-        created_by: token.staff_id,
-      })
-      .select()
-      .single()
+    const { data: result, error: rpcError } = await supabase.rpc('record_payment', {
+      p_customer_id: customer_id,
+      p_amount: amount,
+      p_payment_date: payment_date,
+      p_payment_method: payment_method || null,
+      p_receipt_number: receipt_number || null,
+      p_notes: notes || null,
+      p_created_by: token.staff_id,
+      p_idempotency_key: idempotency_key || null,
+      p_allocations: allocations || [],
+      p_attachments: attachments || [],
+    })
 
-    if (paymentError) throw paymentError
-
-    // Create payment proof attachments
-    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-      const attachmentRows = attachments
-        .filter((a: any) => a.file_url && a.file_type)
-        .map((a: any) => ({
-          payment_id: payment.id,
-          file_url: a.file_url,
-          file_type: a.file_type,
-        }))
-
-      if (attachmentRows.length > 0) {
-        const { error: attachError } = await supabase
-          .from('payment_attachments')
-          .insert(attachmentRows)
-
-        if (attachError) throw attachError
-      }
-    }
-
-    // Create allocations
-    if (allocations && Array.isArray(allocations)) {
-      const allocationsToInsert = allocations
-        .filter((a: any) => a.credit_entry_id && a.allocated_amount > 0)
-        .map((a: any) => ({
-          payment_id: payment.id,
-          credit_entry_id: a.credit_entry_id,
-          allocated_amount: a.allocated_amount,
-        }))
-
-      if (allocationsToInsert.length > 0) {
-        const { error: allocError } = await supabase
-          .from('payment_allocations')
-          .insert(allocationsToInsert)
-
-        if (allocError) throw allocError
-      }
-    }
+    if (rpcError) throw rpcError
 
     return new Response(
-      JSON.stringify({ payment }),
+      JSON.stringify(result),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

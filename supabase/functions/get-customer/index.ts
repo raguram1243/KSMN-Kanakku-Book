@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyToken } from '../_shared/jwt-utils.ts'
 import { getOverdueThreshold, daysSince } from '../_shared/overdue.ts'
@@ -32,7 +32,6 @@ serve(async (req) => {
       )
     }
 
-    // Use appropriate view based on role
     const viewName = token.role === 'admin' ? 'customer_view_admin' : 'customer_view_staff'
     const { data: customer, error: customerError } = await supabase
       .from(viewName)
@@ -42,42 +41,37 @@ serve(async (req) => {
 
     if (customerError) throw customerError
 
-    // Get entries with staff names via JOIN
-    const { data: entries, error: entriesError } = await supabase
-      .from('credit_entries')
-      .select(`
-        *,
-        staff:staff!credit_entries_created_by_fkey(name, role)
-      `)
-      .eq('customer_id', customerId)
-      .order('created_at', { ascending: false })
+    const [entriesResult, settingsResult, customerTypeResult, advanceResult, paymentsResult] = await Promise.all([
+      supabase.from('credit_entries').select(
+        '*, staff:staff!credit_entries_created_by_fkey(name, role)'
+      ).eq('customer_id', customerId).order('created_at', { ascending: false }),
+      supabase.from('app_settings').select('key, value').in('key', ['overdue_days_walkin', 'overdue_days_regular', 'overdue_days_contractor', 'overdue_days_wholesale', 'overdue_days_corporate']),
+      supabase.from('customers').select('customer_type, custom_overdue_days').eq('id', customerId).single(),
+      supabase.from('customer_advance_balance').select('advance_balance').eq('customer_id', customerId).single(),
+      supabase.from('payments').select(
+        'id, customer_id, amount, payment_date, payment_method, receipt_number, notes, created_by, created_at, staff:staff!payments_created_by_fkey(name)'
+      ).eq('customer_id', customerId).order('payment_date', { ascending: false }),
+    ])
 
-    if (entriesError) throw entriesError
-
-    // Fetch overdue settings for is_overdue calculation
-    const { data: overdueSettings } = await supabase
-      .from('app_settings')
-      .select('key, value')
-      .in('key', ['overdue_days_walkin', 'overdue_days_regular', 'overdue_days_contractor', 'overdue_days_wholesale', 'overdue_days_corporate'])
+    if (entriesResult.error) throw entriesResult.error
+    if (settingsResult.error) throw settingsResult.error
+    if (customerTypeResult.error && customerTypeResult.error.code !== 'PGRST116') throw customerTypeResult.error
+    if (advanceResult.error && advanceResult.error.code !== 'PGRST116') throw advanceResult.error
+    if (paymentsResult.error) throw paymentsResult.error
 
     const settingsMap: Record<string, number> = {}
-    overdueSettings?.forEach((s: any) => {
+    settingsResult.data?.forEach((s: any) => {
       settingsMap[s.key] = parseInt(s.value)
     })
 
-    // Fetch customer type for overdue calculation
-    const { data: customerForOverdue } = await supabase
-      .from('customers')
-      .select('customer_type, custom_overdue_days')
-      .eq('id', customerId)
-      .single()
-
-    const customerType = customerForOverdue?.customer_type || 'walk-in'
-    const customOverdueDays = customerForOverdue?.custom_overdue_days || null
+    const customerType = customerTypeResult.data?.customer_type || 'walk-in'
+    const customOverdueDays = customerTypeResult.data?.custom_overdue_days || null
     const overdueThreshold = getOverdueThreshold(customerType, customOverdueDays, settingsMap)
 
-    // Transform entries to include staff_name, staff_role, and overdue info
-    const entriesWithStaff = (entries || []).map((entry: any) => {
+    const entries = entriesResult.data || []
+    const payments = paymentsResult.data || []
+
+    const entriesWithStaff = entries.map((entry: any) => {
       const isOverdue = entry.status !== 'paid' && daysSince(entry.created_at) > overdueThreshold
       return {
         ...entry,
@@ -88,39 +82,26 @@ serve(async (req) => {
       }
     })
 
-    // Fetch line items for detailed-mode entries
-    const detailedEntryIds = (entries || [])
-      .filter((e: any) => e.entry_mode === 'detailed')
-      .map((e: any) => e.id)
-
+    const entryIds = entries.map((e: any) => e.id)
     let itemsMap: Record<string, any[]> = {}
-    if (detailedEntryIds.length > 0) {
-      const { data: items, error: itemsError } = await supabase
-        .from('credit_entry_items')
-        .select('*')
-        .in('credit_entry_id', detailedEntryIds)
-
-      if (itemsError) throw itemsError
-
-      itemsMap = (items || []).reduce((acc: Record<string, any[]>, item: any) => {
-        if (!acc[item.credit_entry_id]) acc[item.credit_entry_id] = []
-        acc[item.credit_entry_id].push(item)
-        return acc
-      }, {})
-    }
-
-    // Fetch attachments for all entries
-    const entryIds = (entries || []).map((e: any) => e.id)
     let attachmentsMap: Record<string, any[]> = {}
-    if (entryIds.length > 0) {
-      const { data: attachments, error: attachError } = await supabase
-        .from('credit_entry_attachments')
-        .select('*')
-        .in('credit_entry_id', entryIds)
-        .order('uploaded_at', { ascending: true })
 
-      if (!attachError) {
-        attachmentsMap = (attachments || []).reduce((acc: Record<string, any[]>, a: any) => {
+    if (entryIds.length > 0) {
+      const [itemsResult, attachmentsResult] = await Promise.all([
+        supabase.from('credit_entry_items').select('*').in('credit_entry_id', entryIds),
+        supabase.from('credit_entry_attachments').select('*').in('credit_entry_id', entryIds).order('uploaded_at', { ascending: true }),
+      ])
+
+      if (!itemsResult.error) {
+        itemsMap = (itemsResult.data || []).reduce((acc: Record<string, any[]>, a: any) => {
+          if (!acc[a.credit_entry_id]) acc[a.credit_entry_id] = []
+          acc[a.credit_entry_id].push(a)
+          return acc
+        }, {})
+      }
+
+      if (!attachmentsResult.error) {
+        attachmentsMap = (attachmentsResult.data || []).reduce((acc: Record<string, any[]>, a: any) => {
           if (!acc[a.credit_entry_id]) acc[a.credit_entry_id] = []
           acc[a.credit_entry_id].push(a)
           return acc
@@ -128,64 +109,9 @@ serve(async (req) => {
       }
     }
 
-    // Compute total balance across all entries
-    const totalBalance = (entries || []).reduce((sum: number, entry: any) => {
-      // Use balance field if available, otherwise compute from total_amount - paid_amount
-      const entryBalance = entry.balance !== undefined ? Number(entry.balance) : Number(entry.total_amount || 0) - Number(entry.paid_amount || 0)
-      return sum + entryBalance
-    }, 0)
-
-    // Fetch advance balance from the view
-    let advanceBalance = 0
-    const { data: advanceRow } = await supabase
-      .from('customer_advance_balance')
-      .select('advance_balance')
-      .eq('customer_id', customerId)
-      .single()
-
-    if (advanceRow) {
-      advanceBalance = Number(advanceRow.advance_balance) || 0
-    }
-
-    // Attach computed balance and advance balance to customer object
-    const customerWithBalance = {
-      ...customer,
-      balance: totalBalance,
-      advance_balance: advanceBalance,
-    }
-
-    // Attach items and attachments to entries
-    const entriesWithItems = (entries || []).map((entry: any) => ({
-      ...entry,
-      items: itemsMap[entry.id] || [],
-      attachments: attachmentsMap[entry.id] || [],
-    }))
-
-    // Fetch payment history for this customer
-    const { data: payments, error: paymentsError } = await supabase
-      .from('payments')
-      .select(`
-        id,
-        customer_id,
-        amount,
-        payment_date,
-        payment_method,
-        receipt_number,
-        notes,
-        created_by,
-        created_at,
-        staff:staff!payments_created_by_fkey(name)
-      `)
-      .eq('customer_id', customerId)
-      .order('payment_date', { ascending: false })
-
-    if (paymentsError) {
-      console.error('Error fetching payments:', paymentsError)
-    }
-
-    // Fetch payment allocations for all payments of this customer
-    const paymentIds = (payments || []).map((p: any) => p.id)
+    const paymentIds = payments.map((p: any) => p.id)
     let allocationsMap: Record<string, any[]> = {}
+
     if (paymentIds.length > 0) {
       const { data: allocations, error: allocError } = await supabase
         .from('payment_allocations')
@@ -201,17 +127,33 @@ serve(async (req) => {
       }
     }
 
-    // Transform payments to include staff_name and allocations
-    const paymentsWithStaff = (payments || []).map((payment: any) => ({
+    const paymentsWithStaff = payments.map((payment: any) => ({
       ...payment,
       staff_name: payment.staff?.name || null,
       allocations: allocationsMap[payment.id] || [],
     }))
 
+    const totalBalance = (entries || []).reduce((sum: number, entry: any) => {
+      const entryBalance = entry.balance !== undefined ? Number(entry.balance) : Number(entry.total_amount || 0) - Number(entry.paid_amount || 0)
+      return sum + entryBalance
+    }, 0)
+
+    const advanceBalance = advanceResult.data ? Number(advanceResult.data.advance_balance) || 0 : 0
+
+    const customerWithBalance = {
+      ...customer,
+      balance: totalBalance,
+      advance_balance: advanceBalance,
+    }
+
     return new Response(
       JSON.stringify({ 
         customer: customerWithBalance, 
-        entries: entriesWithItems,
+        entries: entriesWithStaff.map((entry: any) => ({
+          ...entry,
+          items: itemsMap[entry.id] || [],
+          attachments: attachmentsMap[entry.id] || [],
+        })),
         payments: paymentsWithStaff 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

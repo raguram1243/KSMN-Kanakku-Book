@@ -1,16 +1,40 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ApiProvider } from './hooks/useApi';
+import { Suspense, lazy } from 'react';
+import { Skeleton, SkeletonCard } from './components/ui/Skeleton';
 import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { QuickAddPage } from './pages/QuickAddPage';
 import { CustomersPage } from './pages/CustomersPage';
-import { CustomerDetailPage } from './pages/CustomerDetailPage';
-import { RecordPaymentPage } from './pages/RecordPaymentPage';
 import { StaffManagementPage } from './pages/StaffManagementPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { debugLog } from './lib/utils';
+
+const QuickAddPage = lazy(() => import('./pages/QuickAddPage'));
+const CustomerDetailPage = lazy(() => import('./pages/CustomerDetailPage'));
+const RecordPaymentPage = lazy(() => import('./pages/RecordPaymentPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+
+function PageSkeleton() {
+  return (
+    <div className="space-y-6">
+      <SkeletonCard>
+        <Skeleton className="h-6 w-48 mb-4" />
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-4 w-4/6" />
+        </div>
+      </SkeletonCard>
+      <SkeletonCard>
+        <Skeleton className="h-6 w-32 mb-4" />
+        <Skeleton className="h-4 w-full" />
+      </SkeletonCard>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { staff, loading, isAdmin } = useAuth();
@@ -88,7 +112,9 @@ function AppRoutes() {
         path="/add-credit"
         element={
           <ProtectedRoute>
-            <QuickAddPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <QuickAddPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -104,7 +130,19 @@ function AppRoutes() {
         path="/customers/:id"
         element={
           <ProtectedRoute>
-            <CustomerDetailPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <CustomerDetailPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute adminOnly>
+            <Suspense fallback={<PageSkeleton />}>
+              <ReportsPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -112,7 +150,9 @@ function AppRoutes() {
         path="/record-payment"
         element={
           <ProtectedRoute adminOnly>
-            <RecordPaymentPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <RecordPaymentPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -120,7 +160,9 @@ function AppRoutes() {
         path="/record-payment/:customerId"
         element={
           <ProtectedRoute adminOnly>
-            <RecordPaymentPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <RecordPaymentPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -128,7 +170,9 @@ function AppRoutes() {
         path="/record-payment/:customerId/edit/:paymentId"
         element={
           <ProtectedRoute adminOnly>
-            <RecordPaymentPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <RecordPaymentPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -157,9 +201,11 @@ export default function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
+        <ApiProvider>
+          <Router>
+            <AppRoutes />
+          </Router>
+        </ApiProvider>
       </ThemeProvider>
     </AuthProvider>
   );

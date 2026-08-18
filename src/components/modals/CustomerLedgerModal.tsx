@@ -126,10 +126,10 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
           {/* Action Buttons */}
           <div className="flex space-x-3">
             <Button variant="secondary" onClick={handleAddCredit} className="flex-1">
-              Add Credit
+              Add Credit Entry
             </Button>
             <Button onClick={handleRecordPayment} className="flex-1">
-              Record Payment
+              Payment Received
             </Button>
           </div>
 

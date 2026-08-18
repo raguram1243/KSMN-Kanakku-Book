@@ -36,29 +36,18 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Query recent 4 payments
     const { data: payments, error: payError } = await supabase
       .from('payments')
-      .select('id, customer_id, amount, payment_date')
+      .select('id, customer_id, amount, payment_date, customer:customers!payments_customer_id_fkey(name)')
       .order('created_at', { ascending: false })
       .limit(4)
 
     if (payError) throw payError
 
-    const paymentsWithCustomerNames = await Promise.all(
-      (payments || []).map(async (p) => {
-        const { data: customer } = await supabase
-          .from('customers')
-          .select('name')
-          .eq('id', p.customer_id)
-          .single()
-
-        return {
-          ...p,
-          customer_name: customer?.name || 'Unknown',
-        }
-      })
-    )
+    const paymentsWithCustomerNames = (payments || []).map((p: any) => ({
+      ...p,
+      customer_name: p.customer?.name || 'Unknown',
+    }))
 
     return new Response(
       JSON.stringify({ payments: paymentsWithCustomerNames }),

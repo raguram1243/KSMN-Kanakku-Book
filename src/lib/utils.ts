@@ -52,3 +52,14 @@ export const debugError = (...args: any[]) => {
     console.error(...args);
   }
 };
+
+export function isSessionExpired(): boolean {
+  const token = localStorage.getItem('ksmn_token');
+  if (!token) return true;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}

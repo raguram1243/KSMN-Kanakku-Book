@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { formatCurrency } from '../lib/utils';
 import { api } from '../lib/api';
-import { formatCurrency, debugError } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { EntryDetailModal } from '../components/modals/EntryDetailModal';
 import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
@@ -13,6 +13,7 @@ import { Skeleton, SkeletonCard, SkeletonChart, SkeletonListItem, SkeletonButton
 import { openWhatsAppReminder, buildOverdueReminderMessage } from '../lib/whatsapp';
 import { AgingReportWidget } from '../components/dashboard/AgingReportWidget';
 import { AIScanButton } from '../components/ai/AIScanButton';
+import { useDashboardStats, useDeleteEntry, useDeletePayment } from '../hooks/useApi';
 
 interface DashboardStats {
   totalOutstanding: number;
@@ -72,44 +73,16 @@ interface EntryDetail {
 export function DashboardPage() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const statsQuery = useDashboardStats();
+  const deleteEntry = useDeleteEntry();
+  const deletePayment = useDeletePayment();
   const [selectedEntry, setSelectedEntry] = useState<EntryDetail | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [selectedDebtorId, setSelectedDebtorId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadDashboardData();
-    }
-  }, [isAdmin]);
-
-  const loadDashboardData = async () => {
-    try {
-      const response = await api.getDashboardStats();
-      if (response.ok) {
-        const data = await response.json();
-        // Initialize with defaults to ensure all fields exist
-        setStats({
-          totalOutstanding: 0,
-          totalCustomers: 0,
-          overdueCount: 0,
-          topDebtors: [],
-          recentEntries: [],
-          recentPayments: [],
-          last30Days: [],
-          totalCreditLast30: 0,
-          totalCollectionLast30: 0,
-          alerts: { largeOutstanding: [], overdueEntries: [] },
-          ...data,
-        });
-      }
-    } catch (error) {
-      debugError('Failed to load dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const stats = statsQuery.data as DashboardStats | undefined;
+  const loading = statsQuery.isLoading;
+  const error = (statsQuery.error as Error)?.message || null;
 
   const handleEntryClick = async (entryId: string) => {
     try {
@@ -118,8 +91,8 @@ export function DashboardPage() {
         const data = await response.json();
         setSelectedEntry(data);
       }
-    } catch (error) {
-      debugError('Failed to load entry details:', error);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to load entry details');
     }
   };
 
@@ -140,8 +113,8 @@ export function DashboardPage() {
           setSelectedPayment(payment);
         }
       }
-    } catch (error) {
-      debugError('Failed to load payment details:', error);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to load payment details');
     }
   };
 
@@ -220,7 +193,15 @@ export function DashboardPage() {
   if (!stats) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Failed to load dashboard data.</p>
+        <p className="text-gray-500">{error || 'Failed to load dashboard data.'}</p>
+        {error && (
+          <button
+            onClick={() => statsQuery.refetch()}
+            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            Retry
+          </button>
+        )}
       </div>
     );
   }
@@ -329,12 +310,12 @@ export function DashboardPage() {
           </Link>
           <Link to="/add-credit">
             <Button className="w-full" variant="secondary">
-              + Add Credit
+              + Add Credit Entry
             </Button>
           </Link>
           <Link to="/record-payment">
             <Button className="w-full">
-              + Record Payment
+              + Payment Received
             </Button>
           </Link>
           <AIScanButton variant="secondary" className="w-full" />
@@ -357,8 +338,8 @@ export function DashboardPage() {
                   onClick={() => handleEntryClick(entry.id)}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 text-sm">{entry.entry_code}</div>
-                    <div className="text-xs text-gray-500 truncate">{entry.customer_name}</div>
+                    <div className="text-xs text-gray-500 truncate">{entry.entry_code}</div>
+                    <div className="font-medium text-gray-900 text-sm">{entry.customer_name}</div>
                     <div className="text-xs text-gray-400">
                       {new Date(entry.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>
@@ -389,10 +370,10 @@ export function DashboardPage() {
                   onClick={() => handlePaymentClick(payment.id)}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 text-sm">
+                    <div className="text-xs text-gray-500 truncate">
                       {new Date(payment.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>
-                    <div className="text-xs text-gray-500 truncate">{payment.customer_name}</div>
+                    <div className="font-medium text-gray-900 text-sm">{payment.customer_name}</div>
                     {payment.payment_method && (
                       <div className="text-xs text-gray-400 capitalize">
                         {payment.payment_method.replace('_', ' ')}
@@ -476,8 +457,8 @@ export function DashboardPage() {
                       onClick={() => handleEntryClick(entry.id)}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 text-sm">{entry.entry_code}</div>
-                        <div className="text-xs text-gray-600">{entry.customer_name}</div>
+                        <div className="text-xs text-gray-500 truncate">{entry.entry_code}</div>
+                        <div className="font-medium text-gray-900 text-sm">{entry.customer_name}</div>
                         <div className="text-xs text-red-600 font-medium">{entry.days_overdue} days overdue</div>
                       </div>
                       <div className="text-right ml-2 flex items-center space-x-2">
@@ -543,14 +524,8 @@ export function DashboardPage() {
           onClose={() => setSelectedEntry(null)}
           onModify={() => navigate(`/add-credit?entry_id=${selectedEntry.entry.id}`)}
           onDelete={async () => {
-            const res = await api.deleteEntry(selectedEntry.entry.id);
-            if (res.ok) {
-              setSelectedEntry(null);
-              loadDashboardData();
-            } else {
-              const data = await res.json();
-              alert(data.error || 'Failed to delete entry');
-            }
+            await deleteEntry.mutateAsync(selectedEntry.entry.id as any);
+            setSelectedEntry(null);
           }}
         />
       )}
@@ -562,14 +537,8 @@ export function DashboardPage() {
           onClose={() => setSelectedPayment(null)}
           onModify={() => navigate(`/record-payment/${selectedPayment.customer_id}/edit/${selectedPayment.id}`)}
           onDelete={async () => {
-            const res = await api.deletePayment(selectedPayment.id);
-            if (res.ok) {
-              setSelectedPayment(null);
-              loadDashboardData();
-            } else {
-              const data = await res.json();
-              alert(data.error || 'Failed to delete payment');
-            }
+            await deletePayment.mutateAsync(selectedPayment.id as any);
+            setSelectedPayment(null);
           }}
         />
       )}
@@ -582,3 +551,5 @@ export function DashboardPage() {
     </div>
   );
 }
+
+

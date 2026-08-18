@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
@@ -13,7 +13,9 @@ import { MultiFileUpload } from '../components/ui/MultiFileUpload';
 import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
 import { Modal } from '../components/ui/Modal';
 import { AIScanButton } from '../components/ai/AIScanButton';
+import { ArrowLeft } from 'lucide-react';
 import { useAIScanStore } from '../store/aiScanStore';
+import { useToastStore } from '../store/toastStore';
 import { PaymentExtractor } from '../services/ai/PaymentExtractor';
 import { DocumentClassifier } from '../services/ai/DocumentClassifier';
 
@@ -22,7 +24,19 @@ interface EntryWithAllocation extends CreditEntry {
   selected: boolean;
 }
 
-export function RecordPaymentPage() {
+// Robust UUID v4 generator (crypto.randomUUID when available, fallback otherwise)
+function generateIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export default function RecordPaymentPage() {
   const { customerId: rawCustomerId, paymentId: rawPaymentId } = useParams<{ customerId: string; paymentId: string }>();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
@@ -38,6 +52,15 @@ export function RecordPaymentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [advanceOnly, setAdvanceOnly] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null>(null);
+
+  // Refs to avoid stale closures in live-allocation effect
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+  const autoAllocateRef = useRef<(() => void) | null>(null);
+  const initialAmountRef = useRef<number | null>(null);
 
   // Customer search state (shown when no customerId param)
   const [searchQuery, setSearchQuery] = useState('');
@@ -248,6 +271,12 @@ export function RecordPaymentPage() {
       debugError('Failed to load customer data:', error);
     } finally {
       setLoading(false);
+      setHydrated(true);
+      if (isEditMode && rawPaymentId) {
+        initialAmountRef.current = parseFloat(paymentAmount) || 0;
+      } else {
+        initialAmountRef.current = null;
+      }
     }
   };
 
@@ -278,12 +307,17 @@ export function RecordPaymentPage() {
     }));
   };
 
-  const autoAllocate = () => {
+  const autoAllocate = useCallback(() => {
+    const currentEntries = entriesRef.current;
     const amount = parseFloat(paymentAmount) || 0;
-    if (amount <= 0) return;
+
+    if (amount <= 0) {
+      setEntries(currentEntries.map(e => ({ ...e, selected: false, allocated_amount: 0 })));
+      return;
+    }
 
     // Sort entries oldest-first by created_at, then walk through allocating
-    const sorted = [...entries].sort(
+    const sorted = [...currentEntries].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
 
@@ -306,17 +340,46 @@ export function RecordPaymentPage() {
       });
     }
 
-    setEntries(entries.map(entry => ({
+    setEntries(currentEntries.map(entry => ({
       ...entry,
       selected: updatedMap.get(entry.id)?.selected || false,
       allocated_amount: updatedMap.get(entry.id)?.allocated_amount || 0,
     })));
-  };
+  }, [paymentAmount]);
+
+  // Keep ref in sync for the live-allocation effect
+  autoAllocateRef.current = autoAllocate;
+
+  // Clear manual allocations when switching to advance-only mode
+  useEffect(() => {
+    if (advanceOnly) {
+      setEntries(entriesRef.current.map(e => ({ ...e, selected: false, allocated_amount: 0 })));
+    }
+  }, [advanceOnly]);
+
+  // Live automatic allocation: re-run FIFO whenever payment amount changes
+  useEffect(() => {
+    if (!hydrated || !customerId || advanceOnly) return;
+
+    const currentAmount = parseFloat(paymentAmount) || 0;
+
+    // Skip initial hydration amount in edit mode so existing allocations are preserved
+    if (isEditMode && initialAmountRef.current !== null && currentAmount === initialAmountRef.current) {
+      return;
+    }
+
+    if (currentAmount <= 0) {
+      setEntries(entriesRef.current.map(e => ({ ...e, selected: false, allocated_amount: 0 })));
+      return;
+    }
+
+    autoAllocateRef.current?.();
+  }, [paymentAmount, advanceOnly, customerId, hydrated, isEditMode]);
 
   const handleOpenConfirm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) {
-      setError('Only admin can record payments');
+      setError('Only admin can receive payments');
       return;
     }
 
@@ -330,7 +393,7 @@ export function RecordPaymentPage() {
     const totalAllocated = selectedEntries.reduce((sum, entry) => sum + (entry.allocated_amount || 0), 0);
 
     // Allow zero selected entries if customer has no outstanding balance or intentionally under-allocating
-    if (selectedEntries.length === 0 && totalOutstanding > 0) {
+    if (selectedEntries.length === 0 && totalOutstanding > 0 && !advanceOnly) {
       setError('Please select at least one entry to allocate payment');
       return;
     }
@@ -342,6 +405,10 @@ export function RecordPaymentPage() {
     }
 
     setError('');
+    // Generate a fresh idempotency key each time the confirm dialog opens.
+    // It stays stable across retries of the same submission (dialog stays open
+    // on error), so a retry after a timeout returns the existing payment.
+    setPaymentIdempotencyKey(generateIdempotencyKey());
     setShowConfirmDialog(true);
   };
 
@@ -378,12 +445,14 @@ export function RecordPaymentPage() {
           payment_method: paymentMethod || undefined,
           receipt_number: receiptNumber || undefined,
           notes: notes || undefined,
-          allocations: selectedEntries
-            .filter(e => e.allocated_amount && e.allocated_amount > 0)
-            .map(e => ({
-              credit_entry_id: e.id,
-              allocated_amount: e.allocated_amount,
-            })),
+          allocations: advanceOnly
+            ? []
+            : selectedEntries
+                .filter(e => e.allocated_amount && e.allocated_amount > 0)
+                .map(e => ({
+                  credit_entry_id: e.id,
+                  allocated_amount: e.allocated_amount,
+                })),
         });
 
         if (!updateResponse.ok) {
@@ -391,8 +460,13 @@ export function RecordPaymentPage() {
           throw new Error(data.error || 'Failed to update payment');
         }
 
-        setShowConfirmDialog(false);
-        alert('Payment updated successfully!');
+                setShowConfirmDialog(false);
+        const toast = useToastStore.getState();
+        toast.addToast({
+          type: 'success',
+          title: 'Payment updated',
+          description: formatCurrency(Number(amount)) + ' updated for ' + (customer?.name || 'customer'),
+        });
         navigate(`/customers/${customerId}`);
       } else {
         // Create mode: create new payment
@@ -403,12 +477,15 @@ export function RecordPaymentPage() {
           payment_method: paymentMethod || undefined,
           receipt_number: receiptNumber || undefined,
           notes: notes || undefined,
-          allocations: selectedEntries
-            .filter(e => e.allocated_amount && e.allocated_amount > 0)
-            .map(e => ({
-              credit_entry_id: e.id,
-              allocated_amount: e.allocated_amount,
-            })),
+          idempotency_key: paymentIdempotencyKey || undefined,
+          allocations: advanceOnly
+            ? []
+            : selectedEntries
+                .filter(e => e.allocated_amount && e.allocated_amount > 0)
+                .map(e => ({
+                  credit_entry_id: e.id,
+                  allocated_amount: e.allocated_amount,
+                })),
           attachments: uploadedAttachments,
         });
 
@@ -420,12 +497,23 @@ export function RecordPaymentPage() {
         const data = await paymentResponse.json();
         void data.payment; // Payment created successfully
 
-        setShowConfirmDialog(false);
-        alert('Payment recorded successfully!');
+                setShowConfirmDialog(false);
+        const toast = useToastStore.getState();
+        toast.addToast({
+          type: 'success',
+          title: 'Payment received',
+          description: `${formatCurrency(Number(amount))} received from ${customer?.name || 'customer'}`,
+        });
         navigate(`/customers/${customerId}`);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to record payment');
+        } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to receive payment';
+      setError(message);
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Payment could not be received',
+        description: message,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -445,10 +533,10 @@ export function RecordPaymentPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
           <Link to="/dashboard" className="text-sm text-primary-600 hover:text-primary-700">
-            ← Back to Dashboard
+            <ArrowLeft size={14} className="inline mr-1" /> Back to Dashboard
           </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">{isEditMode ? 'Edit Payment' : 'Record Payment'}</h1>
-          <p className="text-gray-600">Search or select a customer to record a payment for.</p>
+                <h1 className="text-2xl font-bold text-gray-900 mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
+          <p className="text-gray-600">Search or select a customer to receive a payment for.</p>
         </div>
 
         <Card>
@@ -636,9 +724,9 @@ export function RecordPaymentPage() {
       <div className="flex items-center justify-between">
         <div>
           <Link to="/record-payment" className="text-sm text-primary-600 hover:text-primary-700">
-            ← Change Customer
+            <ArrowLeft size={14} className="inline mr-1" /> Change Customer
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-2">{isEditMode ? 'Edit Payment' : 'Record Payment'}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900 mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
           <p className="text-gray-600">{customer.name} • {customer.customer_code}</p>
         </div>
         <AIScanButton variant="primary" />
@@ -710,17 +798,37 @@ export function RecordPaymentPage() {
               <div>
                 <div className="text-sm font-medium text-blue-900">Total Outstanding</div>
                 <div className="text-2xl font-bold text-blue-900">{formatCurrency(totalOutstanding)}</div>
-                {customer?.advance_balance && customer.advance_balance > 0 && (
+                {(customer?.advance_balance ?? 0) > 0 && (
                   <div className="text-sm text-green-700 mt-1">
-                    Advance Credit: {formatCurrency(customer.advance_balance)}
+                    Advance Credit: {formatCurrency(customer.advance_balance ?? 0)}
                   </div>
                 )}
               </div>
-              <Button variant="secondary" size="sm" onClick={autoAllocate}>
-                Auto Allocate
-              </Button>
+              {!advanceOnly && (
+                <Button variant="secondary" size="sm" onClick={autoAllocate}>
+                  Auto Allocate
+                </Button>
+              )}
             </div>
           </div>
+
+          <label className="flex items-center space-x-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={advanceOnly}
+              onChange={(e) => setAdvanceOnly(e.target.checked)}
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            />
+            <span className="text-sm text-gray-700">
+              Record entire amount as advance (skip allocation)
+            </span>
+          </label>
+
+          {advanceOnly && (
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm">
+              Full payment amount will be recorded as advance credit
+            </div>
+          )}
 
           {/* Advance credit informational line */}
           {(() => {
@@ -737,7 +845,7 @@ export function RecordPaymentPage() {
         </div>
       </Card>
 
-      {entries.length > 0 && (
+      {!advanceOnly && entries.length > 0 && (
         <Card>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Allocate Payment to Entries</h2>
           <div className="space-y-3">
@@ -812,13 +920,14 @@ export function RecordPaymentPage() {
       </div>
 
       <div className="flex space-x-3">
-        <Button
+                <Button
           onClick={handleOpenConfirm}
           disabled={submitting || !paymentAmount || parseFloat(paymentAmount) <= 0}
           className="flex-1"
           size="lg"
+          loading={submitting}
         >
-          {submitting ? (isEditMode ? 'Updating Payment...' : 'Recording Payment...') : (isEditMode ? 'Update Payment' : 'Record Payment')}
+                      {isEditMode ? 'Update Payment' : 'Payment Received'}
         </Button>
         <Link to="/record-payment">
           <Button variant="secondary" size="lg">
@@ -894,11 +1003,12 @@ export function RecordPaymentPage() {
             </div>
             {(() => {
               const amount = parseFloat(paymentAmount) || 0;
-              if (amount > selectedTotal + 0.01) {
+              const effectiveSelectedTotal = advanceOnly ? 0 : selectedTotal;
+              if (amount > effectiveSelectedTotal + 0.01) {
                 return (
                   <div className="flex justify-between pt-2 border-t border-blue-200">
                     <span className="text-sm text-green-800">Advance credit added</span>
-                    <span className="font-semibold text-green-800">{formatCurrency(amount - selectedTotal)}</span>
+                    <span className="font-semibold text-green-800">{formatCurrency(amount - effectiveSelectedTotal)}</span>
                   </div>
                 );
               }
@@ -908,17 +1018,20 @@ export function RecordPaymentPage() {
 
           {/* Action Buttons */}
           <div className="flex space-x-3 pt-2">
-            <Button
+                        <Button
               onClick={confirmAndSubmit}
               disabled={submitting}
               className="flex-1"
+              loading={submitting}
+              size="lg"
             >
-              {submitting ? (isEditMode ? 'Updating Payment...' : 'Recording Payment...') : (isEditMode ? 'Confirm & Update Payment' : 'Confirm & Record Payment')}
+                            {isEditMode ? 'Confirm & Update Payment' : 'Confirm & Payment Received'}
             </Button>
             <Button
               variant="secondary"
               onClick={() => setShowConfirmDialog(false)}
               disabled={submitting}
+              size="lg"
             >
               Back
             </Button>

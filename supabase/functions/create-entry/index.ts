@@ -93,8 +93,70 @@ serve(async (req) => {
       }
     }
 
+    // Automatically apply any existing advance credit toward this new entry
+    // (only this entry — do NOT sweep across other customer entries here)
+    let advanceApplied = 0
+
+    const { data: advanceRow, error: advanceError } = await supabase
+      .from('customer_advance_balance')
+      .select('advance_balance')
+      .eq('customer_id', customer_id)
+      .single()
+
+    if (!advanceError && advanceRow && Number(advanceRow.advance_balance) > 0.01) {
+      const availableAdvance = Number(advanceRow.advance_balance) || 0
+      const entryBalance = Number(entry.total_amount)
+      advanceApplied = Math.min(availableAdvance, entryBalance)
+
+      if (advanceApplied > 0.01) {
+        // Fetch unallocated payments FIFO
+        const { data: unallocatedPayments, error: unallocError } = await supabase
+          .from('payment_unallocated')
+          .select('payment_id, unallocated_amount, payment_date')
+          .eq('customer_id', customer_id)
+          .gt('unallocated_amount', 0.01)
+          .order('payment_date', { ascending: true })
+
+        if (unallocError) throw unallocError
+
+        let remaining = advanceApplied
+        const allocationsToInsert: Array<{ payment_id: string; credit_entry_id: string; allocated_amount: number }> = []
+
+        for (const payment of (unallocatedPayments || [])) {
+          if (remaining <= 0.01) break
+
+          const available = Number(payment.unallocated_amount)
+          const allocation = Math.min(available, remaining)
+          remaining -= allocation
+
+          allocationsToInsert.push({
+            payment_id: payment.payment_id,
+            credit_entry_id: entry.id,
+            allocated_amount: allocation,
+          })
+        }
+
+        if (allocationsToInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from('payment_allocations')
+            .insert(allocationsToInsert)
+
+          if (insertError) throw insertError
+        }
+      }
+    }
+
+    // Re-select the entry so the response reflects updated paid_amount / balance / status
+    const { data: updatedEntry, error: refetchError } = await supabase
+      .from('credit_entries')
+      .select('*')
+      .eq('id', entry.id)
+      .single()
+
+    if (refetchError) throw refetchError
+
     return new Response(
-      JSON.stringify({ entry }),
+      JSON.stringify({ entry: updatedEntry, advance_applied: advanceApplied }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

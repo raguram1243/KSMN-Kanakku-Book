@@ -29,48 +29,24 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Today's Date in local time/UTC range
-    const today = new Date().toISOString().split('T')[0] // 'YYYY-MM-DD'
+    const today = new Date().toISOString().split('T')[0]
     const startOfToday = `${today}T00:00:00.000Z`
     const endOfToday = `${today}T23:59:59.999Z`
 
-    // Query today's credit entries (count and sum of total_amount)
-    const { data: entriesToday, error: entriesError } = await supabase
-      .from('credit_entries')
-      .select('total_amount')
-      .gte('created_at', startOfToday)
-      .lte('created_at', endOfToday)
+    const [{ data: entriesToday, error: entriesError }, { data: payToday, error: payError }, { data: payMonth, error: payMonthError }] = await Promise.all([
+      supabase.from('credit_entries').select('total_amount').gte('created_at', startOfToday).lte('created_at', endOfToday),
+      supabase.from('payments').select('amount').eq('payment_date', today),
+      supabase.from('payments').select('amount').gte('payment_date', `${today.substring(0, 7)}-01`).lte('payment_date', today),
+    ])
 
     if (entriesError) throw entriesError
+    if (payError) throw payError
+    if (payMonthError) throw payMonthError
 
     const entriesCount = entriesToday?.length || 0
     const entriesTotalSum = entriesToday?.reduce((sum, e) => sum + Number(e.total_amount), 0) || 0
-
-    let paymentsTodaySum = 0
-    let paymentsThisMonthSum = 0
-
-    // Only calculate payment metrics if role is admin
-    if (token.role === 'admin') {
-      // Payments today
-      const { data: payToday, error: payError } = await supabase
-        .from('payments')
-        .select('amount')
-        .eq('payment_date', today)
-
-      if (payError) throw payError
-      paymentsTodaySum = payToday?.reduce((sum, p) => sum + Number(p.amount), 0) || 0
-
-      // Payments this calendar month
-      const startOfMonth = `${today.substring(0, 7)}-01`
-      const { data: payMonth, error: payMonthError } = await supabase
-        .from('payments')
-        .select('amount')
-        .gte('payment_date', startOfMonth)
-        .lte('payment_date', today)
-
-      if (payMonthError) throw payMonthError
-      paymentsThisMonthSum = payMonth?.reduce((sum, p) => sum + Number(p.amount), 0) || 0
-    }
+    const paymentsTodaySum = payToday?.reduce((sum, p) => sum + Number(p.amount), 0) || 0
+    const paymentsThisMonthSum = payMonth?.reduce((sum, p) => sum + Number(p.amount), 0) || 0
 
     return new Response(
       JSON.stringify({

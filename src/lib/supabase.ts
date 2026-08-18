@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { isSessionExpired } from './utils';
 import { JWTPayload } from '../types';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -39,7 +40,7 @@ export async function authenticatedFetch(path: string, options: RequestInit = {}
     },
   });
   
-  if (response.status === 401) {
+  if (response.status === 401 && isSessionExpired()) {
     localStorage.removeItem('ksmn_token');
     localStorage.removeItem('ksmn_staff');
     window.location.href = '/login';

@@ -5,37 +5,39 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../lib/api';
 import { formatCurrency, formatDate, formatDateTime, debugError } from '../lib/utils';
-import { CreditEntry, Customer, Payment } from '../types';
+import { api } from '../lib/api';
+import { CreditEntry, Payment } from '../types';
 import { EntryDetailModal } from '../components/modals/EntryDetailModal';
 import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
 import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
 import { buildLedgerTransactions } from '../lib/ledger';
-import { MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { openWhatsAppReminder, buildEntryReminderMessage, buildAggregateReminderMessage } from '../lib/whatsapp';
 import { DownloadStatementButton } from '../components/customer/DownloadStatementButton';
+import { EditCustomerModal } from '../components/customer/EditCustomerModal';
+import { DeleteCustomerModal } from '../components/customer/DeleteCustomerModal';
+import { useCustomer, useUpdateCustomer } from '../hooks/useApi';
+import { useToastStore } from '../store/toastStore';
 
 interface CreditEntryWithItems extends CreditEntry {
   items?: any[];
   attachments?: any[];
 }
 
-export function CustomerDetailPage() {
+export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [entries, setEntries] = useState<CreditEntryWithItems[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'detailed' | 'ledger'>('ledger');
   const [selectedEntry, setSelectedEntry] = useState<CreditEntryWithItems | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [savingOverdue, setSavingOverdue] = useState(false);
   const [pendingOverdueDays, setPendingOverdueDays] = useState<number | null>(null);
   const [overdueSaveMessage, setOverdueSaveMessage] = useState<string | null>(null);
-  const [settingsMap, setSettingsMap] = useState<Record<string, number>>({});
+    const [showEditCustomer, setShowEditCustomer] = useState(false);
+  const [showDeleteCustomer, setShowDeleteCustomer] = useState(false);
+  const [applyingAdvance, setApplyingAdvance] = useState(false);
 
   // Ledger filter states
   const [filterType, setFilterType] = useState<'all' | 'entries' | 'payments'>('all');
@@ -44,28 +46,74 @@ export function CustomerDetailPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedCount, setDisplayedCount] = useState(50);
 
-  useEffect(() => {
-    if (id) {
-      loadCustomerData();
-      loadSettings();
-    }
-  }, [id]);
+  const customerQuery = useCustomer(id);
+  const updateCustomer = useUpdateCustomer();
 
-  const loadSettings = async () => {
+    const handleApplyAdvance = async () => {
+    if (!customer || !id) return;
+    setApplyingAdvance(true);
     try {
-      const response = await api.getSettings();
-      if (response.ok) {
-        const data = await response.json();
-        const map: Record<string, number> = {};
-        data.settings?.forEach((s: { key: string; value: string }) => {
-          map[s.key] = parseInt(s.value);
-        });
-        setSettingsMap(map);
+      const res = await api.applyAdvance({ customer_id: id });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to apply advance');
       }
-    } catch (error) {
-      debugError('Failed to load settings:', error);
+      const data = await res.json();
+      await customerQuery.refetch();
+      if (data.applied > 0.01) {
+        const codes = (data.entries || [])
+          .map((e: any) => e.entry_code)
+          .filter(Boolean)
+          .join(', ');
+        useToastStore.getState().addToast({
+          type: 'success',
+          title: 'Advance applied',
+          description: codes
+            ? `${formatCurrency(data.applied)} applied to ${codes}`
+            : `${formatCurrency(data.applied)} advance credit applied`,
+        });
+      } else {
+        useToastStore.getState().addToast({
+          type: 'info',
+          title: 'No advance to apply',
+          description: 'There is no advance credit available to apply',
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to apply advance';
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Could not apply advance',
+        description: message,
+      });
+    } finally {
+      setApplyingAdvance(false);
     }
   };
+
+  const customer = customerQuery.data?.customer ?? null;
+  const entries = (customerQuery.data?.entries ?? []) as CreditEntryWithItems[];
+  const payments = (customerQuery.data?.payments ?? []) as Payment[];
+  const loading = customerQuery.isLoading;
+  const error = (customerQuery.error as Error)?.message || null;
+
+  const [settingsMap, setSettingsMap] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    api.getSettings().then(res => {
+      if (res.ok) return res.json();
+      return null;
+    }).then(data => {
+      if (!data) return;
+      const map: Record<string, number> = {};
+      data.settings?.forEach((s: { key: string; value: string }) => {
+        map[s.key] = parseInt(s.value);
+      });
+      setSettingsMap(map);
+    }).catch((err) => {
+      debugError('Failed to load settings:', err);
+    });
+  }, []);
 
   const CUSTOMER_TYPE_TO_SETTING_KEY: Record<string, string> = {
     'walk-in': 'overdue_days_walkin',
@@ -85,15 +133,12 @@ export function CustomerDetailPage() {
     setSavingOverdue(true);
     setOverdueSaveMessage(null);
     try {
-      const response = await api.updateCustomer(customer.id, { custom_overdue_days: pendingOverdueDays });
-      if (response.ok) {
-        const data = await response.json();
-        setCustomer(data.customer);
-        setOverdueSaveMessage('Saved successfully');
-        setTimeout(() => setOverdueSaveMessage(null), 3000);
-      } else {
-        debugError('Failed to update overdue days');
-      }
+      await updateCustomer.mutateAsync({
+        id: customer.id,
+        custom_overdue_days: pendingOverdueDays,
+      });
+      setOverdueSaveMessage('Saved successfully');
+      setTimeout(() => setOverdueSaveMessage(null), 3000);
     } catch (error) {
       debugError('Failed to update overdue days:', error);
     } finally {
@@ -104,23 +149,6 @@ export function CustomerDetailPage() {
   const handleResetOverdueDays = async () => {
     setPendingOverdueDays(null);
     await handleSaveOverdueDays();
-  };
-
-  const loadCustomerData = async () => {
-    try {
-      const response = await api.getCustomer(id!);
-      if (response.ok) {
-        const data = await response.json();
-        setCustomer(data.customer);
-        setPendingOverdueDays(data.customer.custom_overdue_days);
-        setEntries(data.entries || []);
-        setPayments(data.payments || []);
-      }
-    } catch (error) {
-      debugError('Failed to load customer data:', error);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Calculate ledger transactions (once, before filtering)
@@ -238,6 +266,20 @@ export function CustomerDetailPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-500">{error}</p>
+        <button
+          onClick={() => customerQuery.refetch()}
+          className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   if (!customer) {
     return (
       <div className="text-center py-12">
@@ -256,7 +298,7 @@ export function CustomerDetailPage() {
       <div className="flex items-center justify-between">
         <div>
           <Link to="/customers" className="text-sm text-primary-600 hover:text-primary-700">
-            ← Back to Customers
+            <ArrowLeft size={14} className="inline mr-1" /> Back to Customers
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 mt-2">{customer.name}</h1>
           <p className="text-gray-600">{customer.customer_code} • {customer.phone}</p>
@@ -264,11 +306,13 @@ export function CustomerDetailPage() {
         {isAdmin && (
           <div className="flex space-x-3">
             <Link to={`/add-credit?customer_id=${customer.id}`}>
-              <Button variant="secondary">Add Credit</Button>
+              <Button variant="secondary">Add Credit Entry</Button>
             </Link>
             <Link to={`/record-payment/${customer.id}`}>
-              <Button>Record Payment</Button>
+              <Button>Payment Received</Button>
             </Link>
+            <Button variant="secondary" size="sm" onClick={() => setShowEditCustomer(true)}>Edit</Button>
+            <Button variant="danger" size="sm" onClick={() => setShowDeleteCustomer(true)}>Delete Customer</Button>
           </div>
         )}
       </div>
@@ -308,7 +352,8 @@ export function CustomerDetailPage() {
             </div>
           )}
         </div>
-      </Card>
+            </Card>
+
 
       {/* Total Outstanding (admin only) */}
       {isAdmin && (
@@ -319,9 +364,21 @@ export function CustomerDetailPage() {
               <div className={`text-3xl font-bold ${totalOutstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
                 {formatCurrency(totalOutstanding)}
               </div>
-              {customer.advance_balance && customer.advance_balance > 0 && (
-                <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                  Advance Credit: {formatCurrency(customer.advance_balance)}
+              {(customer.advance_balance ?? 0) > 0 && (
+                <div className="mt-2 flex items-center space-x-2">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                    Advance Credit: {formatCurrency(customer.advance_balance ?? 0)}
+                  </span>
+                  {isAdmin && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleApplyAdvance}
+                      disabled={applyingAdvance}
+                    >
+                      {applyingAdvance ? 'Applying...' : 'Apply Advance'}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
@@ -824,6 +881,33 @@ export function CustomerDetailPage() {
         </Card>
       )}
 
+      {/* Edit Customer (admin only) */}
+      {isAdmin && customer && (
+        <EditCustomerModal
+          customer={customer}
+          isOpen={showEditCustomer}
+          onClose={() => setShowEditCustomer(false)}
+          onSaved={() => customerQuery.refetch()}
+        />
+      )}
+
+      {/* Delete Customer (admin only) */}
+      {isAdmin && customer && (
+        <DeleteCustomerModal
+          customer={customer}
+          isOpen={showDeleteCustomer}
+          onClose={() => setShowDeleteCustomer(false)}
+                    onDeleted={() => {
+            useToastStore.getState().addToast({
+              type: 'success',
+              title: 'Customer deleted',
+              description: 'Customer has been removed from the records',
+            });
+            navigate('/customers');
+          }}
+        />
+      )}
+
       {/* Entry Detail Modal */}
       {selectedEntry && (
         <EntryDetailModal
@@ -831,14 +915,23 @@ export function CustomerDetailPage() {
           customerName={customer.name}
           onClose={() => setSelectedEntry(null)}
           onModify={() => navigate(`/add-credit?entry_id=${selectedEntry.id}`)}
-          onDelete={async () => {
+                    onDelete={async () => {
             const res = await api.deleteEntry(selectedEntry.id);
             if (res.ok) {
               setSelectedEntry(null);
-              loadCustomerData();
+              customerQuery.refetch();
+              useToastStore.getState().addToast({
+                type: 'success',
+                title: 'Entry deleted',
+                description: selectedEntry.entry_code,
+              });
             } else {
               const data = await res.json();
-              alert(data.error || 'Failed to delete entry');
+              useToastStore.getState().addToast({
+                type: 'error',
+                title: 'Could not delete entry',
+                description: data.error || 'Please try again',
+              });
             }
           }}
         />
@@ -850,14 +943,23 @@ export function CustomerDetailPage() {
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
           onModify={() => navigate(`/record-payment/${customer.id}/edit/${selectedPayment.id}`)}
-          onDelete={async () => {
+                    onDelete={async () => {
             const res = await api.deletePayment(selectedPayment.id);
             if (res.ok) {
               setSelectedPayment(null);
-              loadCustomerData();
+              customerQuery.refetch();
+              useToastStore.getState().addToast({
+                type: 'success',
+                title: 'Payment deleted',
+                description: `₹${Number(selectedPayment.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              });
             } else {
               const data = await res.json();
-              alert(data.error || 'Failed to delete payment');
+              useToastStore.getState().addToast({
+                type: 'error',
+                title: 'Could not delete payment',
+                description: data.error || 'Please try again',
+              });
             }
           }}
         />
@@ -865,3 +967,10 @@ export function CustomerDetailPage() {
     </div>
   );
 }
+
+
+
+
+
+
+

@@ -1,7 +1,7 @@
 // ============================================
 // Prompt templates for AI document scanning
 // ============================================
-// These prompts are sent to the Qwen 2.5 VL model
+// These prompts are sent to the OpenRouter vision model
 // to classify and extract data from documents.
 
 export interface ClassificationResult {

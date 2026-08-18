@@ -31,14 +31,17 @@ export function StaffManagementPage() {
   }, [isAdmin]);
 
   const loadStaff = async () => {
+    setLoading(true);
+    setError('');
     try {
       const response = await api.listStaff();
       if (response.ok) {
         const data = await response.json();
         setStaffList(data.staff);
       }
-    } catch (error) {
-      debugError('Failed to load staff:', error);
+    } catch (err) {
+      debugError('Failed to load staff:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load staff');
     } finally {
       setLoading(false);
     }
@@ -107,8 +110,9 @@ export function StaffManagementPage() {
       if (response.ok) {
         loadStaff();
       }
-    } catch (error) {
-      debugError('Failed to toggle staff status:', error);
+    } catch (err) {
+      debugError('Failed to toggle staff status:', err);
+      setError(err instanceof Error ? err.message : 'Failed to toggle staff status');
     }
   };
 

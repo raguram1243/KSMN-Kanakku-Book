@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { api } from '../lib/api';
 import { formatDate, formatCurrency } from '../lib/utils';
 import { Customer } from '../types';
-import { debugError } from '../lib/utils';
-import { Skeleton, SkeletonCard, SkeletonSearchBar } from '../components/ui/Skeleton';
+import { SkeletonCard } from '../components/ui/Skeleton';
+import { CreateCustomerModal } from '../components/customer/CreateCustomerModal';
+import { useCustomers } from '../hooks/useApi';
+
+const PAGE_SIZE = 50;
 
 const OVERDUE_DEFAULTS: Record<string, number> = {
   'walk-in': 30,
@@ -38,68 +40,46 @@ function getOverdueStatus(customer: Customer): { isOverdue: boolean; label: stri
 
 export function CustomersPage() {
   const navigate = useNavigate();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [filter, setFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [showCreateCustomer, setShowCreateCustomer] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Debounce the search box (300ms) so the server is only queried after the
+  // user stops typing, not on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Go back to the first page whenever the search term or filter changes.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filter]);
+
+  const customersQuery = useCustomers(debouncedSearch, page, PAGE_SIZE, filter);
+
+  const customers = (customersQuery.data?.customers ?? []) as Customer[];
+  const total = customersQuery.data?.total ?? 0;
+  const loading = customersQuery.isLoading;
+  const error = (customersQuery.error as Error)?.message || null;
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const startCount = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const endCount = Math.min(page * PAGE_SIZE, total);
 
   useEffect(() => {
-    loadCustomers();
-  }, []);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredCustomers(customers);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = customers.filter(customer =>
-        customer.name.toLowerCase().includes(query) ||
-        customer.phone.includes(query) ||
-        customer.customer_code.toLowerCase().includes(query)
-      );
-      setFilteredCustomers(filtered);
+    const state = location.state as { toast?: string } | null;
+    if (state && state.toast) {
+      setToast(state.toast);
+      window.history.replaceState({}, document.title);
     }
-  }, [searchQuery, customers]);
+  }, [location.state]);
 
-  const loadCustomers = async () => {
-    try {
-      const response = await api.listCustomers();
-      if (response.ok) {
-        const data = await response.json();
-        setCustomers(data.customers);
-        setFilteredCustomers(data.customers);
-      }
-    } catch (error) {
-      debugError('Failed to load customers:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-32" />
-          <div className="flex space-x-2">
-            <Skeleton className="h-8 w-16 rounded-lg" />
-            <Skeleton className="h-8 w-16 rounded-lg" />
-          </div>
-        </div>
-
-        {/* Search Bar Skeleton */}
-        <SkeletonSearchBar />
-
-        {/* Customer Cards Grid Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -123,23 +103,75 @@ export function CustomersPage() {
         </div>
       </div>
 
-      <Input
-        type="text"
-        placeholder="Search by name, phone, or customer code..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        className="max-w-md"
-      />
+      {toast && (
+        <div className="flex items-center justify-between bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-lg text-sm">
+          <span>{toast}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="text-green-600 hover:text-green-800 font-medium"
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
-      {filteredCustomers.length === 0 ? (
+      <div className="flex items-center gap-3">
+        <Input
+          type="text"
+          placeholder="Search by name, phone, or customer code..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="max-w-md flex-1"
+        />
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+          aria-label="Filter customers"
+        >
+          <option value="all">All customers</option>
+          <option value="outstanding">Outstanding</option>
+          <option value="paid">Fully Paid</option>
+          <option value="advance">Has Advance</option>
+        </select>
+        <Button variant="primary" size="sm" onClick={() => setShowCreateCustomer(true)}>
+          + Add Customer
+        </Button>
+      </div>
+
+      {customersQuery.isFetching && !loading && (
+        <p className="text-sm text-gray-400">Searching...</p>
+      )}
+
+      {error ? (
+        <Card>
+          <div className="text-center py-8">
+            <p className="text-red-500">{error}</p>
+            <button
+              onClick={() => customersQuery.refetch()}
+              className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </Card>
+      ) : loading && customers.length === 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      ) : customers.length === 0 ? (
         <Card>
           <p className="text-center text-gray-500 py-8">
-            {searchQuery ? 'No customers found matching your search.' : 'No customers yet. Add your first customer to get started.'}
+            {debouncedSearch || filter !== 'all'
+              ? 'No customers found matching your search.'
+              : 'No customers yet. Add your first customer to get started.'}
           </p>
         </Card>
       ) : view === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCustomers.map(customer => (
+          {customers.map(customer => (
             <Card
               key={customer.id}
               className="hover:shadow-md transition-shadow cursor-pointer"
@@ -162,9 +194,9 @@ export function CustomersPage() {
                           Owes: {formatCurrency(customer.balance ?? 0)}
                         </span>
                       )}
-                      {customer.advance_balance && customer.advance_balance > 0 && (
+                      {(customer.advance_balance ?? 0) > 0 && (
                         <span className="text-xs font-semibold text-green-600">
-                          Adv: {formatCurrency(customer.advance_balance)}
+                          Adv: {formatCurrency(customer.advance_balance ?? 0)}
                         </span>
                       )}
                       {(() => {
@@ -186,7 +218,7 @@ export function CustomersPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filteredCustomers.map(customer => (
+          {customers.map(customer => (
             <Card
               key={customer.id}
               className="hover:shadow-md transition-shadow cursor-pointer"
@@ -203,9 +235,9 @@ export function CustomersPage() {
                       Owes: {formatCurrency(customer.balance ?? 0)}
                     </span>
                   )}
-                  {customer.advance_balance && customer.advance_balance > 0 && (
+                  {(customer.advance_balance ?? 0) > 0 && (
                     <span className="text-sm font-semibold text-green-600">
-                      Adv: {formatCurrency(customer.advance_balance)}
+                      Adv: {formatCurrency(customer.advance_balance ?? 0)}
                     </span>
                   )}
                   {(() => {
@@ -225,6 +257,45 @@ export function CustomersPage() {
           ))}
         </div>
       )}
+
+      {/* Pagination footer */}
+      {total > 0 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-gray-500">
+            Showing {startCount}–{endCount} of {total} customers
+          </p>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1 || customersQuery.isFetching}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-gray-600">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || customersQuery.isFetching}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Customer (shared modal) */}
+      <CreateCustomerModal
+        isOpen={showCreateCustomer}
+        onClose={() => setShowCreateCustomer(false)}
+        onCreated={(_customer: Customer) => {
+          setShowCreateCustomer(false);
+        }}
+      />
     </div>
   );
 }

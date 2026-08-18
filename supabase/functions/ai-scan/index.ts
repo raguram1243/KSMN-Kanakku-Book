@@ -15,17 +15,16 @@
 //   6. Return clean JSON with confidence scores
 //
 // Environment variables (set as Edge Function secrets):
-//   AI_PROVIDER       - "qwen" (default) or future providers
-//   QWEN_API_URL      - Hosted Qwen endpoint URL
-//   QWEN_API_KEY      - API key for Qwen
-//   QWEN_MODEL        - Model name (optional, defaults to qwen2.5-vl-72b-instruct)
+//   AI_PROVIDER        - "openrouter" (default)
+//   OPENROUTER_API_KEY - OpenRouter API key (Bearer token)
+//   OPENROUTER_MODEL   - Free vision model ID (e.g. "provider/model:free")
 //   SUPABASE_URL      - (auto-provided by Supabase)
 //   SUPABASE_SERVICE_ROLE_KEY - (auto-provided by Supabase)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyToken } from '../_shared/jwt-utils.ts';
-import { getProvider } from './ai-provider.ts';
+import { getProvider, checkAIProviderHealth } from './ai-provider.ts';
 import {
   CLASSIFICATION_PROMPT,
   CREDIT_EXTRACTION_PROMPT,
@@ -58,8 +57,7 @@ serve(async (req) => {
 
   // Health check endpoint (no auth required)
   if (req.url.includes('/health') || req.url.includes('/test')) {
-    const { checkQwenHealth } = await import('./qwen-provider.ts');
-    const health = await checkQwenHealth();
+    const health = await checkAIProviderHealth();
     return new Response(
       JSON.stringify(health),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -150,7 +148,7 @@ serve(async (req) => {
     const mimeType = file_type === 'image' ? 'image/jpeg' : 'application/pdf';
 
     // 5. Initialize AI provider
-    const providerName = Deno.env.get('AI_PROVIDER') || 'qwen';
+    const providerName = Deno.env.get('AI_PROVIDER') || 'openrouter';
     const provider = getProvider(providerName);
 
     // 6. Classify document
@@ -287,7 +285,7 @@ serve(async (req) => {
 
     if (errorMessage.includes('timed out')) {
       errorMessage = 'The AI service took too long to respond. Please try again with a clearer image.';
-    } else if (errorMessage.includes('QWEN_API_URL') || errorMessage.includes('QWEN_API_KEY')) {
+    } else if (errorMessage.includes('OPENROUTER_API_KEY') || errorMessage.includes('OPENROUTER_MODEL')) {
       errorMessage = 'AI service is not properly configured. Please contact administrator.';
     } else if (errorMessage.includes('Invalid or expired token')) {
       errorMessage = 'Your session has expired. Please log in again.';

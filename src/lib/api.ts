@@ -1,3 +1,5 @@
+import { isSessionExpired } from './utils';
+
 const API_BASE = import.meta.env.VITE_SUPABASE_URL as string
 
 function getAuthHeaders(): Record<string, string> {
@@ -25,10 +27,21 @@ async function apiCall(path: string, options: RequestInit = {}): Promise<Respons
     headers: finalHeaders,
   })
 
-  if (response.status === 401) {
+  if (response.status === 401 && isSessionExpired()) {
     localStorage.removeItem('ksmn_token')
     localStorage.removeItem('ksmn_staff')
     window.location.href = '/login'
+  }
+
+  // For non-401 error responses, throw so callers' catch blocks can
+  // surface a user-facing error message instead of silently returning
+  // a non-ok Response that pages may ignore.
+  // 401 is deliberately excluded: it is handled above via logout+redirect.
+  // 409 is also excluded: it is a meaningful conflict response (e.g. delete-staff
+  // "staff has associated records") that callers check and handle explicitly.
+  if (!response.ok && response.status !== 401 && response.status !== 409) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Request failed with status ${response.status}`);
   }
 
   return response
@@ -46,6 +59,9 @@ export const api = {
   getDashboardStats: () =>
     apiCall('/get-dashboard-stats'),
 
+  getLedgerReport: () =>
+    apiCall('/get-ledger-report'),
+
   // Settings
   getSettings: () =>
     apiCall('/get-settings'),
@@ -57,9 +73,12 @@ export const api = {
     }),
 
   // Customers
-  listCustomers: (search?: string) => {
+  listCustomers: (search?: string, page?: number, pageSize?: number, filter?: string) => {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
+    if (page && page > 1) params.set('page', String(page))
+    if (pageSize) params.set('pageSize', String(pageSize))
+    if (filter && filter !== 'all') params.set('filter', filter)
     return apiCall(`/list-customers?${params.toString()}`)
   },
 
@@ -72,16 +91,32 @@ export const api = {
   getRecentPayments: () =>
     apiCall('/get-recent-payments'),
 
-  getCustomer: (id: string) =>
+    getCustomer: (id: string) =>
     apiCall(`/get-customer?id=${id}`),
 
-  updateCustomer: (id: string, data: { custom_overdue_days: number | null }) =>
+  getCustomerBalance: (id: string) =>
+    apiCall(`/get-customer-balance?id=${id}`),
+
+    updateCustomer: (id: string, data: {
+    custom_overdue_days?: number | null
+    name?: string
+    phone?: string
+    address?: string | null
+    notes?: string | null
+    customer_type?: 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate'
+  }) =>
     apiCall('/update-customer', {
       method: 'POST',
       body: JSON.stringify({ id, ...data }),
     }),
 
-  getEntry: (id: string) =>
+    deleteCustomer: (id: string) =>
+    apiCall('/delete-customer', {
+      method: 'POST',
+      body: JSON.stringify({ customer_id: id }),
+    }),
+
+    getEntry: (id: string) =>
     apiCall(`/get-entry?id=${id}`),
 
   createCustomer: (data: {
@@ -120,6 +155,7 @@ export const api = {
     payment_method?: string
     receipt_number?: string
     notes?: string
+    idempotency_key?: string
     allocations: any[]
     attachments?: any[]
   }) =>
@@ -166,11 +202,14 @@ export const api = {
       body: JSON.stringify({ payment_id }),
     }),
 
-  applyAdvance: (data: { customer_id: string; credit_entry_id: string; amount: number }) =>
-    apiCall('/apply-advance', {
+  applyAdvance: (data: { customer_id: string }) => {
+    // Diagnostic: confirm exact payload vs what apply-advance validates (requires customer_id)
+    console.log('[apply-advance] payload:', data);
+    return apiCall('/apply-advance', {
       method: 'POST',
       body: JSON.stringify(data),
-    }),
+    });
+  },
 
   getStatement: (customerId: string, fromDate?: string, toDate?: string) => {
     const params = new URLSearchParams()

@@ -8,11 +8,11 @@ import { formatCurrency, debugError } from '../lib/utils';
 import { Customer } from '../types';
 import { FileItem } from '../components/ui/MultiFileUpload';
 import { MultiFileUpload } from '../components/ui/MultiFileUpload';
-import { Modal } from '../components/ui/Modal';
 import { AIScanButton } from '../components/ai/AIScanButton';
 import { useAIScanStore } from '../store/aiScanStore';
 import { InvoiceExtractor } from '../services/ai/InvoiceExtractor';
 import { DocumentClassifier } from '../services/ai/DocumentClassifier';
+import { useToastStore } from '../store/toastStore';
 
 interface LineItem {
   item_name: string;
@@ -21,7 +21,7 @@ interface LineItem {
   amount: number;
 }
 
-export function QuickAddPage() {
+export default function QuickAddPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const entryId = searchParams.get('entry_id');
@@ -49,14 +49,6 @@ export function QuickAddPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editPaidAmount, setEditPaidAmount] = useState<number | null>(null);
-  const [showAdvanceModal, setShowAdvanceModal] = useState(false);
-  const [advanceAmount, setAdvanceAmount] = useState(0);
-  const [newEntryId, setNewEntryId] = useState<string | null>(null);
-  const [newEntryCode, setNewEntryCode] = useState<string>('');
-  const [newEntryTotal, setNewEntryTotal] = useState(0);
-  const [applyingAdvance, setApplyingAdvance] = useState(false);
-  const [advanceDialogCustomerId, setAdvanceDialogCustomerId] = useState<string>('');
-
   // Check for pre-selected customer from URL params
   useEffect(() => {
     const customerId = searchParams.get('customer_id');
@@ -300,7 +292,11 @@ export function QuickAddPage() {
           throw new Error(data.error || 'Failed to update entry');
         }
 
-        alert('Credit entry updated successfully!');
+                        useToastStore.getState().addToast({
+          type: 'success',
+          title: 'Credit entry updated',
+          description: 'Credit entry updated successfully',
+        });
         navigate(`/customers/${selectedCustomer.id}`);
       } else {
         // Create mode: create new entry
@@ -329,10 +325,6 @@ export function QuickAddPage() {
         const createdEntryData = await entryResponse.json();
         const newEntry = createdEntryData.entry;
 
-        // Capture customer ID before resetting form (selectedCustomer will be cleared below)
-        const customerIdForAdvance = selectedCustomer.id;
-        setAdvanceDialogCustomerId(customerIdForAdvance);
-
         // Reset form
         setSelectedCustomer(null);
         setQuickDescription('');
@@ -341,24 +333,20 @@ export function QuickAddPage() {
         setAttachments([]);
         setEntryNotes('');
 
-        // Check for advance balance to suggest applying
-        if (customerIdForAdvance) {
-          const customerResponse = await api.getCustomer(customerIdForAdvance);
-          if (customerResponse.ok) {
-            const customerData = await customerResponse.json();
-            const advanceBalance = customerData.customer.advance_balance || 0;
-            if (advanceBalance > 0 && newEntry) {
-              setAdvanceAmount(advanceBalance);
-              setNewEntryId(newEntry.id);
-              setNewEntryCode(newEntry.entry_code);
-              setNewEntryTotal(Number(newEntry.total_amount));
-              setShowAdvanceModal(true);
-              return; // Don't navigate yet, wait for modal
-            }
-          }
+                const advanceApplied = createdEntryData.advance_applied || 0;
+        if (advanceApplied > 0.01) {
+          useToastStore.getState().addToast({
+            type: 'success',
+            title: 'Credit entry created',
+            description: `${formatCurrency(advanceApplied)} advance credit auto-applied to ${newEntry.entry_code}`,
+          });
+        } else {
+          useToastStore.getState().addToast({
+            type: 'success',
+            title: 'Credit entry created',
+            description: `Added to ${selectedCustomer.customer_code || selectedCustomer.name}`,
+          });
         }
-
-        alert('Credit entry created successfully!');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create entry');
@@ -432,73 +420,7 @@ export function QuickAddPage() {
         {!isEditMode && <AIScanButton variant="primary" />}
       </div>
 
-      {/* Advance Credit Suggestion Modal */}
-      <Modal
-        isOpen={showAdvanceModal}
-        onClose={() => {
-          setShowAdvanceModal(false);
-          navigate(`/customers/${advanceDialogCustomerId || ''}`);
-        }}
-        title="Apply Advance Credit?"
-        size="md"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-700">
-            This customer has <strong>{formatCurrency(advanceAmount)}</strong> advance credit.
-          </p>
-          <p className="text-gray-600 text-sm">
-            Apply <strong>{formatCurrency(Math.min(advanceAmount, newEntryTotal))}</strong> to this new bill ({newEntryCode})?
-          </p>
-          <div className="flex space-x-3 pt-2">
-            <Button
-              onClick={async () => {
-                setApplyingAdvance(true);
-                try {
-                  // Safety check: guard against empty customer_id
-                  if (!advanceDialogCustomerId) {
-                    alert('Something went wrong — please refresh and try again');
-                    setApplyingAdvance(false);
-                    return;
-                  }
-                  const applyAmount = Math.min(advanceAmount, newEntryTotal);
-                  const res = await api.applyAdvance({
-                    customer_id: advanceDialogCustomerId,
-                    credit_entry_id: newEntryId || '',
-                    amount: applyAmount,
-                  });
-                  if (res.ok) {
-                    setShowAdvanceModal(false);
-                    alert(`Applied ${formatCurrency(applyAmount)} advance credit to ${newEntryCode}`);
-                    navigate(`/customers/${advanceDialogCustomerId}`);
-                  } else {
-                    const data = await res.json();
-                    alert(data.error || 'Failed to apply advance credit');
-                  }
-                } catch (err) {
-                  alert('Failed to apply advance credit');
-                } finally {
-                  setApplyingAdvance(false);
-                }
-              }}
-              disabled={applyingAdvance}
-              className="flex-1"
-            >
-              {applyingAdvance ? 'Applying...' : 'Apply'}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setShowAdvanceModal(false);
-                navigate(`/customers/${advanceDialogCustomerId || ''}`);
-              }}
-              disabled={applyingAdvance}
-              className="flex-1"
-            >
-              Skip
-            </Button>
-          </div>
-        </div>
-      </Modal>
+
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -833,13 +755,14 @@ export function QuickAddPage() {
             </div>
 
             <div className="mt-6 pt-6 border-t">
-              <Button
+                            <Button
                 onClick={handleSubmit}
                 disabled={loading || !selectedCustomer}
                 className="w-full"
+                loading={loading}
                 size="lg"
               >
-                {loading ? 'Saving...' : (isEditMode ? 'Update Credit Entry' : 'Save Credit Entry')}
+                {isEditMode ? 'Update Credit Entry' : 'Save Credit Entry'}
               </Button>
             </div>
           </Card>
