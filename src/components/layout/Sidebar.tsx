@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, PlusCircle, Users, UserCog, CreditCard, Settings, LogOut, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Users, UserCog, CreditCard, Settings, LogOut, BarChart3, RefreshCw, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useState } from 'react';
 
 interface SidebarProps {
@@ -10,14 +11,15 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
-  const { staff, logout, isAdmin } = useAuth();
+    const { staff, logout, isAdmin } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [isHovered, setIsHovered] = useState(false);
   const isExpanded = isHovered || isOpen;
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
     { path: '/add-credit', label: 'Add Credit Entry', icon: PlusCircle, adminOnly: false },
-    { path: '/record-payment', label: 'Payment Received', icon: CreditCard, adminOnly: true },
+    { path: '/payment-received', label: 'Payment Received', icon: CreditCard, adminOnly: true },
     { path: '/customers', label: 'Customers', icon: Users, adminOnly: false },
     { path: '/reports', label: 'Reports', icon: BarChart3, adminOnly: true },
     { path: '/staff', label: 'Staff', icon: UserCog, adminOnly: true },
@@ -122,6 +124,22 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                   {staff?.role}
                 </div>
+              </div>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+                  title="Refresh"
+                >
+                  <RefreshCw size={18} />
+                </button>
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+                  title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
               </div>
               <button
                 onClick={logout}

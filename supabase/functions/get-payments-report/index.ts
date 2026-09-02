@@ -14,9 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    const token = await verifyToken(authHeader)
-
+    const token = await verifyToken(req.headers.get('Authorization'))
     if (token.role !== 'admin') {
       return new Response(
         JSON.stringify({ error: 'Admin access required' }),
@@ -28,35 +26,27 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Optional From/To date range (inclusive). When omitted the RPC
-    // falls back to all-time totals, preserving the default behaviour.
     const url = new URL(req.url)
     const fromDate = url.searchParams.get('from_date')
     const toDate = url.searchParams.get('to_date')
 
-    const isValidDate = (v: string | null) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)
-    if (!isValidDate(fromDate) || !isValidDate(toDate)) {
-      return new Response(
-        JSON.stringify({ error: 'from_date and to_date must be in YYYY-MM-DD format' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    let query = supabase
+      .from('payments')
+      .select(
+        'id, customer_id, payment_date, amount, payment_method, receipt_number, notes, created_at, customer:customers!payments_customer_id_fkey(name, customer_code), staff:staff!payments_created_by_fkey(name)'
       )
-    }
+    if (fromDate) query = query.gte('payment_date', fromDate)
+    if (toDate) query = query.lte('payment_date', toDate)
 
-    const rpcParams: Record<string, string> = {}
-    if (fromDate) rpcParams.p_from_date = fromDate
-    if (toDate) rpcParams.p_to_date = toDate
+    const { data, error } = await query.order('payment_date', { ascending: false })
 
-    const { data, error: rpcError } = await supabase.rpc('get_ledger_report', rpcParams)
-
-    if (rpcError) throw rpcError
-
-    const customers = Array.isArray(data) ? data : []
+    if (error) throw error
 
     return new Response(
-      JSON.stringify({ customers }),
+      JSON.stringify({ payments: data || [] }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-  } catch (error) {
+  } catch (error: any) {
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

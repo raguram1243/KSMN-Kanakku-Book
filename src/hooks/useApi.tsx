@@ -31,14 +31,39 @@ export function useDashboardStats() {
   });
 }
 
-export function useLedgerReport() {
+export function useLedgerReport(fromDate?: string, toDate?: string) {
   return useQuery<any, Error, any, any>({
-    queryKey: ['ledger-report'],
+    queryKey: ['ledger-report', fromDate ?? '', toDate ?? ''],
     queryFn: async () => {
-      const res = await api.getLedgerReport();
+      const res = await api.getLedgerReport(fromDate, toDate);
       if (!res.ok) throw new Error('Failed to load ledger report');
       return res.json();
     },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useEntriesReport(fromDate?: string, toDate?: string) {
+  return useQuery<any, Error, any, any>({
+    queryKey: ['entries-report', fromDate ?? '', toDate ?? ''],
+    queryFn: async () => {
+      const res = await api.getEntriesReport(fromDate, toDate);
+      if (!res.ok) throw new Error('Failed to load entries report');
+      return res.json();
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function usePaymentsReport(fromDate?: string, toDate?: string) {
+  return useQuery<any, Error, any, any>({
+    queryKey: ['payments-report', fromDate ?? '', toDate ?? ''],
+    queryFn: async () => {
+      const res = await api.getPaymentsReport(fromDate, toDate);
+      if (!res.ok) throw new Error('Failed to load payments report');
+      return res.json();
+    },
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -226,11 +251,11 @@ export function useDeleteEntry() {
     },
   });
 }
-export function useRecordPayment() {
+export function usePaymentReceived() {
   const qc = useQueryClient();
   return useMutation<any, Error, any, any>({
     mutationFn: async (payload) => {
-      const res = await api.recordPayment(payload);
+      const res = await api.paymentReceived(payload);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to receive payment");

@@ -53,12 +53,72 @@ export function buildOverdueReminderMessage(
   return `Dear ${customerName}, this is a gentle reminder that your outstanding balance of ₹${amt} has been overdue since ${date}. We kindly request you to clear the payment at the earliest. Thank you for your continued business.\n- KSM Nataraja Nadar Firm`
 }
 
-export function formatPhoneForWhatsApp(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
-  return digits.length === 10 ? `91${digits}` : digits
+/**
+ * Normalize a phone number for the WhatsApp `wa.me` deep link.
+ *
+ * Rules:
+ * - Non-digit characters (spaces, dashes, +, etc.) are stripped.
+ * - Indian numbers: 10 digits -> prepend country code 91 (e.g. 6383083399 -> 916383083399).
+ *   If the caller already stored a leading 0 national prefix (06383083399), drop the 0
+ *   before prepending 91 so we never produce +91+91 / 9191.
+ * - International numbers that already include a country code are preserved as-is
+ *   (e.g. +44 7911 123456 -> 447911123456). We do not assume every number is Indian;
+ *   the existing KSMN customer base is Indian, but the normalization degrades safely
+ *   for other country codes by keeping leading digits untouched when the length is
+ *   > 12 or the first group does not look like an Indian MSISDN.
+ * - Returns null for empty / clearly invalid input, so callers can surface a toast
+ *   instead of generating a broken `wa.me/?text=...` URL.
+ */
+export function formatPhoneForWhatsApp(phone: string | null | undefined): string | null {
+  if (!phone || typeof phone !== 'string') return null;
+
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) return null; // no digits at all
+
+  // Indian mobile handling: 10-digit, or 11-digit starting with national prefix 0.
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith('0')) {
+    // e.g. 06383083399 -> 916383083399
+    return `91${digits.slice(1)}`;
+  }
+  if (digits.length === 12 && digits.startsWith('91') && digits[2] !== '0') {
+    // Already has 91 + 10-digit mobile (no double 91, no leading 0 after country code).
+    return digits;
+  }
+
+  // International numbers (or anything else): preserve leading digits unchanged.
+  // This deliberately does NOT double-prefix and does NOT strip an existing country code,
+  // so a +44 number stays 44 and an already-91 number (above) is passed through cleanly.
+  if (digits.length >= 11) {
+    return digits;
+  }
+
+  // 1..9 digit strings (without country code) are not valid E.164 — treat as missing.
+  return null;
 }
 
-export function openWhatsAppReminder(phone: string, message: string): void {
-  const formatted = formatPhoneForWhatsApp(phone)
-  window.open(`https://wa.me/${formatted}?text=${encodeURIComponent(message)}`, '_blank')
+/** Builds a direct WhatsApp `wa.me` chat URL with a pre-filled, URL-encoded message. */
+export function buildWhatsAppUrl(phone: string | null | undefined, message: string): string | null {
+  const normalized = formatPhoneForWhatsApp(phone);
+  if (!normalized) return null;
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+}
+
+/**
+ * Opens the customer's WhatsApp conversation directly via the `wa.me` deep link.
+ * Returns:
+ *  - true  when a valid URL was opened (chat window/tab created; WhatsApp may still
+ *          show its own "Open app / Continue to Web" interstitial if no Web session
+ *          is detected, but we do NOT add any extra landing page).
+ *  - false when the phone number is missing/invalid (caller should show a toast).
+ *
+ * NOTE: The pre-filled message is never auto-sent. The recipient must press Send in WhatsApp.
+ */
+export function openWhatsAppReminder(phone: string | null | undefined, message: string): boolean {
+  const url = buildWhatsAppUrl(phone, message);
+  if (!url) return false;
+  window.open(url, '_blank', 'noopener,noreferrer');
+  return true;
 }

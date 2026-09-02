@@ -1,125 +1,111 @@
-﻿/**
- * Minimal dependency-free PDF generator.
- * Builds a valid PDF v1.4 binary from plain-text table rows.
+/**
+ * PDF export for the report tables, built with jsPDF + jspdf-autotable.
+ *
+ * Font note: jsPDF's built-in Type1 fonts (Helvetica et al.) are WinAnsi/cp1252
+ * only, so the rupee sign (U+20B9) cannot be drawn — it comes out as a blank or
+ * broken glyph. Every string that goes into the PDF is therefore run through
+ * `toPdfText`, which rewrites "₹1,234.00" as "Rs. 1,234.00". This is a
+ * PDF-only fallback; the CSV export and the on-screen tables keep the ₹ sign.
  */
-export function exportPdf({
-  title,
-  filename,
-  headers,
-  rows,
-  footer,
-}: {
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+export interface ExportPdfOptions {
   title: string
+  /** Without the .pdf extension. */
   filename: string
   headers: string[]
   rows: string[][]
+  /** Rendered as a bold totals row in the table footer. */
   footer?: string[]
-}) {
-  const margin = 40
-  const pageHeight = 841.89
-  const lineHeight = 14
-  const linesPerPage = Math.floor((pageHeight - margin * 2 - 60) / lineHeight)
-
-  const pages: string[][][] = []
-  for (let i = 0; i < rows.length; i += linesPerPage) {
-    pages.push(rows.slice(i, i + linesPerPage))
-  }
-
-  let objects: string[] = []
-  let objectId = 1
-
-  function addObject(content: string): number {
-    objects.push(`${objectId} 0 obj\n${content}\nendobj`)
-    return objectId++
-  }
-
-  const fontObjId = addObject(`<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>`)
-
-  const pageObjectIds: number[] = []
-  for (let i = 0; i < pages.length; i++) {
-    const content = buildPageContent({
-      title,
-      headers,
-      rows: pages[i],
-      footer,
-    })
-    const contentObjId = addObject(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`)
-    const pageObjId = addObject(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 ${pageHeight}] /Contents ${contentObjId} 0 R /Resources << /Font << /F1 ${fontObjId} 0 R >> >> >>`
-    )
-    pageObjectIds.push(pageObjId)
-  }
-
-  const kids = pageObjectIds.map(id => `${id} 0 R`).join(' ')
-  const pagesObjId = addObject(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`)
-  const catalogObjId = addObject(`<< /Type /Catalog /Pages ${pagesObjId} 0 R >>`)
-
-  const pdfObjects = objects.join('\n\n')
-  const xrefOffset = pdfObjects.length + `\n`.length * (objects.length + 2)
-  const pdf = `${pdfObjects}
-trailer
-<< /Size ${objectId} /Root ${catalogObjId} 0 R >>
-startxref
-${xrefOffset}
-%%EOF`
-
-  const blob = new Blob([pdf], { type: 'application/pdf' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${filename}.pdf`
-  a.click()
-  URL.revokeObjectURL(url)
+  /** Extra line under the title, e.g. an active date range. */
+  subtitle?: string
+  /** Zero-based column indexes to right-align (amount columns). */
+  rightAlignColumns?: number[]
+  orientation?: 'portrait' | 'landscape'
 }
 
-function buildPageContent({
+/** Make a string safe for jsPDF's cp1252-only standard fonts. */
+export function toPdfText(value: unknown): string {
+  return String(value ?? '')
+    .replace(/\u20B9\s*/g, 'Rs. ') // ₹1,234.00 -> Rs. 1,234.00
+    .replace(/[\u00A0\u202F\u2009]/g, ' ') // various non-breaking/thin spaces
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2010-\u2015]/g, '-')
+    .replace(/\u2026/g, '...')
+    // Anything cp1252 cannot draw (e.g. Tamil script) collapses to a single '?'
+    // rather than vanishing silently, so a mangled cell stays visible.
+    .replace(/[^\x20-\x7E¡-ÿ\n]+/g, '?')
+}
+
+/** Builds the document (no download) — kept separate so it can be exercised outside a browser. */
+export function buildReportPdf({
   title,
   headers,
   rows,
   footer,
-}: {
-  title: string
-  headers: string[]
-  rows: string[][]
-  footer?: string[]
-}) {
-  const margin = 40
-  const titleY = 800
+  subtitle,
+  rightAlignColumns = [],
+  orientation = 'landscape',
+}: Omit<ExportPdfOptions, 'filename'>) {
+  const doc = new jsPDF({ orientation, unit: 'pt', format: 'a4' })
+  const margin = 36
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
 
-  const lines: string[] = []
-  const font = '/F1'
-  const fontSize = 10
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(15)
+  doc.text(toPdfText(title), margin, margin + 8)
 
-  lines.push(`BT`)
-  lines.push(`${font} ${fontSize} Tf`)
-  lines.push(`14 TL`)
-  lines.push(`${margin} ${titleY} Td`)
-  lines.push(`(${escapePdfText(title)}) Tj`)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(110)
+  const generated = `Generated ${new Date().toLocaleString('en-IN')}`
+  doc.text(toPdfText(subtitle ? `${subtitle}  |  ${generated}` : generated), margin, margin + 24)
+  doc.setTextColor(0)
 
-  const headerY = titleY - 30
-  lines.push(`${margin} ${headerY} Td`)
-  lines.push(`(${escapePdfText(headers.join('  '))}) Tj`)
-
-  let y = headerY - 28
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i] || []
-    lines.push(`${margin} ${y} Td`)
-    lines.push(`(${escapePdfText(row.join('  '))}) Tj`)
-    y -= 14
+  const columnStyles: Record<number, { halign: 'right' }> = {}
+  for (const index of rightAlignColumns) {
+    columnStyles[index] = { halign: 'right' }
   }
 
-  if (footer) {
-    lines.push(`${margin} ${y} Td`)
-    lines.push(`(${escapePdfText(footer.join('  '))}) Tj`)
+  autoTable(doc, {
+    head: [headers.map(toPdfText)],
+    body: rows.map(row => row.map(toPdfText)),
+    foot: footer ? [footer.map(toPdfText)] : undefined,
+    startY: margin + 36,
+    margin: { top: margin, right: margin, bottom: margin + 6, left: margin },
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 8,
+      cellPadding: 4,
+      overflow: 'linebreak',
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5,
+    },
+    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+    footStyles: { fillColor: [241, 245, 249], textColor: 17, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles,
+    showFoot: 'lastPage',
+  })
+
+  const pageCount = doc.getNumberOfPages()
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(130)
+  for (let page = 1; page <= pageCount; page++) {
+    doc.setPage(page)
+    doc.text(`Page ${page} of ${pageCount}`, pageWidth - margin, pageHeight - 16, {
+      align: 'right',
+    })
   }
 
-  lines.push(`ET`)
-  return lines.join('\n')
+  return doc
 }
 
-function escapePdfText(text: string): string {
-  return text
-    .replace(/\\/g, '\\\\')
-    .replace(/\(/g, '\\(')
-    .replace(/\)/g, '\\)')
+export function exportPdf(options: ExportPdfOptions) {
+  buildReportPdf(options).save(`${options.filename}.pdf`)
 }

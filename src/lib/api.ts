@@ -59,8 +59,29 @@ export const api = {
   getDashboardStats: () =>
     apiCall('/get-dashboard-stats'),
 
-  getLedgerReport: () =>
-    apiCall('/get-ledger-report'),
+  getLedgerReport: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams()
+    if (fromDate) params.set('from_date', fromDate)
+    if (toDate) params.set('to_date', toDate)
+    const qs = params.toString()
+    return apiCall(`/get-ledger-report${qs ? `?${qs}` : ''}`)
+  },
+
+    getEntriesReport: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams()
+    if (fromDate) params.set('from_date', fromDate)
+    if (toDate) params.set('to_date', toDate)
+    const qs = params.toString()
+    return apiCall(`/get-entries-report${qs ? `?${qs}` : ''}`)
+  },
+
+    getPaymentsReport: (fromDate?: string, toDate?: string) => {
+    const params = new URLSearchParams()
+    if (fromDate) params.set('from_date', fromDate)
+    if (toDate) params.set('to_date', toDate)
+    const qs = params.toString()
+    return apiCall(`/get-payments-report${qs ? `?${qs}` : ''}`)
+  },
 
   // Settings
   getSettings: () =>
@@ -148,7 +169,7 @@ export const api = {
     }),
 
   // Payments
-  recordPayment: (data: {
+  paymentReceived: (data: {
     customer_id: string
     amount: number
     payment_date: string

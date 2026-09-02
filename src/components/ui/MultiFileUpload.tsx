@@ -39,7 +39,7 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
     }
   }, [])
 
-  const startCamera = async () => {
+    const startCamera = async () => {
     try {
       setCameraError(null)
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -47,15 +47,31 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
         audio: false,
       })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-      }
+      // NOTE: the <video> is conditionally rendered and only mounts once
+      // `showCamera` is true, so videoRef.current is null right now. Assigning
+      // the stream here would be a no-op (srcObject never set) -> the preview
+      // renders as a blank/black box on iOS, Android, and desktop. We attach it
+      // in the effect below, after the element has mounted.
       setShowCamera(true)
     } catch (err) {
+      const e = err as Error
       setCameraError('Camera not available or permission denied. Please use "Upload File" instead.')
-      debugError('Camera error:', err)
+      debugError('Camera error:', e?.name, e?.message)
     }
   }
+
+  // Attach the MediaStream to <video> once mounted and start playback.
+  // iOS renders an inline preview only when muted + playsInline and play()
+  // is called after srcObject is set (autoPlay alone is unreliable on iOS).
+  useEffect(() => {
+    if (showCamera && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current
+      videoRef.current.play().catch(() => {
+        // Benign: an autoplay-policy rejection here is swallowed; muted +
+        // playsInline lets iOS render the camera preview regardless.
+      })
+    }
+  }, [showCamera])
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -284,9 +300,10 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
               </div>
             ) : (
               <>
-                <video
+                                <video
                   ref={videoRef}
                   autoPlay
+                  muted
                   playsInline
                   className="w-full rounded-lg bg-black"
                 />

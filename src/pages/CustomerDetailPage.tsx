@@ -13,7 +13,7 @@ import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
 import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
 import { buildLedgerTransactions } from '../lib/ledger';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
-import { openWhatsAppReminder, buildEntryReminderMessage, buildAggregateReminderMessage } from '../lib/whatsapp';
+import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
 import { DownloadStatementButton } from '../components/customer/DownloadStatementButton';
 import { EditCustomerModal } from '../components/customer/EditCustomerModal';
 import { DeleteCustomerModal } from '../components/customer/DeleteCustomerModal';
@@ -46,8 +46,9 @@ export default function CustomerDetailPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [displayedCount, setDisplayedCount] = useState(50);
 
-  const customerQuery = useCustomer(id);
+        const customerQuery = useCustomer(id);
   const updateCustomer = useUpdateCustomer();
+  const { openWhatsAppAggregate, openWhatsAppEntry } = useWhatsAppCustomer();
 
     const handleApplyAdvance = async () => {
     if (!customer || !id) return;
@@ -295,7 +296,7 @@ export default function CustomerDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Link to="/customers" className="text-sm text-primary-600 hover:text-primary-700">
             <ArrowLeft size={14} className="inline mr-1" /> Back to Customers
@@ -304,11 +305,11 @@ export default function CustomerDetailPage() {
           <p className="text-gray-600">{customer.customer_code} • {customer.phone}</p>
         </div>
         {isAdmin && (
-          <div className="flex space-x-3">
+                    <div className="flex flex-wrap gap-2">
             <Link to={`/add-credit?customer_id=${customer.id}`}>
               <Button variant="secondary">Add Credit Entry</Button>
             </Link>
-            <Link to={`/record-payment/${customer.id}`}>
+            <Link to={`/payment-received/${customer.id}`}>
               <Button>Payment Received</Button>
             </Link>
             <Button variant="secondary" size="sm" onClick={() => setShowEditCustomer(true)}>Edit</Button>
@@ -389,12 +390,11 @@ export default function CustomerDetailPage() {
                 Partial: {entries.filter(e => e.status === 'partial').length} •
                 Paid: {entries.filter(e => e.status === 'paid').length}
               </div>
-              {totalOutstanding > 0 && (
+                            {totalOutstanding > 0 && (
                 <div className="mt-2 inline-flex items-center space-x-2">
                   <button
                     onClick={() => {
-                      const message = buildAggregateReminderMessage(customer.name, totalOutstanding, 'en');
-                      openWhatsAppReminder(customer.phone, message);
+                      openWhatsAppAggregate(customer, 'en');
                     }}
                     className="inline-flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
                   >
@@ -403,8 +403,7 @@ export default function CustomerDetailPage() {
                   </button>
                   <button
                     onClick={() => {
-                      const message = buildAggregateReminderMessage(customer.name, totalOutstanding, 'ta');
-                      openWhatsAppReminder(customer.phone, message);
+                      openWhatsAppAggregate(customer, 'ta');
                     }}
                     className="inline-flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
                   >
@@ -535,13 +534,12 @@ export default function CustomerDetailPage() {
                         <Badge variant={entry.status === 'paid' ? 'success' : entry.status === 'partial' ? 'warning' : 'danger'}>
                           {entry.status}
                         </Badge>
-                        {entry.balance > 0 && (
+                                                {entry.balance > 0 && (
                           <div className="mt-2 flex items-center space-x-2">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const message = buildEntryReminderMessage(customer.name, entry.balance, entry.description ?? null, entry.created_at ?? '', 'en');
-                                openWhatsAppReminder(customer.phone, message);
+                                openWhatsAppEntry(customer, entry.balance, entry.description ?? null, entry.created_at ?? '', 'en');
                               }}
                               className="inline-flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors"
                             >
@@ -551,8 +549,7 @@ export default function CustomerDetailPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const message = buildEntryReminderMessage(customer.name, entry.balance, entry.description ?? null, entry.created_at ?? '', 'ta');
-                                openWhatsAppReminder(customer.phone, message);
+                                openWhatsAppEntry(customer, entry.balance, entry.description ?? null, entry.created_at ?? '', 'ta');
                               }}
                               className="inline-flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors"
                             >
@@ -942,7 +939,7 @@ export default function CustomerDetailPage() {
         <PaymentDetailModal
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
-          onModify={() => navigate(`/record-payment/${customer.id}/edit/${selectedPayment.id}`)}
+          onModify={() => navigate(`/payment-received/${customer.id}/edit/${selectedPayment.id}`)}
                     onDelete={async () => {
             const res = await api.deletePayment(selectedPayment.id);
             if (res.ok) {

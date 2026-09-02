@@ -49,9 +49,9 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
     navigate(`/add-credit?customer_id=${customerId}`);
   };
 
-  const handleRecordPayment = () => {
+  const handlePaymentReceived = () => {
     onClose();
-    navigate(`/record-payment/${customerId}`);
+    navigate(`/payment-received/${customerId}`);
   };
 
   if (!customerId) return null;
@@ -128,7 +128,7 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
             <Button variant="secondary" onClick={handleAddCredit} className="flex-1">
               Add Credit Entry
             </Button>
-            <Button onClick={handleRecordPayment} className="flex-1">
+            <Button onClick={handlePaymentReceived} className="flex-1">
               Payment Received
             </Button>
           </div>

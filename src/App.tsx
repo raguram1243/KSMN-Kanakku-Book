@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ApiProvider } from './hooks/useApi';
+import { useDailyBackup } from './hooks/useDailyBackup';
 import { Suspense, lazy } from 'react';
 import { Skeleton, SkeletonCard } from './components/ui/Skeleton';
 import { AppLayout } from './components/layout/AppLayout';
@@ -14,8 +15,11 @@ import { debugLog } from './lib/utils';
 
 const QuickAddPage = lazy(() => import('./pages/QuickAddPage'));
 const CustomerDetailPage = lazy(() => import('./pages/CustomerDetailPage'));
-const RecordPaymentPage = lazy(() => import('./pages/RecordPaymentPage'));
+const PaymentReceivedPage = lazy(() => import('./pages/PaymentReceivedPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const ReportLayout = lazy(() => import('./components/reports/ReportLayout'));
+const ReportEntriesPage = lazy(() => import('./pages/ReportEntriesPage'));
+const ReportPaymentsPage = lazy(() => import('./pages/ReportPaymentsPage'));
 
 function PageSkeleton() {
   return (
@@ -86,6 +90,9 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
 function AppRoutes() {
   const { staff, loading } = useAuth();
 
+  // Admin-only: pulls one Summary-report CSV per calendar day, per device.
+  useDailyBackup();
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -141,37 +148,41 @@ function AppRoutes() {
         element={
           <ProtectedRoute adminOnly>
             <Suspense fallback={<PageSkeleton />}>
-              <ReportsPage />
+              <ReportLayout />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<ReportsPage />} />
+        <Route path="entries" element={<ReportEntriesPage />} />
+        <Route path="payments" element={<ReportPaymentsPage />} />
+      </Route>
+      <Route
+        path="/payment-received"
+        element={
+          <ProtectedRoute adminOnly>
+            <Suspense fallback={<PageSkeleton />}>
+              <PaymentReceivedPage />
             </Suspense>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/record-payment"
+        path="/payment-received/:customerId"
         element={
           <ProtectedRoute adminOnly>
             <Suspense fallback={<PageSkeleton />}>
-              <RecordPaymentPage />
+              <PaymentReceivedPage />
             </Suspense>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/record-payment/:customerId"
+        path="/payment-received/:customerId/edit/:paymentId"
         element={
           <ProtectedRoute adminOnly>
             <Suspense fallback={<PageSkeleton />}>
-              <RecordPaymentPage />
-            </Suspense>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/record-payment/:customerId/edit/:paymentId"
-        element={
-          <ProtectedRoute adminOnly>
-            <Suspense fallback={<PageSkeleton />}>
-              <RecordPaymentPage />
+              <PaymentReceivedPage />
             </Suspense>
           </ProtectedRoute>
         }

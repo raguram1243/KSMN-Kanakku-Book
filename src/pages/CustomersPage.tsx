@@ -9,6 +9,7 @@ import { Customer } from '../types';
 import { SkeletonCard } from '../components/ui/Skeleton';
 import { CreateCustomerModal } from '../components/customer/CreateCustomerModal';
 import { useCustomers } from '../hooks/useApi';
+import { PaginationControls, PaginationSkeleton } from '../components/ui/PaginationControls';
 
 const PAGE_SIZE = 50;
 
@@ -69,8 +70,6 @@ export function CustomersPage() {
   const error = (customersQuery.error as Error)?.message || null;
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const startCount = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const endCount = Math.min(page * PAGE_SIZE, total);
 
   useEffect(() => {
     const state = location.state as { toast?: string } | null;
@@ -140,7 +139,7 @@ export function CustomersPage() {
       </div>
 
       {customersQuery.isFetching && !loading && (
-        <p className="text-sm text-gray-400">Searching...</p>
+        <PaginationSkeleton rows={view === 'grid' ? 6 : 4} />
       )}
 
       {error ? (
@@ -259,34 +258,14 @@ export function CustomersPage() {
       )}
 
       {/* Pagination footer */}
-      {total > 0 && (
-        <div className="flex items-center justify-between pt-2">
-          <p className="text-sm text-gray-500">
-            Showing {startCount}–{endCount} of {total} customers
-          </p>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page <= 1 || customersQuery.isFetching}
-            >
-              Previous
-            </Button>
-            <span className="text-sm text-gray-600">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages || customersQuery.isFetching}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
+        isLoading={customersQuery.isFetching}
+      />
 
       {/* Create New Customer (shared modal) */}
       <CreateCustomerModal

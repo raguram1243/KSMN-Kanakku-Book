@@ -10,7 +10,7 @@ import { EntryDetailModal } from '../components/modals/EntryDetailModal';
 import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
 import { CustomerLedgerModal } from '../components/modals/CustomerLedgerModal';
 import { Skeleton, SkeletonCard, SkeletonChart, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
-import { openWhatsAppReminder, buildOverdueReminderMessage } from '../lib/whatsapp';
+import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
 import { AgingReportWidget } from '../components/dashboard/AgingReportWidget';
 import { AIScanButton } from '../components/ai/AIScanButton';
 import { useDashboardStats, useDeleteEntry, useDeletePayment } from '../hooks/useApi';
@@ -76,6 +76,7 @@ export function DashboardPage() {
   const statsQuery = useDashboardStats();
   const deleteEntry = useDeleteEntry();
   const deletePayment = useDeletePayment();
+  const { openWhatsAppOverdue } = useWhatsAppCustomer();
   const [selectedEntry, setSelectedEntry] = useState<EntryDetail | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [selectedDebtorId, setSelectedDebtorId] = useState<string | null>(null);
@@ -313,7 +314,7 @@ export function DashboardPage() {
               + Add Credit Entry
             </Button>
           </Link>
-          <Link to="/record-payment">
+          <Link to="/payment-received">
             <Button className="w-full">
               + Payment Received
             </Button>
@@ -465,13 +466,12 @@ export function DashboardPage() {
                         <div>
                           <div className="font-semibold text-sm text-red-700">{formatCurrency(entry.balance)}</div>
                         </div>
-                        {entry.customer_phone && (
+                        {(
                           <div className="flex items-center space-x-1">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const message = buildOverdueReminderMessage(entry.customer_name, entry.balance, entry.created_at, 'en');
-                                openWhatsAppReminder(entry.customer_phone as string, message);
+                                openWhatsAppOverdue(entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'en');
                               }}
                               className="px-1.5 py-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors text-xs font-medium"
                               title="Send WhatsApp reminder (English)"
@@ -481,8 +481,7 @@ export function DashboardPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const message = buildOverdueReminderMessage(entry.customer_name, entry.balance, entry.created_at, 'ta');
-                                openWhatsAppReminder(entry.customer_phone as string, message);
+                                openWhatsAppOverdue(entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'ta');
                               }}
                               className="px-1.5 py-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors text-xs font-medium"
                               title="Send WhatsApp reminder (Tamil)"
@@ -535,7 +534,7 @@ export function DashboardPage() {
         <PaymentDetailModal
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
-          onModify={() => navigate(`/record-payment/${selectedPayment.customer_id}/edit/${selectedPayment.id}`)}
+          onModify={() => navigate(`/payment-received/${selectedPayment.customer_id}/edit/${selectedPayment.id}`)}
           onDelete={async () => {
             await deletePayment.mutateAsync(selectedPayment.id as any);
             setSelectedPayment(null);

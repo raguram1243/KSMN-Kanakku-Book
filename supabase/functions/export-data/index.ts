@@ -9,6 +9,22 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
 }
 
+// Human-readable timestamp for exports, e.g. "10-08-2026 14:32"
+function formatExportDate(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return String(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function prettifyEnum(value: string | null | undefined): string {
+  if (!value) return ''
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -36,31 +52,61 @@ serve(async (req) => {
     let data: any[] = []
     let filename = ''
 
-    if (dataset === 'customers') {
-      const { data: customers } = await supabase
-        .from('customers')
-        .select('*')
-        .order('created_at', { ascending: false })
+      if (dataset === 'customers') {
+        const { data: customers } = await supabase
+          .from('customers')
+          .select('customer_code, name, phone, address, customer_type, notes, created_at, staff:staff!customers_created_by_fkey(name)')
+          .order('created_at', { ascending: false })
 
-      data = customers || []
-      filename = 'customers'
-    } else if (dataset === 'entries') {
-      const { data: entries } = await supabase
-        .from('credit_entries')
-        .select('*')
-        .order('created_at', { ascending: false })
+        data = (customers || []).map(c => ({
+          'Customer Code': c.customer_code,
+          'Name': c.name,
+          'Phone': c.phone,
+          'Address': c.address ?? '',
+          'Type': prettifyEnum(c.customer_type),
+          'Notes': c.notes ?? '',
+          'Created At': formatExportDate(c.created_at),
+          'Created By': c.staff?.name ?? '',
+        }))
+        filename = 'customers'
+      } else if (dataset === 'entries') {
+        const { data: entries } = await supabase
+          .from('credit_entries')
+          .select('entry_code, total_amount, paid_amount, balance, status, description, created_at, customer:customers!credit_entries_customer_id_fkey(name, customer_code), staff:staff!credit_entries_created_by_fkey(name)')
+          .order('created_at', { ascending: false })
 
-      data = entries || []
-      filename = 'entries'
-    } else if (dataset === 'payments') {
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('*')
-        .order('payment_date', { ascending: false })
+        data = (entries || []).map(e => ({
+          'Entry Code': e.entry_code,
+          'Customer Name': e.customer?.name ?? '',
+          'Customer Code': e.customer?.customer_code ?? '',
+          'Total Amount': Number(e.total_amount) || 0,
+          'Paid Amount': Number(e.paid_amount) || 0,
+          'Balance': Number(e.balance) || 0,
+          'Status': prettifyEnum(e.status),
+          'Description': e.description ?? '',
+          'Created At': formatExportDate(e.created_at),
+          'Created By': e.staff?.name ?? '',
+        }))
+        filename = 'entries'
+      } else if (dataset === 'payments') {
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('amount, payment_date, payment_method, receipt_number, notes, created_at, customer:customers!payments_customer_id_fkey(name, customer_code), staff:staff!payments_created_by_fkey(name)')
+          .order('payment_date', { ascending: false })
 
-      data = payments || []
-      filename = 'payments'
-    }
+        data = (payments || []).map(p => ({
+          'Customer Name': p.customer?.name ?? '',
+          'Customer Code': p.customer?.customer_code ?? '',
+          'Amount': Number(p.amount) || 0,
+          'Payment Date': p.payment_date ?? '',
+          'Payment Method': prettifyEnum(p.payment_method),
+          'Receipt Number': p.receipt_number ?? '',
+          'Notes': p.notes ?? '',
+          'Created At': formatExportDate(p.created_at),
+          'Created By': p.staff?.name ?? '',
+        }))
+        filename = 'payments'
+      }
 
     if (data.length === 0) {
       return new Response(

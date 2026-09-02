@@ -36,7 +36,7 @@ function generateIdempotencyKey(): string {
   });
 }
 
-export default function RecordPaymentPage() {
+export default function PaymentReceivedPage() {
   const { customerId: rawCustomerId, paymentId: rawPaymentId } = useParams<{ customerId: string; paymentId: string }>();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
@@ -200,7 +200,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
     setSearchQuery('');
     setSearchResults([]);
     // Update URL to include customerId
-    navigate(`/record-payment/${cust.id}`);
+    navigate(`/payment-received/${cust.id}`);
   };
 
   const loadCustomerData = async () => {
@@ -470,7 +470,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
         navigate(`/customers/${customerId}`);
       } else {
         // Create mode: create new payment
-        const paymentResponse = await api.recordPayment({
+        const paymentResponse = await api.paymentReceived({
           customer_id: customerId!,
           amount: amount,
           payment_date: paymentDate,
@@ -709,7 +709,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">Customer not found.</p>
-        <Link to="/record-payment">
+        <Link to="/payment-received">
           <Button className="mt-4">Back to Search</Button>
         </Link>
       </div>
@@ -723,7 +723,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link to="/record-payment" className="text-sm text-primary-600 hover:text-primary-700">
+          <Link to="/payment-received" className="text-sm text-primary-600 hover:text-primary-700">
             <ArrowLeft size={14} className="inline mr-1" /> Change Customer
           </Link>
                   <h1 className="text-2xl font-bold text-gray-900 mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
@@ -929,7 +929,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
         >
                       {isEditMode ? 'Update Payment' : 'Payment Received'}
         </Button>
-        <Link to="/record-payment">
+        <Link to="/payment-received">
           <Button variant="secondary" size="lg">
             Cancel
           </Button>

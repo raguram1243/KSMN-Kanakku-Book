@@ -27,9 +27,10 @@ export function TopNav({ onMenuClick }: TopNavProps) {
             </button>
 
             {/* Logo + Title */}
-            <Link to="/dashboard" className="flex items-center space-x-3">
-              <img src="/KSMN_logo.png" alt="KSMN Logo" className="h-8 w-8 object-contain" />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">KSMN Kanakku-Book</span>
+                        <Link to="/dashboard" className="flex items-center space-x-2">
+              <img src="/KSMN_logo.png" alt="KSMN Logo" className="h-7 sm:h-8 w-8 object-contain flex-shrink-0" />
+              <span className="hidden sm:inline text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">KSMN Kanakku-Book</span>
+              <span className="sm:hidden text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">KSMN</span>
             </Link>
 
             {/* SiteFlow link */}
@@ -45,19 +46,19 @@ export function TopNav({ onMenuClick }: TopNavProps) {
 
           {/* User info + actions */}
           <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-700 dark:text-gray-300">
+                        <span className="hidden md:inline text-sm text-gray-700 dark:text-gray-300">
               {staff?.name} <span className="text-gray-500 dark:text-gray-400">({staff?.role})</span>
             </span>
             <button
               onClick={() => window.location.reload()}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+                            className="hidden md:inline-flex p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
               title="Refresh"
             >
               <RefreshCw size={18} />
             </button>
             <button
               onClick={toggleTheme}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+                            className="hidden md:inline-flex p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}

@@ -166,7 +166,7 @@ Visit `http://localhost:5173` to see the app.
 3. **Add Credit** - Create new credit entries with detailed/quick modes
 4. **Customers** - Search and view customer list
 5. **Customer Detail** - View customer info and entry history
-6. **Record Payment** (Admin) - Allocate payments to entries with FIFO auto-suggestion
+6. **Payment Received** (Admin) - Allocate payments to entries with FIFO auto-suggestion
 7. **Staff Management** (Admin) - Add/deactivate staff, reset PINs
 
 ### Data Model

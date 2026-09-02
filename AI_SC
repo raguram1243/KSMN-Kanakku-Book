@@ -28,7 +28,7 @@ Every new edge function **must** have a `[functions.<name>]` config block in `su
 - ✅ `src/components/ai/` - All UI components
 - ✅ `src/pages/DashboardPage.tsx` - AI Scan button added
 - ✅ `src/pages/QuickAddPage.tsx` - AI Scan integration
-- ✅ `src/pages/RecordPaymentPage.tsx` - AI Scan integration
+- ✅ `src/pages/PaymentReceivedPage.tsx` - AI Scan integration
 - ✅ `src/lib/api.ts` - aiScan method added
 
 ## 🚀 What You Need To Do
@@ -126,7 +126,7 @@ supabase storage create attachments
   - Notes
 
 **Auto-Fill (Payment Receipt):**
-- [ ] Navigate to Record Payment page
+- [ ] Navigate to Payment Received page
 - [ ] Click "✨ AI Scan"
 - [ ] Upload payment receipt
 - [ ] Review and confirm
@@ -232,7 +232,7 @@ If you encounter issues:
 ## 🎉 Success Criteria
 
 The feature is working when:
-- Users can upload documents from Dashboard, Add Credit, and Record Payment pages
+- Users can upload documents from Dashboard, Add Credit, and Payment Received pages
 - AI correctly classifies documents (invoice vs payment receipt)
 - Data is extracted accurately with confidence scores
 - Customer matching works (exact and similar matches)

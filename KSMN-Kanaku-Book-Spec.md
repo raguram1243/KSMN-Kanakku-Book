@@ -126,8 +126,8 @@ Enforcement: role stored as a custom claim / staff table lookup, enforced via Su
    - Admin view: adds running balance, last transaction date, overdue flag
 4. **Customer Detail** (admin only for balances; staff can view entries list without amounts)
    - Full entry history with codes, dates, amounts, status
-   - "Record Payment" button (admin only)
-5. **Record Payment** (admin only)
+   - "Payment Received" button (admin only)
+5. **Payment Received** (admin only)
    - Enter amount received
    - System pre-checks oldest unpaid entries up to the amount (FIFO suggestion)
    - Admin can uncheck/recheck to manually reallocate across entries
@@ -171,8 +171,8 @@ SCREENS:
 1. PIN Login (role-aware — admin vs staff routing after login)
 2. Quick Add Credit: search/create customer (live search by name, phone, or customer_code), toggle between "Detailed" (multi line-item entry with item/qty/rate, auto-totaled) and "Quick" (single description + total amount) modes, photo upload/capture attached to the entry, auto-generates entry_code on save.
 3. Customer Search/Grid: staff view shows name, phone, type, and entry list only (no financial data); admin view additionally shows running balance, last transaction date, and an overdue indicator.
-4. Customer Detail: full entry history (entry_code, date, amount, status); "Record Payment" button visible to admin only.
-5. Record Payment (admin only): enter amount, system pre-checks oldest unpaid/partial entries first (FIFO) up to the payment amount as a starting suggestion, but admin can manually check/uncheck any entries to reallocate the payment across them; on save, updates paid_amount/balance/status on each selected entry accordingly.
+4. Customer Detail: full entry history (entry_code, date, amount, status); "Payment Received" button visible to admin only.
+5. Payment Received (admin only): enter amount, system pre-checks oldest unpaid/partial entries first (FIFO) up to the payment amount as a starting suggestion, but admin can manually check/uncheck any entries to reallocate the payment across them; on save, updates paid_amount/balance/status on each selected entry accordingly.
 6. Admin Dashboard: total outstanding across all customers, top debtors list, overdue entries list, recent activity feed, and staff management (add/deactivate staff members, reset PINs).
 
 Please scaffold the project structure, Supabase schema (as SQL migration files including RLS policies for the staff/admin split described above), and the core pages listed above. Ask me before making assumptions on visual styling — keep it simple and functional to start.

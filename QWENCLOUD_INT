@@ -217,7 +217,7 @@ curl https://your-project.supabase.co/functions/v1/ai-scan/health
 
 ### 5. Form Auto-Fill Test
 - [ ] Test credit invoice → Should pre-fill Add Credit form
-- [ ] Test payment receipt → Should pre-fill Record Payment form
+- [ ] Test payment receipt → Should pre-fill Payment Received form
 - [ ] Verify customer matching and selection
 - [ ] Verify low-confidence fields are highlighted
 

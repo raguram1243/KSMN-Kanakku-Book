@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
-import { Button } from '../components/ui/Button';
+import { ExportMenu } from '../components/ui/ExportMenu';
 import { ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency } from '../lib/utils';
 import { useLedgerReport } from '../hooks/useApi';
 import { exportPdf } from '../lib/exportPdf';
+import { downloadCsv } from '../lib/exportCsv';
+import { SUMMARY_HEADERS, buildSummaryCsv } from '../lib/summaryReport';
 
 type CustomerType = 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate';
 
@@ -31,7 +33,9 @@ const CUSTOMER_TYPES: CustomerType[] = [
 type SortColumn = 'name' | 'customer_code' | 'total_credit' | 'total_paid' | 'outstanding'
 
 export default function ReportsPage() {
-  const { data, isLoading, error } = useLedgerReport()
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const { data, isLoading, error } = useLedgerReport(dateFrom, dateTo)
   const customers = (data?.customers ?? []) as LedgerRow[]
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -39,7 +43,6 @@ export default function ReportsPage() {
   const [outstandingOnly, setOutstandingOnly] = useState(false)
   const [sortColumn, setSortColumn] = useState<SortColumn>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [showExportMenu, setShowExportMenu] = useState(false)
 
   const filtered = useMemo(() => {
     let rows = customers
@@ -85,6 +88,11 @@ export default function ReportsPage() {
     return { credit, paid, outstanding }
   }, [filtered])
 
+  const dateRangeLabel =
+    dateFrom || dateTo
+      ? `Date range: ${dateFrom || 'start'} to ${dateTo || 'today'}`
+      : 'Date range: all time'
+
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection(d => (d === 'asc' ? 'desc' : 'asc'))
@@ -110,44 +118,10 @@ export default function ReportsPage() {
   }
 
   const exportCsv = () => {
-    const headers = ['Customer Code', 'Name', 'Phone', 'Type', 'Total Credit Given', 'Total Paid', 'Remaining Outstanding']
-    const rows = filtered.map(r => [
-      r.customer_code,
-      r.name,
-      r.phone,
-      r.customer_type,
-      r.total_credit.toFixed(2),
-      r.total_paid.toFixed(2),
-      r.outstanding.toFixed(2),
-    ])
-    const totalRow = [
-      '',
-      'TOTALS',
-      '',
-      '',
-      totals.credit.toFixed(2),
-      totals.paid.toFixed(2),
-      totals.outstanding.toFixed(2),
-    ]
-
-    const csvLines = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
-      totalRow.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','),
-    ]
-    const csv = csvLines.join('\n')
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'ledger_report.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv('ledger_report', buildSummaryCsv(filtered))
   }
 
   const exportPdfFile = () => {
-    const headers = ['Customer Code', 'Name', 'Phone', 'Type', 'Total Credit Given', 'Total Paid', 'Remaining Outstanding']
     const rows = filtered.map(r => [
       r.customer_code,
       r.name,
@@ -159,7 +133,7 @@ export default function ReportsPage() {
     ])
     const footer = [
       '',
-      'TOTALS',
+      `TOTALS (${filtered.length})`,
       '',
       '',
       formatCurrency(totals.credit),
@@ -168,11 +142,13 @@ export default function ReportsPage() {
     ]
 
     exportPdf({
-      title: 'Ledger Report',
+      title: 'Ledger Report - Summary',
+      subtitle: dateRangeLabel,
       filename: 'ledger_report',
-      headers,
+      headers: SUMMARY_HEADERS,
       rows,
       footer,
+      rightAlignColumns: [4, 5, 6],
     })
   }
 
@@ -201,39 +177,7 @@ export default function ReportsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-
-        <div className="relative">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setShowExportMenu(!showExportMenu)}
-          >
-            Export
-          </Button>
-          {showExportMenu && (
-            <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-              <button
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                onClick={() => {
-                  exportCsv()
-                  setShowExportMenu(false)
-                }}
-              >
-                Export as CSV
-              </button>
-              <button
-                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-t border-gray-100"
-                onClick={() => {
-                  exportPdfFile()
-                  setShowExportMenu(false)
-                }}
-              >
-                Export as PDF
-              </button>
-            </div>
-          )}
-        </div>
+        <ExportMenu onExportCsv={exportCsv} onExportPdf={exportPdfFile} disabled={filtered.length === 0} />
       </div>
 
       <Card>
@@ -244,6 +188,23 @@ export default function ReportsPage() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
+
+          <div className="w-44">
+            <Input
+              type="date"
+              label="From Date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+            />
+          </div>
+          <div className="w-44">
+            <Input
+              type="date"
+              label="To Date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+            />
+          </div>
 
           <div className="flex items-center gap-3">
             <select

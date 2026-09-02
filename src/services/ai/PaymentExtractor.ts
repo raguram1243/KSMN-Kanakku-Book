@@ -2,7 +2,7 @@
 // Payment Extractor (Client-side helper)
 // ============================================
 // Maps AI-extracted payment data to the form fields
-// used by RecordPaymentPage.
+// used by PaymentReceivedPage.
 
 import { ExtractedPaymentData, ConfidenceScores } from './types';
 

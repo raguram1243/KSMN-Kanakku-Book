@@ -505,3 +505,10 @@ verify_jwt = false
 
 [functions.get-ledger-report]
 verify_jwt = false
+
+[functions.get-entries-report]
+verify_jwt = false
+
+[functions.get-payments-report]
+verify_jwt = false
+
