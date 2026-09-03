@@ -57,6 +57,20 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
     const file = files[0].file;
     if (!file) return;
 
+    // AI Scan is image-only: the vision provider receives documents through
+    // OpenRouter's `image_url` field, which cannot read raw PDF bytes. The
+    // regular credit-entry attachment upload still accepts PDFs.
+    if (file.type === 'application/pdf') {
+      setError(
+        "PDF documents aren't supported for AI Scan yet. Please upload a photo of the document instead."
+      );
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a photo of the document (JPG or PNG).');
+      return;
+    }
+
     setUploading(true);
     setError(null);
 
@@ -72,23 +86,26 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
       const result = await response.json();
       const fileUrl = result.url;
       const fileType = result.file_type;
+      // Real MIME type of the original File, so ai-scan can label the bytes to
+      // the provider accurately instead of assuming JPEG. Falls back to the
+      // local File's type if the endpoint didn't report one.
+      const mimeType = result.mime_type || file.type || undefined;
 
       // Move to processing phase
       setPhase('processing');
       setIsScanning(true);
 
-      // Process with AI
-      await aiService.scanDocument(
-        { file_url: fileUrl, file_type: fileType },
+      // Process with AI. scanDocument resolves with the result; it does not
+      // write to the store itself, so take the return value here and publish it
+      // (ReviewScreen reads scanResult from the store).
+      const scanResult = await aiService.scanDocument(
+        { file_url: fileUrl, file_type: fileType, mime_type: mimeType },
         (state) => {
           setProcessingStep(state);
           setProcessingState(state);
         }
       );
 
-      // Get the result from the store
-      const scanResult = useAIScanStore.getState().scanResult;
-      
       if (scanResult) {
         setScanResult(scanResult);
         setPhase('review');
@@ -130,16 +147,17 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Upload Document</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Upload an invoice, bill, payment receipt, or bank statement. Supported formats: JPG, PNG, PDF (max 4MB).
+                Upload a photo of the invoice, bill, or receipt. Supported formats: JPG, PNG (max 4MB). PDF documents aren't supported for AI Scan yet — please take or upload a photo instead.
               </p>
             </div>
 
             <MultiFileUpload
-              label="Select Document"
+              label="Select Photo"
               maxFiles={1}
               files={files}
               onFilesChange={setFiles}
               attachmentType="entry"
+              accept="image/*"
             />
 
             <div className="flex space-x-3 pt-4">

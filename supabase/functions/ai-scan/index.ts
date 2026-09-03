@@ -38,6 +38,11 @@ import {
   generateFieldConfidence,
 } from './parser.ts';
 import { matchCustomers } from './customer-matcher.ts';
+import {
+  PDF_UNSUPPORTED_MESSAGE,
+  isPdfMimeType,
+  resolveImageMimeType,
+} from './mime.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -91,7 +96,7 @@ serve(async (req) => {
     }
 
     // 2. Parse request body
-    const { file_url, file_type } = await req.json();
+    const { file_url, file_type, mime_type } = await req.json();
 
     if (!file_url) {
       return new Response(
@@ -104,6 +109,16 @@ serve(async (req) => {
     if (!file_type || !['image', 'pdf'].includes(file_type)) {
       return new Response(
         JSON.stringify({ error: 'Invalid file_type. Must be "image" or "pdf".' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Reject PDFs up front - before downloading or spending an AI call on bytes
+    // the vision provider cannot read. AI Scan is image-only; the regular
+    // credit-entry attachment upload still accepts PDFs.
+    if (file_type === 'pdf') {
+      return new Response(
+        JSON.stringify({ error: PDF_UNSUPPORTED_MESSAGE }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -144,8 +159,25 @@ serve(async (req) => {
     // Convert to bytes
     const fileBytes = new Uint8Array(await fileData.arrayBuffer());
 
-    // Determine MIME type
-    const mimeType = file_type === 'image' ? 'image/jpeg' : 'application/pdf';
+    // Use the file's real MIME type. This used to be hardcoded to 'image/jpeg'
+    // for every image, which mislabels PNG/WebP/GIF bytes to the provider.
+    const mimeType = resolveImageMimeType(mime_type, fileData.type);
+
+    if (!mimeType) {
+      const detected = (typeof mime_type === 'string' && mime_type) || fileData.type || 'unknown';
+      if (isPdfMimeType(detected)) {
+        return new Response(
+          JSON.stringify({ error: PDF_UNSUPPORTED_MESSAGE }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          error: `Unsupported image format (${detected}). Please upload a JPG or PNG photo.`,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // 5. Initialize AI provider
     const providerName = Deno.env.get('AI_PROVIDER') || 'openrouter';
@@ -276,6 +308,7 @@ serve(async (req) => {
         confidence,
         fileUrl: file_url,
         fileType: file_type,
+        mimeType,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

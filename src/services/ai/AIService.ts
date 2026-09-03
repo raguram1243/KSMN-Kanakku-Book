@@ -28,7 +28,7 @@ export class AIService implements AIServiceInterface {
     request: AIScanRequest,
     onProgress?: (state: ProcessingStep) => void
   ): Promise<AIScanResult> {
-    const { file_url, file_type } = request;
+    const { file_url, file_type, mime_type } = request;
 
     onProgress?.({ step: 'uploading', message: 'Uploading document...', progress: 10 });
     onProgress?.({ step: 'reading', message: 'Reading document...', progress: 25 });
@@ -42,7 +42,7 @@ export class AIService implements AIServiceInterface {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('ksmn_token')}`,
           },
-          body: JSON.stringify({ file_url, file_type }),
+          body: JSON.stringify({ file_url, file_type, mime_type }),
         }
       );
 

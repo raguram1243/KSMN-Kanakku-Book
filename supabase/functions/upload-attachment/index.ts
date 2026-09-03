@@ -107,7 +107,15 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ url: publicUrl, file_type: file.type.startsWith('image/') ? 'image' : 'pdf' }),
+      // `file_type` stays the coarse image|pdf bucket the attachment tables use.
+      // `mime_type` is the browser-reported type of the original File, passed
+      // through so callers (ai-scan) can label the bytes accurately instead of
+      // assuming a format.
+      JSON.stringify({
+        url: publicUrl,
+        file_type: file.type.startsWith('image/') ? 'image' : 'pdf',
+        mime_type: file.type || null,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

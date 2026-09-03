@@ -18,11 +18,48 @@ interface MultiFileUploadProps {
   label?: string;
   attachmentType: 'entry' | 'payment';
   relatedId?: string;
+  /**
+   * File types this picker accepts, as an `accept` attribute value. Defaults to
+   * images + PDF, which is what the credit-entry and payment attachment flows
+   * use. AI Scan passes images only. Also enforced in `addFile`, since the
+   * `accept` attribute is only a hint - the OS dialog lets users override it.
+   */
+  accept?: string;
+}
+
+const DEFAULT_ACCEPT = 'image/*,application/pdf';
+
+/** True when `file` satisfies an `accept` attribute value (handles `image/*` wildcards). */
+function matchesAccept(file: File, accept: string): boolean {
+  const fileType = (file.type || '').toLowerCase();
+  const patterns = accept.split(',').map(p => p.trim().toLowerCase()).filter(Boolean);
+  if (patterns.length === 0) return true;
+  return patterns.some(pattern => {
+    if (pattern.startsWith('.')) return file.name.toLowerCase().endsWith(pattern);
+    if (pattern.endsWith('/*')) return fileType.startsWith(pattern.slice(0, -1));
+    return fileType === pattern;
+  });
+}
+
+/** Human-readable form of an `accept` value, for error messages. */
+function describeAccept(accept: string): string {
+  const names = accept
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p =>
+      p === 'application/pdf'
+        ? 'PDF'
+        : p.endsWith('/*')
+          ? `${p.slice(0, -2)} files`
+          : p.split('/')[1]?.toUpperCase() ?? p
+    );
+  return [...new Set(names)].join(', ');
 }
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 
-export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachmentType, relatedId }: MultiFileUploadProps) {
+export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachmentType, relatedId, accept = DEFAULT_ACCEPT }: MultiFileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -112,6 +149,14 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
   const addFile = (file: File) => {
     if (files.length >= maxFiles) {
       onFilesChange([...files, { file, preview: null, uploadedUrl: null, uploading: false, error: 'Max files reached' }])
+      return
+    }
+
+    // The `accept` attribute is advisory - users can pick any file via the
+    // OS dialog's "All files" option - so reject mismatches explicitly.
+    if (!matchesAccept(file, accept)) {
+      const errorMsg = `Unsupported file type${file.type ? ` (${file.type})` : ''} — accepted: ${describeAccept(accept)}`
+      onFilesChange([...files, { file, preview: null, uploadedUrl: null, uploading: false, error: errorMsg }])
       return
     }
 
@@ -274,7 +319,7 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,application/pdf"
+        accept={accept}
         onChange={handleFilePick}
         className="hidden"
       />

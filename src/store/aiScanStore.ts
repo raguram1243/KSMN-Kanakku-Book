@@ -4,7 +4,13 @@
 // Global state management for AI scan feature
 
 import { create } from 'zustand';
-import { ConfidenceScores } from '../services/ai/types';
+// AIScanResult/CustomerMatch are owned by services/ai/types and re-exported
+// here. They used to be declared separately in both places with a divergent
+// `confidence` field, which only stayed hidden while the modal read the result
+// out of this store instead of using the value scanDocument returns.
+import type { AIScanResult, CustomerMatch } from '../services/ai/types';
+
+export type { AIScanResult, CustomerMatch };
 
 export interface ProcessingStep {
   step: 'uploading' | 'reading' | 'classifying' | 'extracting' | 'matching' | 'preparing';
@@ -12,27 +18,7 @@ export interface ProcessingStep {
   progress: number;
 }
 
-export interface CustomerMatch {
-  id: string;
-  name: string;
-  customer_code: string;
-  phone: string;
-  customer_type: string;
-  match_type: 'exact' | 'similar' | 'none';
-  match_score: number;
-}
 
-export interface AIScanResult {
-  documentType: 'credit_invoice' | 'payment_receipt' | 'bank_receipt' | 'unknown';
-  documentTypeConfidence: number;
-  classificationReason?: string;
-  extractedData: any;
-  customerMatches: CustomerMatch[];
-  confidence: ConfidenceScores;
-  fileUrl?: string;
-  fileType?: 'image' | 'pdf';
-  needsManualClassification?: boolean;
-}
 
 interface AIScanState {
   // Scan state
