@@ -62,25 +62,25 @@ export function DownloadStatementButton({ customerId }: DownloadStatementButtonP
       </Button>
 
       {showPanel && (
-        <div className="absolute right-0 mt-2 p-4 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-80">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Download Statement</h3>
+        <div className="absolute right-0 mt-2 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 w-80">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Download Statement</h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">From Date</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">From Date</label>
               <input
                 type="date"
                 value={fromDate || getDefaultFromDate()}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">To Date</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">To Date</label>
               <input
                 type="date"
                 value={toDate || getDefaultToDate()}
                 onChange={(e) => setToDate(e.target.value)}
-                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
             <Button

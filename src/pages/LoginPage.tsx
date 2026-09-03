@@ -44,15 +44,15 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900/50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <img src="/KSMN_logo.png" alt="KSMN Logo" className="mx-auto h-16 w-16 object-contain" />
-          <h2 className="mt-4 text-3xl font-bold text-gray-900">KSMN Kanakku-Book</h2>
-          <p className="mt-2 text-sm text-gray-600">Credit Ledger Management System</p>
+          <h2 className="mt-4 text-3xl font-bold text-gray-900 dark:text-white">KSMN Kanakku-Book</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Credit Ledger Management System</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6 bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6 bg-white dark:bg-gray-800 p-8 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="space-y-4">
             <Input
               label="Staff Name"
@@ -76,7 +76,7 @@ export function LoginPage() {
             />
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -92,7 +92,7 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <p className="text-center text-xs text-gray-500">
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400">
           KSM Nataraja Nadar Firm
         </p>
       </div>

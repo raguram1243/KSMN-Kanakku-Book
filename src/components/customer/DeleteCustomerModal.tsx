@@ -75,7 +75,7 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
       size="md"
     >
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm mb-3">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm mb-3">
           {error}
         </div>
       )}
@@ -83,14 +83,14 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
       {step === 1 && (
         <div className="space-y-4">
           <div className="flex items-start space-x-3">
-            <div className="flex-shrink-0 text-red-600 mt-0.5">
+            <div className="flex-shrink-0 text-red-600 dark:text-red-400 mt-0.5">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="12" y1="8" x2="12" y2="12"></line>
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
               </svg>
             </div>
-            <div className="text-sm text-gray-700 space-y-1">
+            <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
               <p className="font-semibold">Are you sure?</p>
               <p>
                 This will permanently delete <strong>{customer.name}</strong> and{' '}
@@ -121,11 +121,11 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
 
       {step === 2 && (
         <div className="space-y-4">
-          <div className="text-sm text-gray-700">
+          <div className="text-sm text-gray-700 dark:text-gray-300">
             <p className="font-semibold mb-1">Confirm deletion</p>
             <p>
               To confirm you want to permanently delete <strong>{customer.name}</strong>,
-              type the customer's name (or <code className="bg-gray-100 px-1 rounded">DELETE</code>)
+              type the customer's name (or <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">DELETE</code>)
               into the field below.
             </p>
           </div>
@@ -134,7 +134,7 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder={customer.name}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
             autoFocus
           />
           <div className="flex justify-end space-x-2 pt-2">

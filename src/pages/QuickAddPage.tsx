@@ -416,29 +416,29 @@ export default function QuickAddPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">{isEditMode ? 'Edit Credit Entry' : 'Add Credit Entry'}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isEditMode ? 'Edit Credit Entry' : 'Add Credit Entry'}</h1>
         {!isEditMode && <AIScanButton variant="primary" />}
       </div>
 
 
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
 
       {/* Customer Selection */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">1. Select Customer</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">1. Select Customer</h2>
         
         {selectedCustomer ? (
-          <div className="flex items-center justify-between p-4 bg-primary-50 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-primary-50 dark:bg-primary-900/30 rounded-lg">
             <div>
-              <div className="font-semibold text-gray-900">{selectedCustomer.name}</div>
-              <div className="text-sm text-gray-600">{selectedCustomer.customer_code} • {selectedCustomer.phone}</div>
+              <div className="font-semibold text-gray-900 dark:text-white">{selectedCustomer.name}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">{selectedCustomer.customer_code} • {selectedCustomer.phone}</div>
               {customerBalance !== null && (
-                <div className="text-sm font-medium text-red-600 mt-1">
+                <div className="text-sm font-medium text-red-600 dark:text-red-400 mt-1">
                   Currently owes: {formatCurrency(customerBalance)}
                 </div>
               )}
@@ -451,7 +451,7 @@ export default function QuickAddPage() {
           </div>
         ) : (
           isEditMode ? (
-            <p className="text-gray-500 text-center py-4">Loading entry data...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center py-4">Loading entry data...</p>
           ) : (
           <div className="space-y-4">
             <div className="relative">
@@ -463,19 +463,19 @@ export default function QuickAddPage() {
               />
               
               {searchResults.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
                   {searchResults.map(customer => (
                     <div
                       key={customer.id}
-                      className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer border-b last:border-b-0"
                       onClick={() => {
                         setSelectedCustomer(customer);
                         setSearchQuery('');
                         setSearchResults([]);
                       }}
                     >
-                      <div className="font-medium text-gray-900">{customer.name}</div>
-                      <div className="text-sm text-gray-500">{customer.customer_code} • {customer.phone}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{customer.name}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{customer.customer_code} • {customer.phone}</div>
                     </div>
                   ))}
                 </div>
@@ -485,7 +485,7 @@ export default function QuickAddPage() {
             {/* Recently active customers (4-item grid) */}
             {recentCustomers.length > 0 && !searchQuery && (
               <div className="space-y-3">
-                <div className="text-sm font-semibold text-gray-700">Recently Active Customers</div>
+                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Recently Active Customers</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   {recentCustomers.map(customer => (
                     <div
@@ -495,17 +495,17 @@ export default function QuickAddPage() {
                         setSearchQuery('');
                         setSearchResults([]);
                       }}
-                      className="p-3 bg-white border border-gray-200 rounded-lg hover:border-primary-500 hover:shadow-sm cursor-pointer transition-all flex flex-col justify-between h-24"
+                      className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 hover:shadow-sm cursor-pointer transition-all flex flex-col justify-between h-24"
                     >
                       <div>
-                        <div className="font-medium text-gray-900 truncate">{customer.name}</div>
-                        <div className="text-xs text-gray-500">{customer.customer_code}</div>
+                        <div className="font-medium text-gray-900 dark:text-white truncate">{customer.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{customer.customer_code}</div>
                       </div>
                       <div className="mt-1">
                         <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                           customer.customer_type === 'regular'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : 'bg-gray-50 text-gray-700 border border-gray-200'
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                            : 'bg-gray-50 dark:bg-gray-900/50 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
                         }`}>
                           {customer.customer_type}
                         </span>
@@ -518,16 +518,16 @@ export default function QuickAddPage() {
 
             {/* Today's Activity Stats Strip */}
             {todayStats && (
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
+              <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <div>
-                  <div className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Today's Activity</div>
-                  <div className="text-sm text-gray-700 mt-1 font-medium">
-                    Credit entries added: <span className="text-gray-900 font-bold">{todayStats.todayEntriesCount}</span>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wider">Today's Activity</div>
+                  <div className="text-sm text-gray-700 dark:text-gray-300 mt-1 font-medium">
+                    Credit entries added: <span className="text-gray-900 dark:text-white font-bold">{todayStats.todayEntriesCount}</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-gray-500 uppercase font-semibold tracking-wider">Total Combined Value</div>
-                  <div className="text-lg font-bold text-primary-700 mt-0.5">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wider">Total Combined Value</div>
+                  <div className="text-lg font-bold text-primary-700 dark:text-primary-300 mt-0.5">
                     {formatCurrency(todayStats.todayEntriesTotalSum)}
                   </div>
                 </div>
@@ -535,7 +535,7 @@ export default function QuickAddPage() {
             )}
 
             <div className="text-center">
-              <span className="text-sm text-gray-600">or</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">or</span>
             </div>
 
             {!showCreateCustomer ? (
@@ -547,7 +547,7 @@ export default function QuickAddPage() {
                 + Create New Customer
               </Button>
             ) : (
-              <form onSubmit={handleCreateCustomer} className="space-y-3 p-4 bg-gray-50 rounded-lg">
+              <form onSubmit={handleCreateCustomer} className="space-y-3 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
                 <Input
                   label="Customer Name"
                   value={newCustomer.name}
@@ -567,21 +567,21 @@ export default function QuickAddPage() {
                   placeholder="Customer address"
                 />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
                   <textarea
                     value={newCustomer.notes}
                     onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })}
                     placeholder="Any notes about this customer..."
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
                   <select
                     value={newCustomer.customer_type}
                     onChange={(e) => setNewCustomer({ ...newCustomer, customer_type: e.target.value as 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
                     <option value="walk-in">Walk-in</option>
                     <option value="regular">Regular</option>
@@ -609,9 +609,9 @@ export default function QuickAddPage() {
       {selectedCustomer && (
         <>
           <Card>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">2. Entry Mode</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">2. Entry Mode</h2>
             {isEditMode ? (
-              <div className="p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
+              <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg text-sm text-gray-600 dark:text-gray-400">
                 {entryMode === 'quick' ? 'Quick Entry' : 'Detailed Entry'} (locked in edit mode)
               </div>
             ) : (
@@ -636,7 +636,7 @@ export default function QuickAddPage() {
 
           {/* Entry Details */}
           <Card>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">3. Entry Details</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">3. Entry Details</h2>
             
             {entryMode === 'quick' ? (
               <div className="space-y-4">
@@ -657,7 +657,7 @@ export default function QuickAddPage() {
                   required
                 />
                 {isEditMode && editPaidAmount !== null && editPaidAmount > 0 && (
-                  <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                     ₹{formatCurrency(editPaidAmount)} already paid — amount can't go below this
                   </div>
                 )}
@@ -718,11 +718,11 @@ export default function QuickAddPage() {
                 <Button variant="secondary" onClick={addLineItem} size="sm">
                   + Add Item
                 </Button>
-                <div className="text-right text-lg font-semibold text-gray-900">
+                <div className="text-right text-lg font-semibold text-gray-900 dark:text-white">
                   Total: {formatCurrency(getTotalAmount())}
                 </div>
                 {isEditMode && editPaidAmount !== null && editPaidAmount > 0 && (
-                  <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                     ₹{formatCurrency(editPaidAmount)} already paid — amount can't go below this
                   </div>
                 )}
@@ -731,7 +731,7 @@ export default function QuickAddPage() {
 
             {/* Entry Notes */}
             <div className="mt-6 pt-6 border-t">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Notes (optional)
               </label>
               <textarea
@@ -739,7 +739,7 @@ export default function QuickAddPage() {
                 onChange={(e) => setEntryNotes(e.target.value)}
                 placeholder="Any notes about this entry..."
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
 

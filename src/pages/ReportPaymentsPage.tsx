@@ -158,8 +158,8 @@ export default function ReportPaymentsPage() {
     );
   };
 
-  if (isLoading) return <Card className="p-6 text-gray-500">Loading payments...</Card>;
-  if (error) return <Card className="p-6 text-red-600">{(error as Error).message}</Card>;
+  if (isLoading) return <Card className="p-6 text-gray-500 dark:text-gray-400">Loading payments...</Card>;
+  if (error) return <Card className="p-6 text-red-600 dark:text-red-400">{(error as Error).message}</Card>;
 
   return (
     <Card className="p-5">
@@ -188,8 +188,8 @@ export default function ReportPaymentsPage() {
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <thead className="bg-gray-50 dark:bg-gray-900/50">
+            <tr className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               <th className="px-3 py-2">Date & Time <Sort column="payment_date" /></th>
               <th className="px-3 py-2">Customer Name <Sort column="customer_name" /></th>
               <th className="px-3 py-2 text-right">Amount <Sort column="amount" /></th>
@@ -199,32 +199,32 @@ export default function ReportPaymentsPage() {
               <th className="px-3 py-2">Recorded By</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {filtered.map(p => (
-              <tr key={p.id} className="hover:bg-gray-50">
+              <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
                 <td className="px-3 py-2 whitespace-nowrap">{formatDateTime(p.payment_date)}</td>
                 <td className="px-3 py-2">
-                  <Link to={`/customers/${p.customer_id}`} className="text-primary-600 hover:underline font-medium">
+                  <Link to={`/customers/${p.customer_id}`} className="text-primary-600 dark:text-primary-400 hover:underline font-medium">
                     {p.customer_name}
                   </Link>
-                  <div className="text-xs text-gray-500">{p.customer_code}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{p.customer_code}</div>
                 </td>
                 <td className="px-3 py-2 text-right font-medium">{formatCurrency(p.amount)}</td>
                 <td className="px-3 py-2 capitalize">{p.payment_method ? p.payment_method.replace(/_/g, ' ') : '—'}</td>
                 <td className="px-3 py-2 font-mono text-xs">{p.receipt_number || '—'}</td>
-                <td className="px-3 py-2 text-gray-600 max-w-[180px] truncate">{p.notes || '—'}</td>
+                <td className="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-[180px] truncate">{p.notes || '—'}</td>
                 <td className="px-3 py-2">{p.staff_name || '—'}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-gray-500">No payments match the current filters.</td>
+                <td colSpan={7} className="px-3 py-6 text-center text-gray-500 dark:text-gray-400">No payments match the current filters.</td>
               </tr>
             )}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-gray-300 font-semibold">
-              <td colSpan={2} className="px-3 py-2 text-gray-900">Totals ({filtered.length} {filtered.length === 1 ? 'payment' : 'payments'})</td>
+            <tr className="border-t-2 border-gray-300 dark:border-gray-600 font-semibold">
+              <td colSpan={2} className="px-3 py-2 text-gray-900 dark:text-white">Totals ({filtered.length} {filtered.length === 1 ? 'payment' : 'payments'})</td>
               <td className="px-3 py-2 text-right">{formatCurrency(totals.totalAmount)}</td>
               <td colSpan={4}></td>
             </tr>

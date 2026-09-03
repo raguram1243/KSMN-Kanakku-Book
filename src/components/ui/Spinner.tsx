@@ -8,7 +8,7 @@ export function Spinner({ size = 'md', className = '' }: { size?: 'sm' | 'md' | 
   return (
     <div className={`${sizeClasses[size]} ${className}`}>
       <svg
-        className="animate-spin text-primary-600"
+        className="animate-spin text-primary-600 dark:text-primary-400"
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"

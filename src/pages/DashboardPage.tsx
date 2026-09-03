@@ -122,7 +122,7 @@ export function DashboardPage() {
   if (!isAdmin) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Access denied. Admin only.</p>
+        <p className="text-gray-500 dark:text-gray-400">Access denied. Admin only.</p>
       </div>
     );
   }
@@ -130,7 +130,7 @@ export function DashboardPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
 
         {/* KPI Cards Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -194,7 +194,7 @@ export function DashboardPage() {
   if (!stats) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">{error || 'Failed to load dashboard data.'}</p>
+        <p className="text-gray-500 dark:text-gray-400">{error || 'Failed to load dashboard data.'}</p>
         {error && (
           <button
             onClick={() => statsQuery.refetch()}
@@ -215,27 +215,27 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <div className="text-sm font-medium text-gray-600">Total Outstanding</div>
-          <div className="mt-2 text-3xl font-bold text-gray-900">
+          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Outstanding</div>
+          <div className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
             {formatCurrency(stats.totalOutstanding)}
           </div>
         </Card>
 
         <Card>
-          <div className="text-sm font-medium text-gray-600">Total Customers</div>
-          <div className="mt-2 text-3xl font-bold text-gray-900">
+          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Customers</div>
+          <div className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
             {stats.totalCustomers}
           </div>
         </Card>
 
         <Card>
-          <div className="text-sm font-medium text-gray-600">Overdue Entries</div>
-          <div className="mt-2 text-3xl font-bold text-red-600">
+          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Overdue Entries</div>
+          <div className="mt-2 text-3xl font-bold text-red-600 dark:text-red-400">
             {stats.overdueCount}
           </div>
         </Card>
@@ -248,15 +248,15 @@ export function DashboardPage() {
 
       {/* Last 30 Days Analytics */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Last 30 Days</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Last 30 Days</h2>
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="text-sm text-blue-700">Total Credit Given</div>
-            <div className="text-2xl font-bold text-blue-900">{formatCurrency(stats.totalCreditLast30 ?? 0)}</div>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="text-sm text-blue-700 dark:text-blue-300">Total Credit Given</div>
+            <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">{formatCurrency(stats.totalCreditLast30 ?? 0)}</div>
           </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="text-sm text-green-700">Total Collection</div>
-            <div className="text-2xl font-bold text-green-900">{formatCurrency(stats.totalCollectionLast30 ?? 0)}</div>
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+            <div className="text-sm text-green-700 dark:text-green-300">Total Collection</div>
+            <div className="text-2xl font-bold text-green-900 dark:text-green-200">{formatCurrency(stats.totalCollectionLast30 ?? 0)}</div>
           </div>
         </div>
 
@@ -279,7 +279,7 @@ export function DashboardPage() {
                     title={`Collection: ${formatCurrency(day.collection)}`}
                   />
                 </div>
-                <span className="text-[10px] text-gray-500 mt-1 whitespace-nowrap">
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 whitespace-nowrap">
                   {new Date(day.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                 </span>
               </div>
@@ -291,18 +291,18 @@ export function DashboardPage() {
         <div className="flex items-center justify-center space-x-6 mt-4 text-sm">
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 bg-blue-500 rounded"></div>
-            <span className="text-gray-700">Credit Given</span>
+            <span className="text-gray-700 dark:text-gray-300">Credit Given</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 bg-green-500 rounded"></div>
-            <span className="text-gray-700">Collection</span>
+            <span className="text-gray-700 dark:text-gray-300">Collection</span>
           </div>
         </div>
       </Card>
 
       {/* Quick Actions */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Link to="/customers">
             <Button className="w-full" variant="secondary">
@@ -327,20 +327,20 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Credit Entries */}
         <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Credit Entries</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Credit Entries</h2>
           {(stats.recentEntries ?? []).length === 0 ? (
-            <p className="text-gray-500 text-sm">No recent entries.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No recent entries.</p>
           ) : (
             <div className="space-y-2">
               {(stats.recentEntries ?? []).slice(0, 4).map((entry: any) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between py-2 px-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 rounded transition-colors"
+                  className="flex items-center justify-between py-2 px-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded transition-colors"
                   onClick={() => handleEntryClick(entry.id)}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-500 truncate">{entry.entry_code}</div>
-                    <div className="font-medium text-gray-900 text-sm">{entry.customer_name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{entry.entry_code}</div>
+                    <div className="font-medium text-gray-900 dark:text-white text-sm">{entry.customer_name}</div>
                     <div className="text-xs text-gray-400">
                       {new Date(entry.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>
@@ -359,22 +359,22 @@ export function DashboardPage() {
 
         {/* Recent Payments */}
         <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Payments</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Payments</h2>
           {(stats.recentPayments ?? []).length === 0 ? (
-            <p className="text-gray-500 text-sm">No recent payments.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No recent payments.</p>
           ) : (
             <div className="space-y-2">
               {(stats.recentPayments ?? []).slice(0, 4).map((payment: any) => (
                 <div
                   key={payment.id}
-                  className="flex items-center justify-between py-2 px-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 rounded transition-colors"
+                  className="flex items-center justify-between py-2 px-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded transition-colors"
                   onClick={() => handlePaymentClick(payment.id)}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-gray-500 truncate">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {new Date(payment.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>
-                    <div className="font-medium text-gray-900 text-sm">{payment.customer_name}</div>
+                    <div className="font-medium text-gray-900 dark:text-white text-sm">{payment.customer_name}</div>
                     {payment.payment_method && (
                       <div className="text-xs text-gray-400 capitalize">
                         {payment.payment_method.replace('_', ' ')}
@@ -382,7 +382,7 @@ export function DashboardPage() {
                     )}
                   </div>
                   <div className="text-right ml-2">
-                    <div className="font-semibold text-sm text-green-600">{formatCurrency(payment.amount)}</div>
+                    <div className="font-semibold text-sm text-green-600 dark:text-green-400">{formatCurrency(payment.amount)}</div>
                   </div>
                 </div>
               ))}
@@ -393,23 +393,23 @@ export function DashboardPage() {
 
       {/* Top Debtors */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Debtors</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Debtors</h2>
         {(stats.topDebtors ?? []).length === 0 ? (
-          <p className="text-gray-500 text-sm">No outstanding balances.</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No outstanding balances.</p>
         ) : (
           <div className="space-y-3">
             {(stats.topDebtors ?? []).map((debtor: any) => (
               <button
                 key={debtor.id}
                 onClick={() => setSelectedDebtorId(debtor.id)}
-                className="flex items-center justify-between py-2 border-b last:border-b-0 hover:bg-gray-50 rounded px-2 -mx-2 transition-colors w-full text-left"
+                className="flex items-center justify-between py-2 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded px-2 -mx-2 transition-colors w-full text-left"
               >
                 <div>
-                  <div className="font-medium text-gray-900">{debtor.name}</div>
-                  <div className="text-sm text-gray-500">{debtor.code}</div>
+                  <div className="font-medium text-gray-900 dark:text-white">{debtor.name}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{debtor.code}</div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-red-600">{formatCurrency(debtor.balance)}</div>
+                  <div className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(debtor.balance)}</div>
                 </div>
               </button>
             ))}
@@ -419,27 +419,27 @@ export function DashboardPage() {
 
       {/* Alerts */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Alerts</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Alerts</h2>
         {(stats.alerts?.largeOutstanding ?? []).length === 0 && (stats.alerts?.overdueEntries ?? []).length === 0 ? (
-          <p className="text-gray-500 text-sm text-center py-4">No alerts at the moment.</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">No alerts at the moment.</p>
         ) : (
           <div className="space-y-4">
             {/* Large Outstanding */}
             {(stats.alerts?.largeOutstanding ?? []).length > 0 && (
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Large Outstanding Customers</h3>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Large Outstanding Customers</h3>
                 <div className="space-y-2">
                   {(stats.alerts?.largeOutstanding ?? []).map((customer) => (
                     <Link
                       key={customer.customer_id}
                       to={`/customers/${customer.customer_id}`}
-                      className="flex items-center justify-between py-2 px-3 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors"
+                      className="flex items-center justify-between py-2 px-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
                     >
                       <div>
-                        <div className="font-medium text-gray-900 text-sm">{customer.customer_name}</div>
-                        <div className="text-xs text-gray-500">{customer.customer_code}</div>
+                        <div className="font-medium text-gray-900 dark:text-white text-sm">{customer.customer_name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{customer.customer_code}</div>
                       </div>
-                      <div className="font-semibold text-red-700 text-sm">{formatCurrency(customer.balance)}</div>
+                      <div className="font-semibold text-red-700 dark:text-red-300 text-sm">{formatCurrency(customer.balance)}</div>
                     </Link>
                   ))}
                 </div>
@@ -449,22 +449,22 @@ export function DashboardPage() {
             {/* Overdue Entries */}
             {(stats.alerts?.overdueEntries ?? []).length > 0 && (
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Overdue Entries</h3>
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Overdue Entries</h3>
                 <div className="space-y-2">
                   {(stats.alerts?.overdueEntries ?? []).map((entry) => (
                     <div
                       key={entry.id}
-                      className="flex items-center justify-between py-2 px-3 bg-yellow-50 border border-yellow-200 rounded cursor-pointer hover:bg-yellow-100 transition-colors"
+                      className="flex items-center justify-between py-2 px-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors"
                       onClick={() => handleEntryClick(entry.id)}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-gray-500 truncate">{entry.entry_code}</div>
-                        <div className="font-medium text-gray-900 text-sm">{entry.customer_name}</div>
-                        <div className="text-xs text-red-600 font-medium">{entry.days_overdue} days overdue</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{entry.entry_code}</div>
+                        <div className="font-medium text-gray-900 dark:text-white text-sm">{entry.customer_name}</div>
+                        <div className="text-xs text-red-600 dark:text-red-400 font-medium">{entry.days_overdue} days overdue</div>
                       </div>
                       <div className="text-right ml-2 flex items-center space-x-2">
                         <div>
-                          <div className="font-semibold text-sm text-red-700">{formatCurrency(entry.balance)}</div>
+                          <div className="font-semibold text-sm text-red-700 dark:text-red-300">{formatCurrency(entry.balance)}</div>
                         </div>
                         {(
                           <div className="flex items-center space-x-1">
@@ -473,7 +473,7 @@ export function DashboardPage() {
                                 e.stopPropagation();
                                 openWhatsAppOverdue(entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'en');
                               }}
-                              className="px-1.5 py-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors text-xs font-medium"
+                              className="px-1.5 py-1 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors text-xs font-medium"
                               title="Send WhatsApp reminder (English)"
                             >
                               EN
@@ -483,7 +483,7 @@ export function DashboardPage() {
                                 e.stopPropagation();
                                 openWhatsAppOverdue(entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'ta');
                               }}
-                              className="px-1.5 py-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded transition-colors text-xs font-medium"
+                              className="px-1.5 py-1 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors text-xs font-medium"
                               title="Send WhatsApp reminder (Tamil)"
                             >
                               தமிழ்

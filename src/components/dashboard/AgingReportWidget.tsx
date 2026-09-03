@@ -42,18 +42,18 @@ export function AgingReportWidget({ aging }: AgingReportWidgetProps) {
   const total = aging.days0to7.total + aging.days8to14.total + aging.days15to21.total + aging.days22to30.total + aging.days31to40.total + aging.days41plus.total
 
   const colorClasses = {
-    green: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', subtext: 'text-green-600', bar: 'bg-green-500' },
-    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', subtext: 'text-emerald-600', bar: 'bg-emerald-500' },
-    lime: { bg: 'bg-lime-50', border: 'border-lime-200', text: 'text-lime-700', subtext: 'text-lime-600', bar: 'bg-lime-500' },
-    yellow: { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', subtext: 'text-yellow-600', bar: 'bg-yellow-500' },
-    orange: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', subtext: 'text-orange-600', bar: 'bg-orange-500' },
-    red: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', subtext: 'text-red-600', bar: 'bg-red-500' },
+    green: { bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800', text: 'text-green-700 dark:text-green-300', subtext: 'text-green-600 dark:text-green-400', bar: 'bg-green-500' },
+    emerald: { bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800', text: 'text-emerald-700 dark:text-emerald-300', subtext: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500' },
+    lime: { bg: 'bg-lime-50 dark:bg-lime-900/20', border: 'border-lime-200 dark:border-lime-800', text: 'text-lime-700 dark:text-lime-300', subtext: 'text-lime-600 dark:text-lime-400', bar: 'bg-lime-500' },
+    yellow: { bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-200 dark:border-yellow-800', text: 'text-yellow-700 dark:text-yellow-300', subtext: 'text-yellow-600 dark:text-yellow-400', bar: 'bg-yellow-500' },
+    orange: { bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-800', text: 'text-orange-700 dark:text-orange-300', subtext: 'text-orange-600 dark:text-orange-400', bar: 'bg-orange-500' },
+    red: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800', text: 'text-red-700 dark:text-red-300', subtext: 'text-red-600 dark:text-red-400', bar: 'bg-red-500' },
   }
 
   return (
     <>
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Aging Report</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Aging Report</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {buckets.map((bucket) => {
             const pct = total > 0 ? (bucket.data.total / total) * 100 : 0
@@ -81,21 +81,21 @@ export function AgingReportWidget({ aging }: AgingReportWidgetProps) {
         <Modal isOpen onClose={() => setSelectedBucket(null)} title={`${selectedBucket.label} — ${formatCurrency(selectedBucket.total)} outstanding`} size="md">
           <div className="space-y-2">
             {selectedBucket.customers.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">No customers in this range.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No customers in this range.</p>
             ) : (
               <div className="space-y-2">
                 {selectedBucket.customers.map((customer) => (
                   <Link
                     key={customer.customer_id}
                     to={`/customers/${customer.customer_id}`}
-                    className="flex items-center justify-between py-2 px-3 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 transition-colors"
+                    className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => setSelectedBucket(null)}
                   >
                     <div>
-                      <div className="font-medium text-gray-900 text-sm">{customer.name}</div>
-                      <div className="text-xs text-gray-500">{customer.code}</div>
+                      <div className="font-medium text-gray-900 dark:text-white text-sm">{customer.name}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{customer.code}</div>
                     </div>
-                    <div className="font-semibold text-sm text-gray-900">{formatCurrency(customer.amount)}</div>
+                    <div className="font-semibold text-sm text-gray-900 dark:text-white">{formatCurrency(customer.amount)}</div>
                   </Link>
                 ))}
               </div>

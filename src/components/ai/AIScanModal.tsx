@@ -120,7 +120,7 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
     <Modal isOpen={isOpen} onClose={handleCloseModal} title="AI Document Scan" size="xl">
       <div className="space-y-6">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -128,8 +128,8 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
         {phase === 'upload' && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Document</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Upload Document</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Upload an invoice, bill, payment receipt, or bank statement. Supported formats: JPG, PNG, PDF (max 4MB).
               </p>
             </div>

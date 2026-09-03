@@ -204,21 +204,21 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
   return (
     <div className="space-y-3">
       {label && (
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       )}
 
       {/* File list */}
       {files.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {files.map((item, index) => (
-            <div key={index} className="relative group border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <div key={index} className="relative group border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
               {item.preview ? (
                 <img src={item.preview} alt={`Attachment ${index + 1}`} className="w-full h-24 object-cover" />
               ) : (
-                <div className="w-full h-24 flex items-center justify-center bg-gray-50">
+                <div className="w-full h-24 flex items-center justify-center bg-gray-50 dark:bg-gray-900/50">
                   <div className="text-center">
                     <span className="text-2xl">📄</span>
-                    <div className="text-xs text-gray-500 mt-1 truncate px-1 max-w-full">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate px-1 max-w-full">
                       {item.file.name}
                     </div>
                   </div>
@@ -257,14 +257,14 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
           <button
             type="button"
             onClick={startCamera}
-            className="flex-1 px-3 py-2 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors"
+            className="flex-1 px-3 py-2 text-sm font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors"
           >
             📷 Camera ({remaining} left)
           </button>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+            className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             📁 Upload File ({remaining} left)
           </button>
@@ -282,20 +282,20 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
       {/* Camera Modal */}
       {showCamera && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 max-w-2xl w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-2xl w-full">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Take Photo</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Take Photo</h3>
               <button
                 type="button"
                 onClick={stopCamera}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl"
               >
                 ×
               </button>
             </div>
 
             {cameraError ? (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
                 {cameraError}
               </div>
             ) : (

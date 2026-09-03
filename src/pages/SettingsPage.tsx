@@ -78,7 +78,7 @@ export function SettingsPage() {
   if (!isAdmin) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Access denied. Admin only.</p>
+        <p className="text-gray-500 dark:text-gray-400">Access denied. Admin only.</p>
       </div>
     );
   }
@@ -115,28 +115,28 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
 
       {message && (
         <div className={`px-4 py-3 rounded-lg text-sm ${
           message.type === 'success'
-            ? 'bg-green-50 border border-green-200 text-green-700'
-            : 'bg-red-50 border border-red-200 text-red-700'
+            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
+            : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
         }`}>
           {message.text}
         </div>
       )}
 
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Overdue Day Thresholds</h2>
-        <p className="text-sm text-gray-600 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Overdue Day Thresholds</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
           Configure how many days must pass before a credit entry is marked as overdue for each customer type.
         </p>
 
         <div className="space-y-4">
           {settings.map(setting => (
             <div key={setting.key}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {SETTING_LABELS[setting.key] || setting.key}
               </label>
               <Input
@@ -146,7 +146,7 @@ export function SettingsPage() {
                 onChange={(e) => handleChange(setting.key, e.target.value)}
                 className="max-w-xs"
               />
-              <p className="text-xs text-gray-500 mt-1">days</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">days</p>
             </div>
           ))}
         </div>
@@ -160,14 +160,14 @@ export function SettingsPage() {
 
       {/* Export Data */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Export Data</h2>
-        <p className="text-sm text-gray-600 mb-4">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Data</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           Download your data in Excel or CSV format.
         </p>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Format</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Format</label>
             <div className="flex space-x-3">
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
@@ -175,27 +175,27 @@ export function SettingsPage() {
                   name="exportFormat"
                   value="xlsx"
                   defaultChecked
-                  className="text-primary-600 focus:ring-primary-500"
+                  className="text-primary-600 dark:text-primary-400 focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-700">Excel (XLSX)</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Excel (XLSX)</span>
               </label>
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="radio"
                   name="exportFormat"
                   value="csv"
-                  className="text-primary-600 focus:ring-primary-500"
+                  className="text-primary-600 dark:text-primary-400 focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-700">CSV</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">CSV</span>
               </label>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Dataset</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dataset</label>
             <select
               id="exportDataset"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="customers">Customers</option>
               <option value="entries">Credit Entries</option>

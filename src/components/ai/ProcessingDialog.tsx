@@ -27,10 +27,10 @@ export function ProcessingDialog({ step }: ProcessingDialogProps) {
     <div className="space-y-6">
       <div className="text-center">
         <Spinner size="lg" className="mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
           {step ? AI_CONFIG.processingMessages[step.step] || 'Processing...' : 'Processing...'}
         </h3>
-        <p className="text-sm text-gray-600">Please wait while we analyze your document</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Please wait while we analyze your document</p>
       </div>
 
       {/* Progress Steps */}
@@ -44,17 +44,17 @@ export function ProcessingDialog({ step }: ProcessingDialogProps) {
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                   isComplete
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
                     : isActive
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'bg-gray-100 text-gray-400'
+                    ? 'bg-primary-100 text-primary-700 dark:text-primary-300'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
                 }`}
               >
                 {isComplete ? '✓' : index + 1}
               </div>
               <span
                 className={`text-sm ${
-                  isActive ? 'font-semibold text-gray-900' : 'text-gray-600'
+                  isActive ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'
                 }`}
               >
                 {s.label}

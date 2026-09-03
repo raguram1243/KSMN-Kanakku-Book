@@ -20,7 +20,7 @@ export function SuccessCheckmark({ size = 48, className = '', label = 'Success' 
     <svg
       viewBox="0 0 52 52"
       fill="none"
-      className={`mx-auto mb-2 flex-shrink-0 text-green-600 ${className}`}
+      className={`mx-auto mb-2 flex-shrink-0 text-green-600 dark:text-green-400 ${className}`}
       style={{ width: size, height: size }}
       role="img"
       aria-label={label}

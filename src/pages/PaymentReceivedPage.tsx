@@ -522,7 +522,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
   if (!isAdmin) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Access denied. Admin only.</p>
+        <p className="text-gray-500 dark:text-gray-400">Access denied. Admin only.</p>
       </div>
     );
   }
@@ -532,11 +532,11 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <Link to="/dashboard" className="text-sm text-primary-600 hover:text-primary-700">
+          <Link to="/dashboard" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700">
             <ArrowLeft size={14} className="inline mr-1" /> Back to Dashboard
           </Link>
-                <h1 className="text-2xl font-bold text-gray-900 mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
-          <p className="text-gray-600">Search or select a customer to receive a payment for.</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
+          <p className="text-gray-600 dark:text-gray-400">Search or select a customer to receive a payment for.</p>
         </div>
 
         <Card>
@@ -555,15 +555,15 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
                 </div>
               )}
               {searchResults.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
                   {searchResults.map(cust => (
                     <div
                       key={cust.id}
-                      className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer border-b last:border-b-0"
                       onClick={() => handleSelectCustomer(cust)}
                     >
-                      <div className="font-medium text-gray-900">{cust.name}</div>
-                      <div className="text-sm text-gray-500">{cust.customer_code} • {cust.phone}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{cust.name}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{cust.customer_code} • {cust.phone}</div>
                     </div>
                   ))}
                 </div>
@@ -572,16 +572,16 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
 
             {/* Stat Strip: Collected Today & This Month */}
             {todayStats && (
-              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Collected Today</div>
-                  <div className="text-xl font-bold text-green-700 mt-1">
+                  <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Collected Today</div>
+                  <div className="text-xl font-bold text-green-700 dark:text-green-300 mt-1">
                     {formatCurrency(todayStats.todayPaymentsTotalSum)}
                   </div>
                 </div>
                 <div className="border-l pl-4">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Collected This Month</div>
-                  <div className="text-xl font-bold text-primary-700 mt-1">
+                  <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Collected This Month</div>
+                  <div className="text-xl font-bold text-primary-700 dark:text-primary-300 mt-1">
                     {formatCurrency(todayStats.monthPaymentsTotalSum)}
                   </div>
                 </div>
@@ -591,19 +591,19 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
             {/* Recently Recorded Payments Grid */}
             {recentPayments.length > 0 && !searchQuery && (
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-700">Recently Recorded Payments</h3>
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Recently Recorded Payments</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   {recentPayments.map((p) => (
                     <div
                       key={p.id}
                       onClick={() => handleSelectCustomer({ id: p.customer_id } as any)}
-                      className="p-3 bg-white border border-gray-200 rounded-lg hover:border-primary-500 hover:shadow-sm cursor-pointer transition-all flex flex-col justify-between h-24"
+                      className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 hover:shadow-sm cursor-pointer transition-all flex flex-col justify-between h-24"
                     >
                       <div>
-                        <div className="font-medium text-gray-900 truncate">{p.customer_name}</div>
-                        <div className="text-xs text-gray-500">{formatDate(p.payment_date)}</div>
+                        <div className="font-medium text-gray-900 dark:text-white truncate">{p.customer_name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{formatDate(p.payment_date)}</div>
                       </div>
-                      <div className="mt-1 text-sm font-bold text-green-600">
+                      <div className="mt-1 text-sm font-bold text-green-600 dark:text-green-400">
                         {formatCurrency(p.amount)}
                       </div>
                     </div>
@@ -614,21 +614,21 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
 
             {/* Highest Outstanding Balance Customers (Top Debtors) */}
             {topDebtors.length > 0 && !searchQuery && (
-              <div className="space-y-3 pt-2 border-t border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-700">Highest Outstanding Balance Customers</h3>
+              <div className="space-y-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Highest Outstanding Balance Customers</h3>
                 <div className="space-y-2">
                   {topDebtors.slice(0, 5).map((debtor) => (
                     <div
                       key={debtor.id || debtor.customer_code}
                       onClick={() => handleSelectCustomer({ id: debtor.id || debtor.customer_id } as any)}
-                      className="flex items-center justify-between p-3 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg cursor-pointer transition-all"
+                      className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer transition-all"
                     >
                       <div>
-                        <div className="font-medium text-gray-900">{debtor.name}</div>
-                        <div className="text-xs text-gray-500">{debtor.customer_code}</div>
+                        <div className="font-medium text-gray-900 dark:text-white">{debtor.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{debtor.customer_code}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-bold text-red-600">
+                        <div className="text-sm font-bold text-red-600 dark:text-red-400">
                           {formatCurrency(debtor.balance)}
                         </div>
                         <div className="text-[10px] text-gray-400">outstanding</div>
@@ -684,7 +684,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
         </SkeletonCard>
 
         {/* Outstanding Balance Skeleton */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
               <Skeleton className="h-4 w-32 mb-2" />
@@ -708,7 +708,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
   if (!customer) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Customer not found.</p>
+        <p className="text-gray-500 dark:text-gray-400">Customer not found.</p>
         <Link to="/payment-received">
           <Button className="mt-4">Back to Search</Button>
         </Link>
@@ -723,23 +723,23 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link to="/payment-received" className="text-sm text-primary-600 hover:text-primary-700">
+          <Link to="/payment-received" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700">
             <ArrowLeft size={14} className="inline mr-1" /> Change Customer
           </Link>
-                  <h1 className="text-2xl font-bold text-gray-900 mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
-          <p className="text-gray-600">{customer.name} • {customer.customer_code}</p>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
+          <p className="text-gray-600 dark:text-gray-400">{customer.name} • {customer.customer_code}</p>
         </div>
         <AIScanButton variant="primary" />
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
 
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Details</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Details</h2>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Input
@@ -762,13 +762,13 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Payment Method
                 </label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="">Select method</option>
                   <option value="cash">Cash</option>
@@ -793,13 +793,13 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
               placeholder="Payment notes..."
             />
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium text-blue-900">Total Outstanding</div>
-                <div className="text-2xl font-bold text-blue-900">{formatCurrency(totalOutstanding)}</div>
+                <div className="text-sm font-medium text-blue-900 dark:text-blue-200">Total Outstanding</div>
+                <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">{formatCurrency(totalOutstanding)}</div>
                 {(customer?.advance_balance ?? 0) > 0 && (
-                  <div className="text-sm text-green-700 mt-1">
+                  <div className="text-sm text-green-700 dark:text-green-300 mt-1">
                     Advance Credit: {formatCurrency(customer.advance_balance ?? 0)}
                   </div>
                 )}
@@ -817,15 +817,15 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
               type="checkbox"
               checked={advanceOnly}
               onChange={(e) => setAdvanceOnly(e.target.checked)}
-              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              className="h-4 w-4 text-primary-600 dark:text-primary-400 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded"
             />
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Record entire amount as advance (skip allocation)
             </span>
           </label>
 
           {advanceOnly && (
-            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 rounded-lg text-sm">
               Full payment amount will be recorded as advance credit
             </div>
           )}
@@ -835,7 +835,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
             const amount = parseFloat(paymentAmount) || 0;
             if (amount > selectedTotal + 0.01) {
               return (
-                <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm">
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 rounded-lg text-sm">
                   {formatCurrency(amount - selectedTotal)} will be added as advance credit for this customer
                 </div>
               );
@@ -847,13 +847,13 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
 
       {!advanceOnly && entries.length > 0 && (
         <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Allocate Payment to Entries</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Allocate Payment to Entries</h2>
           <div className="space-y-3">
             {entries.map(entry => (
               <div
                 key={entry.id}
                 className={`p-4 rounded-lg border-2 transition-colors ${
-                  entry.selected ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white'
+                  entry.selected ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -862,18 +862,18 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
                       type="checkbox"
                       checked={entry.selected}
                       onChange={() => handleEntryToggle(entry.id)}
-                      className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      className="mt-1 h-4 w-4 text-primary-600 dark:text-primary-400 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded"
                     />
                     <div className="flex-1">
-                      <div className="font-medium text-gray-900">{entry.entry_code}</div>
-                      <div className="text-sm text-gray-500">{formatDate(entry.created_at)}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{entry.entry_code}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{formatDate(entry.created_at)}</div>
                       {entry.description && (
-                        <div className="text-sm text-gray-600 mt-1">{entry.description}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{entry.description}</div>
                       )}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-gray-900">{formatCurrency(entry.balance)}</div>
+                    <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(entry.balance)}</div>
                     {entry.selected && (
                       <Input
                         type="number"
@@ -900,7 +900,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           <div className="mt-4 pt-4 border-t">
             <div className="flex items-center justify-between text-lg font-semibold">
               <span>Total Allocated:</span>
-              <span className={selectedTotal === (parseFloat(paymentAmount) || 0) ? 'text-green-600' : 'text-red-600'}>
+              <span className={selectedTotal === (parseFloat(paymentAmount) || 0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                 {formatCurrency(selectedTotal)}
               </span>
             </div>
@@ -946,43 +946,43 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
         <div className="space-y-4">
           {/* Customer Info */}
           <div>
-            <div className="font-semibold text-gray-900">{customer.name}</div>
-            <div className="text-sm text-gray-500">{customer.customer_code}</div>
+            <div className="font-semibold text-gray-900 dark:text-white">{customer.name}</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">{customer.customer_code}</div>
           </div>
 
           {/* Payment Details */}
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+          <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Payment Amount</span>
-              <span className="font-semibold text-gray-900">{formatCurrency(parseFloat(paymentAmount) || 0)}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Payment Amount</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(parseFloat(paymentAmount) || 0)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Payment Date</span>
-              <span className="font-medium text-gray-900">{paymentDate}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Payment Date</span>
+              <span className="font-medium text-gray-900 dark:text-white">{paymentDate}</span>
             </div>
             {paymentMethod && (
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Payment Method</span>
-                <span className="font-medium text-gray-900 capitalize">{paymentMethod.replace('_', ' ')}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Payment Method</span>
+                <span className="font-medium text-gray-900 dark:text-white capitalize">{paymentMethod.replace('_', ' ')}</span>
               </div>
             )}
           </div>
 
           {/* Selected Entries */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">Entries Being Paid</h4>
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Entries Being Paid</h4>
             <div className="space-y-2">
               {entries.filter(e => e.selected && (e.allocated_amount || 0) > 0).map(entry => (
-                <div key={entry.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                <div key={entry.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div>
-                    <div className="font-medium text-gray-900 text-sm">{entry.entry_code}</div>
-                    <div className="text-xs text-gray-500">{formatDate(entry.created_at)}</div>
+                    <div className="font-medium text-gray-900 dark:text-white text-sm">{entry.entry_code}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{formatDate(entry.created_at)}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-gray-900">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
                       Allocating: {formatCurrency(entry.allocated_amount || 0)}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       Remaining after: {formatCurrency(Number(entry.balance) - (entry.allocated_amount || 0))}
                     </div>
                   </div>
@@ -992,23 +992,23 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           </div>
 
           {/* Outstanding Summary */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-1">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-1">
             <div className="flex justify-between">
-              <span className="text-sm text-blue-900">Outstanding before</span>
-              <span className="font-semibold text-blue-900">{formatCurrency(totalOutstanding)}</span>
+              <span className="text-sm text-blue-900 dark:text-blue-200">Outstanding before</span>
+              <span className="font-semibold text-blue-900 dark:text-blue-200">{formatCurrency(totalOutstanding)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-blue-900">Outstanding after</span>
-              <span className="font-semibold text-blue-900">{formatCurrency(Math.max(0, totalOutstanding - selectedTotal))}</span>
+              <span className="text-sm text-blue-900 dark:text-blue-200">Outstanding after</span>
+              <span className="font-semibold text-blue-900 dark:text-blue-200">{formatCurrency(Math.max(0, totalOutstanding - selectedTotal))}</span>
             </div>
             {(() => {
               const amount = parseFloat(paymentAmount) || 0;
               const effectiveSelectedTotal = advanceOnly ? 0 : selectedTotal;
               if (amount > effectiveSelectedTotal + 0.01) {
                 return (
-                  <div className="flex justify-between pt-2 border-t border-blue-200">
-                    <span className="text-sm text-green-800">Advance credit added</span>
-                    <span className="font-semibold text-green-800">{formatCurrency(amount - effectiveSelectedTotal)}</span>
+                  <div className="flex justify-between pt-2 border-t border-blue-200 dark:border-blue-800">
+                    <span className="text-sm text-green-800 dark:text-green-300">Advance credit added</span>
+                    <span className="font-semibold text-green-800 dark:text-green-300">{formatCurrency(amount - effectiveSelectedTotal)}</span>
                   </div>
                 );
               }

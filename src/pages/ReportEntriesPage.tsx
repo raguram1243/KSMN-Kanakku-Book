@@ -166,8 +166,8 @@ export default function ReportEntriesPage() {
     );
   };
 
-    if (isLoading) return <Card className="p-6 text-gray-500">Loading entries...</Card>;
-  if (error) return <Card className="p-6 text-red-600">{(error as Error).message}</Card>;
+    if (isLoading) return <Card className="p-6 text-gray-500 dark:text-gray-400">Loading entries...</Card>;
+  if (error) return <Card className="p-6 text-red-600 dark:text-red-400">{(error as Error).message}</Card>;
 
   return (
     <Card className="p-5">
@@ -196,8 +196,8 @@ export default function ReportEntriesPage() {
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <thead className="bg-gray-50 dark:bg-gray-900/50">
+            <tr className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               <th className="px-3 py-2">Date & Time <Sort column="created_at" /></th>
               <th className="px-3 py-2">Entry Code <Sort column="entry_code" /></th>
               <th className="px-3 py-2">Customer Name <Sort column="customer_name" /></th>
@@ -208,18 +208,18 @@ export default function ReportEntriesPage() {
               <th className="px-3 py-2">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {filtered.map(r => (
-              <tr key={r.id} className="hover:bg-gray-50">
+              <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
                 <td className="px-3 py-2 whitespace-nowrap">{formatDateTime(r.created_at)}</td>
                 <td className="px-3 py-2 font-mono text-xs">{r.entry_code}</td>
                 <td className="px-3 py-2">
-                  <Link to={`/customers/${r.customer_id}`} className="text-primary-600 hover:underline font-medium">
+                  <Link to={`/customers/${r.customer_id}`} className="text-primary-600 dark:text-primary-400 hover:underline font-medium">
                     {r.customer_name}
                   </Link>
-                  <div className="text-xs text-gray-500">{r.customer_code}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{r.customer_code}</div>
                 </td>
-                <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate">{r.description || '—'}</td>
+                <td className="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">{r.description || '—'}</td>
                 <td className="px-3 py-2 text-right font-medium">{formatCurrency(r.total_amount)}</td>
                 <td className="px-3 py-2 text-right">{formatCurrency(r.paid_amount)}</td>
                 <td className="px-3 py-2 text-right font-medium">{formatCurrency(r.balance)}</td>
@@ -232,13 +232,13 @@ export default function ReportEntriesPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-gray-500">No entries match the current filters.</td>
+                <td colSpan={8} className="px-3 py-6 text-center text-gray-500 dark:text-gray-400">No entries match the current filters.</td>
               </tr>
             )}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-gray-300 font-semibold">
-              <td colSpan={4} className="px-3 py-2 text-gray-900">Totals ({filtered.length} {filtered.length === 1 ? 'entry' : 'entries'})</td>
+            <tr className="border-t-2 border-gray-300 dark:border-gray-600 font-semibold">
+              <td colSpan={4} className="px-3 py-2 text-gray-900 dark:text-white">Totals ({filtered.length} {filtered.length === 1 ? 'entry' : 'entries'})</td>
               <td className="px-3 py-2 text-right">{formatCurrency(totals.totalAmount)}</td>
               <td className="px-3 py-2 text-right">{formatCurrency(totals.totalPaid)}</td>
               <td className="px-3 py-2 text-right">{formatCurrency(totals.totalBalance)}</td>

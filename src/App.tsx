@@ -47,7 +47,7 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
     debugLog('[Route] Loading...');
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-gray-600">Loading...</div>
+        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
       </div>
     );
   }
@@ -79,7 +79,7 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
     debugLog('[Route] Access denied - adminOnly route but staff role is:', staff.role);
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-gray-600">Access denied. Admin only.</div>
+        <div className="text-gray-600 dark:text-gray-400">Access denied. Admin only.</div>
       </div>
     );
   }
@@ -96,7 +96,7 @@ function AppRoutes() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-gray-600">Loading...</div>
+        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
       </div>
     );
   }

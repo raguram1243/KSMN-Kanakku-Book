@@ -157,7 +157,7 @@ export function StaffManagementPage() {
   if (!isAdmin) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Access denied. Admin only.</p>
+        <p className="text-gray-500 dark:text-gray-400">Access denied. Admin only.</p>
       </div>
     );
   }
@@ -186,14 +186,14 @@ export function StaffManagementPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Staff Management</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Staff Management</h1>
         <Button onClick={() => setShowAddModal(true)}>
           + Add Staff Member
         </Button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
@@ -201,18 +201,18 @@ export function StaffManagementPage() {
       <Card>
         <div className="space-y-3">
           {staffList.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No staff members yet.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">No staff members yet.</p>
           ) : (
             staffList.map(member => (
-              <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">
+                  <div className="font-medium text-gray-900 dark:text-white">
                     {member.name}
                     {currentStaff?.id === member.id && (
-                      <span className="ml-2 text-xs text-primary-600">(You)</span>
+                      <span className="ml-2 text-xs text-primary-600 dark:text-primary-400">(You)</span>
                     )}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
                     {member.role === 'admin' ? 'Administrator' : 'Staff'} • Created {formatDate(member.created_at)}
                   </div>
                 </div>
@@ -270,11 +270,11 @@ export function StaffManagementPage() {
             maxLength={20}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
             <select
               value={newStaff.role}
               onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value as 'admin' | 'staff' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="staff">Staff</option>
               <option value="admin">Admin</option>
@@ -294,7 +294,7 @@ export function StaffManagementPage() {
       {/* Reset PIN Modal */}
       <Modal isOpen={showResetModal} onClose={() => setShowResetModal(false)} title="Reset PIN" size="sm">
         <form onSubmit={handleResetPin} className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Reset PIN for <strong>{selectedStaff?.name}</strong>
           </p>
           <Input
@@ -319,11 +319,11 @@ export function StaffManagementPage() {
       {/* Delete Staff Modal */}
       <Modal isOpen={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeleteWarning(null); }} title="Delete Staff Member" size="sm">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Are you sure you want to delete <strong>{selectedStaff?.name}</strong>?
           </p>
           {deleteWarning && (
-            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-300 px-4 py-3 rounded-lg text-sm">
               <p className="font-semibold mb-1">⚠️ Warning</p>
               <p>{deleteWarning}</p>
             </div>

@@ -32,7 +32,7 @@ export function CustomerMatchSelector({
       {/* Exact Matches */}
       {exactMatches.length > 0 && (
         <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">Exact Matches</h4>
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Exact Matches</h4>
           <div className="space-y-2">
             {exactMatches.map((match) => (
               <div
@@ -40,14 +40,14 @@ export function CustomerMatchSelector({
                 onClick={() => onSelect(match)}
                 className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
                   selectedId === match.id
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 bg-white hover:border-primary-300'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium text-gray-900">{match.name}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="font-medium text-gray-900 dark:text-white">{match.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       {match.customer_code} • {match.phone}
                     </div>
                   </div>
@@ -64,7 +64,7 @@ export function CustomerMatchSelector({
       {/* Similar Matches */}
       {similarMatches.length > 0 && (
         <div>
-          <h4 className="text-sm font-semibold text-gray-700 mb-2">Similar Matches</h4>
+          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Similar Matches</h4>
           <div className="space-y-2">
             {similarMatches.map((match) => (
               <div
@@ -72,14 +72,14 @@ export function CustomerMatchSelector({
                 onClick={() => onSelect(match)}
                 className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
                   selectedId === match.id
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 bg-white hover:border-primary-300'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium text-gray-900">{match.name}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="font-medium text-gray-900 dark:text-white">{match.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       {match.customer_code} • {match.phone}
                     </div>
                   </div>
@@ -96,7 +96,7 @@ export function CustomerMatchSelector({
       {/* No Matches - Create New */}
       {matches.length === 0 && showCreateOption && (
         <div className="text-center py-4">
-          <p className="text-sm text-gray-600 mb-3">No matching customer found</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">No matching customer found</p>
           <Button variant="secondary" size="sm" onClick={onCreateNew}>
             + Create New Customer
           </Button>
