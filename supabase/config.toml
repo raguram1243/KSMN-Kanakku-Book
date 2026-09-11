@@ -437,6 +437,9 @@ verify_jwt = false
 [functions.get-customer]
 verify_jwt = false
 
+[functions.get-customer-balance]
+verify_jwt = false
+
 [functions.create-entry]
 verify_jwt = false
 
