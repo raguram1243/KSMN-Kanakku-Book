@@ -5,7 +5,7 @@
 // Uses the matches returned from the edge function
 // and provides UI helpers.
 
-import { CustomerMatch } from './types';
+import type { CustomerMatch } from './types';
 
 export class CustomerMatcher {
   /**

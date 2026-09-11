@@ -75,7 +75,16 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 3. Set required secrets:
    ```bash
    supabase secrets set APP_JWT_SECRET=your-jwt-secret-key-here
+   supabase secrets set GEMINI_API_KEY=your-google-ai-studio-key-here
    ```
+   `GEMINI_API_KEY` powers the AI Scan feature. Get one from
+   [Google AI Studio](https://aistudio.google.com/apikey). Optionally set
+   `GEMINI_MODEL` to override the default `gemini-2.5-flash`.
+
+   > **Never** put this key in a `VITE_`-prefixed variable. Vite inlines
+   > those into the JavaScript bundle, which would publish your key to
+   > every visitor. It belongs in Supabase secrets (and, for local
+   > development only, in the gitignored `.env`).
 4. Deploy all edge functions:
    ```bash
    supabase functions deploy

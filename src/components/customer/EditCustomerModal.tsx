@@ -78,7 +78,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Customer" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -88,7 +88,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
           value={customer.customer_code}
           readOnly
           disabled
-          className="bg-gray-50"
+          className="bg-gray-50 dark:bg-gray-900/50"
         />
         <Input
           label="Name"
@@ -109,21 +109,21 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
           placeholder="Customer address"
         />
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Any notes about this customer..."
             rows={2}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
           <select
             value={customerType}
             onChange={(e) => setCustomerType(e.target.value as CustomerType)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             {CUSTOMER_TYPE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>

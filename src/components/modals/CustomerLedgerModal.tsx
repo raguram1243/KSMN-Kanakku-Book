@@ -95,14 +95,14 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
         </div>
       ) : !customer ? (
         <div className="text-center py-8">
-          <p className="text-gray-500">Customer not found.</p>
+          <p className="text-gray-500 dark:text-gray-400">Customer not found.</p>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Customer Header */}
           <div>
-            <h3 className="text-xl font-bold text-gray-900">{customer.name}</h3>
-            <p className="text-gray-600">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">{customer.name}</h3>
+            <p className="text-gray-600 dark:text-gray-400">
               {customer.customer_code} • {customer.phone}
             </p>
             <div className="mt-2">
@@ -114,11 +114,11 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
 
           {/* Net Outstanding */}
           <Card>
-            <div className="text-sm font-medium text-gray-600">Net Outstanding</div>
-            <div className={`text-3xl font-bold ${totalOutstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Net Outstanding</div>
+            <div className={`text-3xl font-bold ${totalOutstanding > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
               {formatCurrency(totalOutstanding)}
             </div>
-            <div className="text-sm text-gray-500 mt-1">
+            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Total Entries: {entries.length} • Unpaid: {entries.filter(e => e.status === 'unpaid').length} • Partial: {entries.filter(e => e.status === 'partial').length} • Paid: {entries.filter(e => e.status === 'paid').length}
             </div>
           </Card>
@@ -135,49 +135,49 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
 
           {/* Ledger Table */}
           <Card>
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">Full Ledger</h4>
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Full Ledger</h4>
             {ledgerTransactions.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No transactions yet.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">No transactions yet.</p>
             ) : (
               <>
                 {/* Desktop Table */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 dark:bg-gray-900/50">
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Date & Time</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Reference</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Debit</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Credit</th>
-                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Balance</th>
-                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">Type</th>
-                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">Status</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Date & Time</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Reference</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Description</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Debit</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Credit</th>
+                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Balance</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Type</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {/* Opening Balance Row */}
-                      <tr className="bg-gray-100 italic">
-                        <td colSpan={3} className="px-3 py-2 text-gray-600">Opening Balance</td>
-                        <td className="px-3 py-2 text-right text-gray-600">-</td>
-                        <td className="px-3 py-2 text-right text-gray-600">-</td>
-                        <td className="px-3 py-2 text-right font-bold text-gray-900">{formatCurrency(0)}</td>
+                      <tr className="bg-gray-100 dark:bg-gray-700 italic">
+                        <td colSpan={3} className="px-3 py-2 text-gray-600 dark:text-gray-400">Opening Balance</td>
+                        <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">-</td>
+                        <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">-</td>
+                        <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(0)}</td>
                         <td colSpan={2}></td>
                       </tr>
 
                       {/* Transaction Rows */}
                       {ledgerTransactions.map(transaction => (
-                        <tr key={transaction.id} className="border-b border-gray-200">
-                          <td className="px-3 py-2 text-gray-900">{formatDateTime(transaction.date)}</td>
-                          <td className="px-3 py-2 text-gray-700">{transaction.reference}</td>
-                          <td className="px-3 py-2 text-gray-900">{transaction.description}</td>
-                          <td className={`px-3 py-2 text-right font-medium ${transaction.debit > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                        <tr key={transaction.id} className="border-b border-gray-200 dark:border-gray-700">
+                          <td className="px-3 py-2 text-gray-900 dark:text-white">{formatDateTime(transaction.date)}</td>
+                          <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{transaction.reference}</td>
+                          <td className="px-3 py-2 text-gray-900 dark:text-white">{transaction.description}</td>
+                          <td className={`px-3 py-2 text-right font-medium ${transaction.debit > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>
                             {transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}
                           </td>
-                          <td className={`px-3 py-2 text-right font-medium ${transaction.credit > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                          <td className={`px-3 py-2 text-right font-medium ${transaction.credit > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
                             {transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}
                           </td>
-                          <td className="px-3 py-2 text-right font-bold text-gray-900">{formatCurrency(transaction.balance)}</td>
+                          <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(transaction.balance)}</td>
                           <td className="px-3 py-2 text-center">
                             <Badge variant={transaction.type === 'entry' ? 'info' : 'success'}>
                               {transaction.type === 'entry' ? 'Entry' : 'Payment'}
@@ -199,43 +199,43 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
                 {/* Mobile Cards */}
                 <div className="md:hidden space-y-3">
                   {/* Opening Balance Card */}
-                  <div className="bg-gray-100 p-4 rounded-lg italic">
+                  <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg italic">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Opening Balance</span>
-                      <span className="font-bold text-gray-900">{formatCurrency(0)}</span>
+                      <span className="text-gray-600 dark:text-gray-400">Opening Balance</span>
+                      <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(0)}</span>
                     </div>
                   </div>
 
                   {/* Transaction Cards */}
                   {ledgerTransactions.map(transaction => (
-                    <div key={transaction.id} className="border border-gray-200 rounded-lg p-4 bg-white">
+                    <div key={transaction.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium text-gray-900">{formatDateTime(transaction.date)}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">{formatDateTime(transaction.date)}</div>
                           <Badge variant={transaction.type === 'entry' ? 'info' : 'success'}>
                             {transaction.type === 'entry' ? 'Entry' : 'Payment'}
                           </Badge>
                         </div>
                         
-                        <div className="text-sm text-gray-700">{transaction.reference}</div>
-                        <div className="text-sm text-gray-900">{transaction.description}</div>
+                        <div className="text-sm text-gray-700 dark:text-gray-300">{transaction.reference}</div>
+                        <div className="text-sm text-gray-900 dark:text-white">{transaction.description}</div>
                         
                         <div className="flex items-center justify-between pt-2 border-t">
                           {transaction.debit > 0 && (
                             <div>
-                              <span className="text-xs text-gray-500">Debit: </span>
-                              <span className="text-sm font-medium text-red-600">{formatCurrency(transaction.debit)}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Debit: </span>
+                              <span className="text-sm font-medium text-red-600 dark:text-red-400">{formatCurrency(transaction.debit)}</span>
                             </div>
                           )}
                           {transaction.credit > 0 && (
                             <div>
-                              <span className="text-xs text-gray-500">Credit: </span>
-                              <span className="text-sm font-medium text-green-600">{formatCurrency(transaction.credit)}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">Credit: </span>
+                              <span className="text-sm font-medium text-green-600 dark:text-green-400">{formatCurrency(transaction.credit)}</span>
                             </div>
                           )}
                           <div>
-                            <span className="text-xs text-gray-500">Balance: </span>
-                            <span className="text-sm font-bold text-gray-900">{formatCurrency(transaction.balance)}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Balance: </span>
+                            <span className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(transaction.balance)}</span>
                           </div>
                         </div>
 

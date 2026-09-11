@@ -284,7 +284,7 @@ export default function CustomerDetailPage() {
   if (!customer) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Customer not found.</p>
+        <p className="text-gray-500 dark:text-gray-400">Customer not found.</p>
         <Link to="/customers">
           <Button className="mt-4">Back to Customers</Button>
         </Link>
@@ -298,11 +298,11 @@ export default function CustomerDetailPage() {
     <div className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Link to="/customers" className="text-sm text-primary-600 hover:text-primary-700">
+          <Link to="/customers" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700">
             <ArrowLeft size={14} className="inline mr-1" /> Back to Customers
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 mt-2">{customer.name}</h1>
-          <p className="text-gray-600">{customer.customer_code} • {customer.phone}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{customer.name}</h1>
+          <p className="text-gray-600 dark:text-gray-400">{customer.customer_code} • {customer.phone}</p>
         </div>
         {isAdmin && (
                     <div className="flex flex-wrap gap-2">
@@ -320,36 +320,36 @@ export default function CustomerDetailPage() {
 
       {/* Customer Info */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Customer Information</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="text-sm text-gray-600">Customer Code</div>
-            <div className="font-medium text-gray-900">{customer.customer_code}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Customer Code</div>
+            <div className="font-medium text-gray-900 dark:text-white">{customer.customer_code}</div>
           </div>
           <div>
-            <div className="text-sm text-gray-600">Phone</div>
-            <div className="font-medium text-gray-900">{customer.phone}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Phone</div>
+            <div className="font-medium text-gray-900 dark:text-white">{customer.phone}</div>
           </div>
           {customer.address && (
             <div className="col-span-2">
-              <div className="text-sm text-gray-600">Address</div>
-              <div className="font-medium text-gray-900">{customer.address}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Address</div>
+              <div className="font-medium text-gray-900 dark:text-white">{customer.address}</div>
             </div>
           )}
           <div>
-            <div className="text-sm text-gray-600">Type</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Type</div>
             <Badge variant={customer.customer_type === 'regular' ? 'info' : 'default'}>
               {customer.customer_type}
             </Badge>
           </div>
           <div>
-            <div className="text-sm text-gray-600">Created</div>
-            <div className="font-medium text-gray-900">{formatDate(customer.created_at)}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Created</div>
+            <div className="font-medium text-gray-900 dark:text-white">{formatDate(customer.created_at)}</div>
           </div>
           {customer.notes && (
             <div className="col-span-2">
-              <div className="text-sm text-gray-600">Notes</div>
-              <div className="font-medium text-gray-900">{customer.notes}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Notes</div>
+              <div className="font-medium text-gray-900 dark:text-white">{customer.notes}</div>
             </div>
           )}
         </div>
@@ -361,13 +361,13 @@ export default function CustomerDetailPage() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-gray-600">Total Outstanding Balance</div>
-              <div className={`text-3xl font-bold ${totalOutstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Outstanding Balance</div>
+              <div className={`text-3xl font-bold ${totalOutstanding > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                 {formatCurrency(totalOutstanding)}
               </div>
               {(customer.advance_balance ?? 0) > 0 && (
                 <div className="mt-2 flex items-center space-x-2">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
                     Advance Credit: {formatCurrency(customer.advance_balance ?? 0)}
                   </span>
                   {isAdmin && (
@@ -384,8 +384,8 @@ export default function CustomerDetailPage() {
               )}
             </div>
             <div className="text-right">
-              <div className="text-sm text-gray-500">Total Entries: {entries.length}</div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-500 dark:text-gray-400">Total Entries: {entries.length}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 Unpaid: {entries.filter(e => e.status === 'unpaid').length} •
                 Partial: {entries.filter(e => e.status === 'partial').length} •
                 Paid: {entries.filter(e => e.status === 'paid').length}
@@ -420,9 +420,9 @@ export default function CustomerDetailPage() {
       {/* Payment Deadline (admin only) */}
       {isAdmin && (
         <Card>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment Deadline</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Deadline</h2>
           <div className="space-y-3">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
               {(() => {
                 const customerType = customer.customer_type || 'walk-in'
                 const hasCustomOverride = customer.custom_overdue_days != null
@@ -432,11 +432,11 @@ export default function CustomerDetailPage() {
                 
                 return (
                   <>
-                    Current threshold: <span className="font-semibold text-gray-900">{threshold} days</span>
+                    Current threshold: <span className="font-semibold text-gray-900 dark:text-white">{threshold} days</span>
                     {hasCustomOverride ? (
-                      <span className="ml-2 text-xs text-blue-600">(custom override)</span>
+                      <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(custom override)</span>
                     ) : (
-                      <span className="ml-2 text-xs text-gray-500">({customerType} default)</span>
+                      <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">({customerType} default)</span>
                     )}
                   </>
                 )
@@ -470,7 +470,7 @@ export default function CustomerDetailPage() {
                 </Button>
               )}
               {overdueSaveMessage && (
-                <span className="text-sm text-green-600">{overdueSaveMessage}</span>
+                <span className="text-sm text-green-600 dark:text-green-400">{overdueSaveMessage}</span>
               )}
             </div>
           </div>
@@ -503,30 +503,30 @@ export default function CustomerDetailPage() {
         <>
           {/* Entry History */}
           <Card>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Entry History</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Entry History</h2>
             {entries.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No entries yet.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">No entries yet.</p>
             ) : (
               <div className="space-y-4">
                 {entries.map(entry => (
                   <div 
                     key={entry.id} 
-                    className="p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => setSelectedEntry(entry)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900">{entry.entry_code}</div>
-                        <div className="text-sm text-gray-500">{formatDateTime(entry.created_at)}</div>
+                        <div className="font-medium text-gray-900 dark:text-white">{entry.entry_code}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{formatDateTime(entry.created_at)}</div>
                         {entry.description && (
-                          <div className="text-sm text-gray-600 mt-1">{entry.description}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{entry.description}</div>
                         )}
                       </div>
                       <div className="text-right">
                         {isAdmin && (
                           <>
-                            <div className="font-semibold text-gray-900">{formatCurrency(entry.total_amount)}</div>
-                            <div className="text-sm text-gray-600">
+                            <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(entry.total_amount)}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">
                               Paid: {formatCurrency(entry.paid_amount)} • Balance: {formatCurrency(entry.balance)}
                             </div>
                           </>
@@ -563,10 +563,10 @@ export default function CustomerDetailPage() {
 
                     {/* Line items for detailed-mode entries */}
                     {entry.entry_mode === 'detailed' && entry.items && entry.items.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="text-left text-gray-500">
+                            <tr className="text-left text-gray-500 dark:text-gray-400">
                               <th className="pb-1 font-medium">Item</th>
                               <th className="pb-1 font-medium text-right">Qty</th>
                               <th className="pb-1 font-medium text-right">Rate</th>
@@ -575,11 +575,11 @@ export default function CustomerDetailPage() {
                           </thead>
                           <tbody>
                             {entry.items.map((item: any) => (
-                              <tr key={item.id} className="border-t border-gray-100">
-                                <td className="py-1 text-gray-900">{item.item_name}</td>
-                                <td className="py-1 text-right text-gray-700">{item.qty}</td>
-                                <td className="py-1 text-right text-gray-700">{formatCurrency(item.rate)}</td>
-                                <td className="py-1 text-right font-medium text-gray-900">{formatCurrency(item.amount)}</td>
+                              <tr key={item.id} className="border-t border-gray-100 dark:border-gray-800">
+                                <td className="py-1 text-gray-900 dark:text-white">{item.item_name}</td>
+                                <td className="py-1 text-right text-gray-700 dark:text-gray-300">{item.qty}</td>
+                                <td className="py-1 text-right text-gray-700 dark:text-gray-300">{formatCurrency(item.rate)}</td>
+                                <td className="py-1 text-right font-medium text-gray-900 dark:text-white">{formatCurrency(item.amount)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -588,10 +588,10 @@ export default function CustomerDetailPage() {
                     )}
 
                     {/* Attachments */}
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                       {/* Legacy single photo fallback */}
                       {entry.photo_url && !(entry.attachments && entry.attachments.length > 0) && (
-                        <a href={entry.photo_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 hover:text-primary-700">
+                        <a href={entry.photo_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700">
                           📎 View attached photo
                         </a>
                       )}
@@ -599,7 +599,7 @@ export default function CustomerDetailPage() {
                       {/* New multi-file attachments */}
                       {entry.attachments && entry.attachments.length > 0 && (
                         <div className="space-y-2">
-                          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Attachments</div>
+                          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Attachments</div>
                           <div className="flex flex-wrap gap-2">
                             {entry.attachments.map((att: any) => (
                               <a
@@ -607,17 +607,17 @@ export default function CustomerDetailPage() {
                                 href={att.file_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center space-x-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-primary-500 hover:shadow-sm transition-all"
+                                className="inline-flex items-center space-x-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 hover:shadow-sm transition-all"
                               >
                                 {att.file_type === 'image' ? (
                                   <>
                                     <span className="text-lg">🖼️</span>
-                                    <span className="text-sm text-gray-700">Image</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">Image</span>
                                   </>
                                 ) : (
                                   <>
                                     <span className="text-lg">📄</span>
-                                    <span className="text-sm text-gray-700">PDF</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">PDF</span>
                                   </>
                                 )}
                               </a>
@@ -634,39 +634,39 @@ export default function CustomerDetailPage() {
 
           {/* Payment History */}
           <Card>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment History</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment History</h2>
             {payments.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No payment history available.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">No payment history available.</p>
             ) : (
               <div className="space-y-4">
                 {payments.map(payment => (
                   <div 
                     key={payment.id} 
-                    className="p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     onClick={() => setSelectedPayment(payment)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900">{formatDateTime(payment.payment_date)}</div>
+                        <div className="font-medium text-gray-900 dark:text-white">{formatDateTime(payment.payment_date)}</div>
                         {payment.payment_method && (
-                          <div className="text-sm text-gray-600 mt-1">
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                             Method: {payment.payment_method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </div>
                         )}
                         {payment.receipt_number && (
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
                             Receipt: {payment.receipt_number}
                           </div>
                         )}
                         {payment.notes && (
-                          <div className="text-sm text-gray-600 mt-1">{payment.notes}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{payment.notes}</div>
                         )}
                         {payment.staff_name && (
-                          <div className="text-xs text-gray-500 mt-1">Recorded by: {payment.staff_name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Recorded by: {payment.staff_name}</div>
                         )}
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-green-600">{formatCurrency(payment.amount)}</div>
+                        <div className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(payment.amount)}</div>
                       </div>
                     </div>
                   </div>
@@ -734,25 +734,25 @@ export default function CustomerDetailPage() {
           {/* Ledger Table - Desktop */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Date & Time</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Reference</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Description</th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Debit</th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Credit</th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Balance</th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">Type</th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">Status</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Date & Time</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Reference</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Description</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Debit</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Credit</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Balance</th>
+                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Type</th>
+                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {/* Opening Balance Row */}
-                <tr className="bg-gray-100 italic">
-                  <td colSpan={3} className="px-3 py-2 text-gray-600">Opening Balance</td>
-                  <td className="px-3 py-2 text-right text-gray-600">-</td>
-                  <td className="px-3 py-2 text-right text-gray-600">-</td>
-                  <td className="px-3 py-2 text-right font-bold text-gray-900">{formatCurrency(0)}</td>
+                <tr className="bg-gray-100 dark:bg-gray-700 italic">
+                  <td colSpan={3} className="px-3 py-2 text-gray-600 dark:text-gray-400">Opening Balance</td>
+                  <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">-</td>
+                  <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">-</td>
+                  <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(0)}</td>
                   <td colSpan={2}></td>
                 </tr>
 
@@ -760,7 +760,7 @@ export default function CustomerDetailPage() {
                 {displayedTransactions.map(transaction => (
                   <tr 
                     key={transaction.id}
-                    className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer"
                     onClick={() => {
                       if (transaction.type === 'entry') {
                         setSelectedEntry(transaction.originalData as CreditEntryWithItems);
@@ -769,16 +769,16 @@ export default function CustomerDetailPage() {
                       }
                     }}
                   >
-                    <td className="px-3 py-2 text-gray-900">{formatDateTime(transaction.date)}</td>
-                    <td className="px-3 py-2 text-gray-700">{transaction.reference}</td>
-                    <td className="px-3 py-2 text-gray-900">{transaction.description}</td>
-                    <td className={`px-3 py-2 text-right font-medium ${transaction.debit > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                    <td className="px-3 py-2 text-gray-900 dark:text-white">{formatDateTime(transaction.date)}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{transaction.reference}</td>
+                    <td className="px-3 py-2 text-gray-900 dark:text-white">{transaction.description}</td>
+                    <td className={`px-3 py-2 text-right font-medium ${transaction.debit > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>
                       {transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}
                     </td>
-                    <td className={`px-3 py-2 text-right font-medium ${transaction.credit > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                    <td className={`px-3 py-2 text-right font-medium ${transaction.credit > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
                       {transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}
                     </td>
-                    <td className="px-3 py-2 text-right font-bold text-gray-900">{formatCurrency(transaction.balance)}</td>
+                    <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(transaction.balance)}</td>
                     <td className="px-3 py-2 text-center">
                       <Badge variant={transaction.type === 'entry' ? 'info' : 'success'}>
                         {transaction.type === 'entry' ? 'Entry' : 'Payment'}
@@ -800,10 +800,10 @@ export default function CustomerDetailPage() {
           {/* Ledger Cards - Mobile */}
           <div className="md:hidden space-y-3">
             {/* Opening Balance Card */}
-            <div className="bg-gray-100 p-4 rounded-lg italic">
+            <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg italic">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Opening Balance</span>
-                <span className="font-bold text-gray-900">{formatCurrency(0)}</span>
+                <span className="text-gray-600 dark:text-gray-400">Opening Balance</span>
+                <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(0)}</span>
               </div>
             </div>
 
@@ -811,7 +811,7 @@ export default function CustomerDetailPage() {
             {displayedTransactions.map(transaction => (
               <div
                 key={transaction.id}
-                className="border border-gray-200 rounded-lg p-4 bg-white cursor-pointer hover:shadow-md transition-shadow"
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => {
                   if (transaction.type === 'entry') {
                     setSelectedEntry(transaction.originalData as CreditEntryWithItems);
@@ -822,31 +822,31 @@ export default function CustomerDetailPage() {
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium text-gray-900">{formatDateTime(transaction.date)}</div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{formatDateTime(transaction.date)}</div>
                     <Badge variant={transaction.type === 'entry' ? 'info' : 'success'}>
                       {transaction.type === 'entry' ? 'Entry' : 'Payment'}
                     </Badge>
                   </div>
                   
-                  <div className="text-sm text-gray-700">{transaction.reference}</div>
-                  <div className="text-sm text-gray-900">{transaction.description}</div>
+                  <div className="text-sm text-gray-700 dark:text-gray-300">{transaction.reference}</div>
+                  <div className="text-sm text-gray-900 dark:text-white">{transaction.description}</div>
                   
                   <div className="flex items-center justify-between pt-2 border-t">
                     {transaction.debit > 0 && (
                       <div>
-                        <span className="text-xs text-gray-500">Debit: </span>
-                        <span className="text-sm font-medium text-red-600">{formatCurrency(transaction.debit)}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Debit: </span>
+                        <span className="text-sm font-medium text-red-600 dark:text-red-400">{formatCurrency(transaction.debit)}</span>
                       </div>
                     )}
                     {transaction.credit > 0 && (
                       <div>
-                        <span className="text-xs text-gray-500">Credit: </span>
-                        <span className="text-sm font-medium text-green-600">{formatCurrency(transaction.credit)}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Credit: </span>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">{formatCurrency(transaction.credit)}</span>
                       </div>
                     )}
                     <div>
-                      <span className="text-xs text-gray-500">Balance: </span>
-                      <span className="text-sm font-bold text-gray-900">{formatCurrency(transaction.balance)}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Balance: </span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(transaction.balance)}</span>
                     </div>
                   </div>
 
@@ -872,7 +872,7 @@ export default function CustomerDetailPage() {
           )}
 
           {/* Results count */}
-          <div className="mt-3 text-sm text-gray-500 text-center">
+          <div className="mt-3 text-sm text-gray-500 dark:text-gray-400 text-center">
             Showing {displayedTransactions.length} of {filteredTransactions.length} transactions
           </div>
         </Card>

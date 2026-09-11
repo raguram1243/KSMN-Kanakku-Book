@@ -5,7 +5,9 @@
 // normalizes / validates it into clean structured
 // results before returning them to the frontend.
 
-import { ClassificationResult } from './prompts.ts';
+// Type-only import: ClassificationResult is an interface, so it must not be
+// emitted as a runtime import.
+import type { ClassificationResult } from './prompts.ts';
 
 export interface CreditExtractionResult {
   document_type: string;

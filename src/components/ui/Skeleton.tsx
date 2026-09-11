@@ -37,13 +37,13 @@ export function SkeletonText({
 export function SkeletonCard({ className = '', children }: SkeletonProps & { children?: React.ReactNode }) {
   if (children) {
     return (
-      <div className={`bg-white border border-gray-200 rounded-lg p-4 ${className}`}>
+      <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${className}`}>
         {children}
       </div>
     );
   }
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg p-4 ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${className}`}>
       <Skeleton className="h-4 w-1/3 mb-3" />
       <Skeleton className="h-8 w-1/2" />
     </div>
@@ -55,7 +55,7 @@ export function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; column
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex gap-4 pb-2 border-b border-gray-200">
+      <div className="flex gap-4 pb-2 border-b border-gray-200 dark:border-gray-700">
         {Array.from({ length: columns }).map((_, i) => (
           <Skeleton key={i} className="h-4 flex-1" />
         ))}
@@ -75,7 +75,7 @@ export function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; column
 /** Chart area skeleton placeholder */
 export function SkeletonChart({ className = '' }: SkeletonProps) {
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg p-4 ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${className}`}>
       <Skeleton className="h-5 w-1/4 mb-4" />
       <div className="flex items-end space-x-1 h-32">
         {Array.from({ length: 12 }).map((_, i) => (

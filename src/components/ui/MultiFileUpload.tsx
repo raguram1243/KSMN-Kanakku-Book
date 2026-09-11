@@ -18,11 +18,48 @@ interface MultiFileUploadProps {
   label?: string;
   attachmentType: 'entry' | 'payment';
   relatedId?: string;
+  /**
+   * File types this picker accepts, as an `accept` attribute value. Defaults to
+   * images + PDF, which is what the credit-entry and payment attachment flows
+   * use. AI Scan passes images only. Also enforced in `addFile`, since the
+   * `accept` attribute is only a hint - the OS dialog lets users override it.
+   */
+  accept?: string;
+}
+
+const DEFAULT_ACCEPT = 'image/*,application/pdf';
+
+/** True when `file` satisfies an `accept` attribute value (handles `image/*` wildcards). */
+function matchesAccept(file: File, accept: string): boolean {
+  const fileType = (file.type || '').toLowerCase();
+  const patterns = accept.split(',').map(p => p.trim().toLowerCase()).filter(Boolean);
+  if (patterns.length === 0) return true;
+  return patterns.some(pattern => {
+    if (pattern.startsWith('.')) return file.name.toLowerCase().endsWith(pattern);
+    if (pattern.endsWith('/*')) return fileType.startsWith(pattern.slice(0, -1));
+    return fileType === pattern;
+  });
+}
+
+/** Human-readable form of an `accept` value, for error messages. */
+function describeAccept(accept: string): string {
+  const names = accept
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p =>
+      p === 'application/pdf'
+        ? 'PDF'
+        : p.endsWith('/*')
+          ? `${p.slice(0, -2)} files`
+          : p.split('/')[1]?.toUpperCase() ?? p
+    );
+  return [...new Set(names)].join(', ');
 }
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 
-export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachmentType, relatedId }: MultiFileUploadProps) {
+export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachmentType, relatedId, accept = DEFAULT_ACCEPT }: MultiFileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -115,6 +152,14 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
       return
     }
 
+    // The `accept` attribute is advisory - users can pick any file via the
+    // OS dialog's "All files" option - so reject mismatches explicitly.
+    if (!matchesAccept(file, accept)) {
+      const errorMsg = `Unsupported file type${file.type ? ` (${file.type})` : ''} — accepted: ${describeAccept(accept)}`
+      onFilesChange([...files, { file, preview: null, uploadedUrl: null, uploading: false, error: errorMsg }])
+      return
+    }
+
     // Client-side size check
     if (file.size > MAX_FILE_SIZE) {
       const errorMsg = `File too large — max 4MB per file (got ${(file.size / 1024 / 1024).toFixed(2)}MB)`
@@ -204,21 +249,21 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
   return (
     <div className="space-y-3">
       {label && (
-        <label className="block text-sm font-medium text-gray-700">{label}</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       )}
 
       {/* File list */}
       {files.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {files.map((item, index) => (
-            <div key={index} className="relative group border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <div key={index} className="relative group border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
               {item.preview ? (
                 <img src={item.preview} alt={`Attachment ${index + 1}`} className="w-full h-24 object-cover" />
               ) : (
-                <div className="w-full h-24 flex items-center justify-center bg-gray-50">
+                <div className="w-full h-24 flex items-center justify-center bg-gray-50 dark:bg-gray-900/50">
                   <div className="text-center">
                     <span className="text-2xl">📄</span>
-                    <div className="text-xs text-gray-500 mt-1 truncate px-1 max-w-full">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate px-1 max-w-full">
                       {item.file.name}
                     </div>
                   </div>
@@ -257,14 +302,14 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
           <button
             type="button"
             onClick={startCamera}
-            className="flex-1 px-3 py-2 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors"
+            className="flex-1 px-3 py-2 text-sm font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors"
           >
             📷 Camera ({remaining} left)
           </button>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+            className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             📁 Upload File ({remaining} left)
           </button>
@@ -274,7 +319,7 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,application/pdf"
+        accept={accept}
         onChange={handleFilePick}
         className="hidden"
       />
@@ -282,20 +327,20 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
       {/* Camera Modal */}
       {showCamera && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 max-w-2xl w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-2xl w-full">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Take Photo</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Take Photo</h3>
               <button
                 type="button"
                 onClick={stopCamera}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl"
               >
                 ×
               </button>
             </div>
 
             {cameraError ? (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
                 {cameraError}
               </div>
             ) : (

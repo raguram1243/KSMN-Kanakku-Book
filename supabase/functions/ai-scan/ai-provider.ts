@@ -1,15 +1,30 @@
 // ============================================
-// AI Provider Interface & Factory
+// AI Provider — Google Gemini
 // ============================================
-// Abstraction layer for AI providers. Currently uses OpenRouter
-// (an OpenAI-compatible API) with a free, vision-capable model.
-// Swap the OpenRouterProvider implementation to change providers
-// without touching the rest of the ai-scan flow.
+// AI Scan runs entirely on a vision model: the document image is sent to
+// Gemini and comes back as structured JSON. There is no OCR or text-extraction
+// step anywhere in this pipeline.
 //
-// Configuration (set as Supabase Edge Function secrets):
-//   AI_PROVIDER        - "openrouter" selects this provider (default)
-//   OPENROUTER_API_KEY - OpenRouter API key (used as Bearer token)
-//   OPENROUTER_MODEL   - Free vision model ID (e.g. "provider/model:free")
+// ── WHERE TO PUT YOUR API KEY ────────────────────────────────────────────────
+// The key is a SERVER-SIDE secret and must never reach the browser bundle.
+// Never add it to a VITE_-prefixed variable: Vite inlines those into the
+// JavaScript it ships, which would publish your key to every visitor.
+//
+//   Production (required) — set it as a Supabase Edge Function secret:
+//       supabase secrets set GEMINI_API_KEY=your_key_here
+//
+//   Local development — add the same line to the project's .env file:
+//       GEMINI_API_KEY=your_key_here
+//
+// Get a key from Google AI Studio: https://aistudio.google.com/apikey
+//
+// Optional overrides:
+//   GEMINI_MODEL - model id (default: gemini-2.5-flash)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEFAULT_MODEL = 'gemini-2.5-flash';
+const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const REQUEST_TIMEOUT_MS = 60_000;
 
 export interface AIProvider {
   analyzeDocument(
@@ -19,36 +34,19 @@ export interface AIProvider {
   ): Promise<string>;
 }
 
-export function getProvider(providerName: string): AIProvider {
-  switch (providerName) {
-    case 'openrouter':
-      return new OpenRouterProvider();
-    // Add more providers here as needed
-    // case 'gemini':
-    //   return new GeminiProvider();
-    // case 'claude':
-    //   return new ClaudeProvider();
-    default:
-      throw new Error(`Unknown AI provider: ${providerName}`);
-  }
+export function getProvider(): AIProvider {
+  return new GeminiProvider();
 }
 
-// OpenRouter Provider Implementation
-// OpenRouter exposes an OpenAI-compatible /chat/completions endpoint.
-// Base URL: https://openrouter.ai/api/v1
-// Full path: https://openrouter.ai/api/v1/chat/completions
-class OpenRouterProvider implements AIProvider {
-  private endpoint: string;
+class GeminiProvider implements AIProvider {
   private apiKey: string;
   private model: string;
 
   constructor() {
-    // OpenRouter is OpenAI-compatible.
-    this.endpoint = 'https://openrouter.ai/api/v1/chat/completions';
     // @ts-ignore - Deno.env is available in Edge Functions
-    this.apiKey = Deno.env.get('OPENROUTER_API_KEY') || '';
+    this.apiKey = Deno.env.get('GEMINI_API_KEY') || '';
     // @ts-ignore - Deno.env is available in Edge Functions
-    this.model = Deno.env.get('OPENROUTER_MODEL') || '';
+    this.model = Deno.env.get('GEMINI_MODEL') || DEFAULT_MODEL;
   }
 
   async analyzeDocument(
@@ -56,81 +54,106 @@ class OpenRouterProvider implements AIProvider {
     mimeType: string,
     prompt: string
   ): Promise<string> {
-    const base64 = bytesToBase64(fileBytes);
-    const dataUrl = `data:${mimeType};base64,${base64}`;
+    if (!this.apiKey) {
+      throw new Error(
+        'GEMINI_API_KEY is not set. Add it with: supabase secrets set GEMINI_API_KEY=your_key'
+      );
+    }
 
     const requestBody = {
-      model: this.model,
-      messages: [
+      contents: [
         {
           role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: dataUrl } },
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mimeType, data: bytesToBase64(fileBytes) } },
           ],
         },
       ],
-      max_tokens: 1000,
-      temperature: 0.1,
-      stream: false,
+      generationConfig: {
+        // Ask Gemini for raw JSON rather than prose that happens to contain
+        // JSON. This is what makes the amounts reliable - no markdown fences,
+        // no commentary to parse around.
+        responseMimeType: 'application/json',
+        temperature: 0.1,
+        maxOutputTokens: 4096,
+      },
     };
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch(this.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-          // OpenRouter-recommended headers (required by some models and used
-          // for free-tier usage analytics + referer verification).
-          'HTTP-Referer': 'https://ksmn-kanakku-book.web.app',
-          'X-Title': 'KSMN Kanakku-Book',
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
+      const response = await fetch(
+        `${API_BASE}/${encodeURIComponent(this.model)}:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Header auth, not ?key= — query strings end up in access logs.
+            'x-goog-api-key': this.apiKey,
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        }
+      );
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
-        let errorMsg = `OpenRouter API error (${response.status})`;
+        let errorMsg = `Gemini API error (${response.status})`;
         try {
           const errorJson = JSON.parse(errorText);
-          errorMsg =
-            errorJson.error?.message ||
-            errorJson.error?.code ||
-            errorJson.error ||
-            errorMsg;
+          errorMsg = errorJson?.error?.message || errorMsg;
         } catch {
           errorMsg = `${errorMsg}: ${errorText.substring(0, 200)}`;
         }
-        console.error('[OpenRouterProvider] API error:', response.status, errorText);
+        console.error('[GeminiProvider] API error:', response.status, errorText);
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Gemini rejected the API key. Check the GEMINI_API_KEY secret.');
+        }
+        if (response.status === 429) {
+          throw new Error('Gemini rate limit reached. Please wait a moment and try again.');
+        }
         throw new Error(errorMsg);
       }
 
       const data = await response.json();
-      const content = data?.choices?.[0]?.message?.content;
 
-      if (!content) {
-        throw new Error('OpenRouter API returned empty response content');
+      // A prompt can be refused outright, before any candidate is produced.
+      const blockReason = data?.promptFeedback?.blockReason;
+      if (blockReason) {
+        throw new Error(`Gemini declined to process this document (${blockReason}).`);
       }
 
-      if (typeof content === 'string') {
-        return content;
+      const candidate = data?.candidates?.[0];
+      if (!candidate) {
+        throw new Error('Gemini returned no result for this document.');
       }
 
-      if (Array.isArray(content)) {
-        return content
-          .filter((block: any) => block.type === 'text')
-          .map((block: any) => block.text)
-          .join('\n');
+      // MAX_TOKENS means the JSON is truncated and will not parse; say so
+      // plainly rather than failing later with a confusing parse error.
+      if (candidate.finishReason && !['STOP', 'MAX_TOKENS'].includes(candidate.finishReason)) {
+        throw new Error(`Gemini stopped early (${candidate.finishReason}). Please try another photo.`);
       }
 
-      throw new Error('OpenRouter API returned unexpected response format');
+      const text = (candidate.content?.parts ?? [])
+        .map((part: any) => part?.text)
+        .filter((t: any) => typeof t === 'string')
+        .join('');
+
+      if (!text.trim()) {
+        throw new Error('Gemini returned an empty response.');
+      }
+
+      if (candidate.finishReason === 'MAX_TOKENS') {
+        throw new Error(
+          'The document produced more data than one response can hold. Try a clearer or simpler page.'
+        );
+      }
+
+      return text;
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error?.name === 'AbortError') {
@@ -141,56 +164,30 @@ class OpenRouterProvider implements AIProvider {
   }
 }
 
-// Health check function
+// Health check (exposed via the function's /health path)
 export async function checkAIProviderHealth(): Promise<{ status: string; message: string }> {
-  try {
-    const provider = new OpenRouterProvider();
-    // @ts-ignore - accessing private properties for health check
-    if (!provider.apiKey || !provider.model) {
-      return {
-        status: 'error',
-        message:
-          'OpenRouter API not configured. Set OPENROUTER_API_KEY and OPENROUTER_MODEL environment variables.',
-      };
-    }
-    return {
-      status: 'ok',
-      message: `OpenRouter provider configured (model: ${provider.model})`,
-    };
-  } catch (error: any) {
+  // @ts-ignore - Deno.env is available in Edge Functions
+  const apiKey = Deno.env.get('GEMINI_API_KEY') || '';
+  // @ts-ignore - Deno.env is available in Edge Functions
+  const model = Deno.env.get('GEMINI_MODEL') || DEFAULT_MODEL;
+
+  if (!apiKey) {
     return {
       status: 'error',
-      message: error?.message || 'Health check failed',
+      message:
+        'GEMINI_API_KEY is not configured. Set it with: supabase secrets set GEMINI_API_KEY=your_key',
     };
   }
+
+  return { status: 'ok', message: `Gemini provider configured (model: ${model})` };
 }
 
-// Base64 helpers (chunked to avoid call-stack limits on large files/images)
+// Base64 helpers (chunked to avoid call-stack limits on large images)
 function bytesToBase64(bytes: Uint8Array): string {
   const chunkSize = 0x8000;
   const chunks: string[] = [];
   for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    chunks.push(String.fromCharCode(...chunk));
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + chunkSize)));
   }
-  if (typeof btoa !== 'undefined') {
-    return btoa(chunks.join(''));
-  }
-  return btoaFallback(chunks.join(''));
-}
-
-function btoaFallback(str: string): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  let result = '';
-  let i = 0;
-  while (i < str.length) {
-    const byte1 = str.charCodeAt(i++) & 0xff;
-    const byte2 = i < str.length ? str.charCodeAt(i++) & 0xff : NaN;
-    const byte3 = i < str.length ? str.charCodeAt(i++) & 0xff : NaN;
-    result += chars[byte1 >> 2];
-    result += chars[((byte1 & 0x03) << 4) | (byte2 >> 4)];
-    result += isNaN(byte2) ? '=' : chars[((byte2 & 0x0f) << 2) | (byte3 >> 6)];
-    result += isNaN(byte3) ? '=' : chars[byte3 & 0x3f];
-  }
-  return result;
+  return btoa(chunks.join(''));
 }

@@ -32,11 +32,19 @@ export interface ExtractedCreditData {
 }
 
 // Alias for compatibility
+/**
+ * Per-field confidence returned by ai-scan. The set of keys depends on the
+ * document type (credit invoices report invoice_number/grand_total, receipts
+ * report payment_amount/payment_method, ...), and several ai-scan paths return
+ * `{}` outright - so every field is optional and extra keys are allowed.
+ * Consumers already default missing scores (`confidence.customer_name || 0.5`).
+ */
 export type ConfidenceScores = {
-  customer_name: number;
-  invoice_number: number;
-  invoice_date: number;
-  grand_total: number;
+  customer_name?: number;
+  invoice_number?: number;
+  invoice_date?: number;
+  grand_total?: number;
+  [field: string]: number | undefined;
 };
 
 export interface ExtractedPaymentData {
@@ -89,7 +97,7 @@ export interface PrefilledPayment {
 // Store Types (re-exported for convenience)
 // ============================================
 export interface ProcessingStep {
-  step: 'uploading' | 'reading' | 'classifying' | 'extracting' | 'matching' | 'preparing';
+  step: 'uploading' | 'reading' | 'analyzing' | 'matching' | 'preparing';
   message: string;
   progress: number;
 }
@@ -121,4 +129,6 @@ export type ProcessingState = ProcessingStep;
 export type AIScanRequest = {
   file_url: string;
   file_type: 'image' | 'pdf';
+  /** Real MIME type of the uploaded file (e.g. 'image/png'), from upload-attachment. */
+  mime_type?: string;
 };

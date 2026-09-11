@@ -83,7 +83,7 @@ export function CustomersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
         <div className="flex space-x-2">
           <Button
             variant={view === 'grid' ? 'primary' : 'secondary'}
@@ -103,11 +103,11 @@ export function CustomersPage() {
       </div>
 
       {toast && (
-        <div className="flex items-center justify-between bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-lg text-sm">
+        <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-2 rounded-lg text-sm">
           <span>{toast}</span>
           <button
             onClick={() => setToast(null)}
-            className="text-green-600 hover:text-green-800 font-medium"
+            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 font-medium"
           >
             &times;
           </button>
@@ -125,7 +125,7 @@ export function CustomersPage() {
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
           aria-label="Filter customers"
         >
           <option value="all">All customers</option>
@@ -162,7 +162,7 @@ export function CustomersPage() {
         </div>
       ) : customers.length === 0 ? (
         <Card>
-          <p className="text-center text-gray-500 py-8">
+          <p className="text-center text-gray-500 dark:text-gray-400 py-8">
             {debouncedSearch || filter !== 'all'
               ? 'No customers found matching your search.'
               : 'No customers yet. Add your first customer to get started.'}
@@ -178,23 +178,23 @@ export function CustomersPage() {
             >
                 <div className="space-y-3">
                   <div>
-                    <div className="font-semibold text-gray-900">{customer.name}</div>
-                    <div className="text-sm text-gray-500">{customer.customer_code}</div>
+                    <div className="font-semibold text-gray-900 dark:text-white">{customer.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{customer.customer_code}</div>
                   </div>
                   <div className="space-y-1 text-sm">
-                    <div className="text-gray-600">📞 {customer.phone}</div>
-                    {customer.address && <div className="text-gray-600">📍 {customer.address}</div>}
-                    <div className="text-gray-500">Created: {formatDate(customer.created_at)}</div>
+                    <div className="text-gray-600 dark:text-gray-400">📞 {customer.phone}</div>
+                    {customer.address && <div className="text-gray-600 dark:text-gray-400">📍 {customer.address}</div>}
+                    <div className="text-gray-500 dark:text-gray-400">Created: {formatDate(customer.created_at)}</div>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t">
                     <div className="flex items-center space-x-2">
                       {(customer.balance ?? 0) > 0 && (
-                        <span className="text-sm font-semibold text-red-600">
+                        <span className="text-sm font-semibold text-red-600 dark:text-red-400">
                           Owes: {formatCurrency(customer.balance ?? 0)}
                         </span>
                       )}
                       {(customer.advance_balance ?? 0) > 0 && (
-                        <span className="text-xs font-semibold text-green-600">
+                        <span className="text-xs font-semibold text-green-600 dark:text-green-400">
                           Adv: {formatCurrency(customer.advance_balance ?? 0)}
                         </span>
                       )}
@@ -204,7 +204,7 @@ export function CustomersPage() {
                         if (status.isOverdue) {
                           return <Badge variant="danger">{status.label}</Badge>
                         }
-                        return <span className="text-xs font-semibold text-amber-600">{status.label}</span>
+                        return <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{status.label}</span>
                       })()}
                     </div>
                     <Badge variant={customer.customer_type === 'regular' ? 'info' : 'default'}>
@@ -225,17 +225,17 @@ export function CustomersPage() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <div className="font-semibold text-gray-900">{customer.name}</div>
-                  <div className="text-sm text-gray-500">{customer.customer_code} • {customer.phone}</div>
+                  <div className="font-semibold text-gray-900 dark:text-white">{customer.name}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{customer.customer_code} • {customer.phone}</div>
                 </div>
                 <div className="flex items-center space-x-3">
                   {(customer.balance ?? 0) > 0 && (
-                    <span className="text-sm font-semibold text-red-600">
+                    <span className="text-sm font-semibold text-red-600 dark:text-red-400">
                       Owes: {formatCurrency(customer.balance ?? 0)}
                     </span>
                   )}
                   {(customer.advance_balance ?? 0) > 0 && (
-                    <span className="text-sm font-semibold text-green-600">
+                    <span className="text-sm font-semibold text-green-600 dark:text-green-400">
                       Adv: {formatCurrency(customer.advance_balance ?? 0)}
                     </span>
                   )}
@@ -245,7 +245,7 @@ export function CustomersPage() {
                     if (status.isOverdue) {
                       return <Badge variant="danger">{status.label}</Badge>
                     }
-                    return <span className="text-xs font-semibold text-amber-600">{status.label}</span>
+                    return <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{status.label}</span>
                   })()}
                   <Badge variant={customer.customer_type === 'regular' ? 'info' : 'default'}>
                     {customer.customer_type}

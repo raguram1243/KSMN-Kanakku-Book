@@ -29,7 +29,7 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
   if (!scanResult) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No scan result available</p>
+        <p className="text-gray-500 dark:text-gray-400">No scan result available</p>
         <Button onClick={onBack} className="mt-4">Back</Button>
       </div>
     );
@@ -70,15 +70,15 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
   };
 
   const getConfidenceColor = (conf: number): string => {
-    if (conf >= 0.8) return 'text-green-600';
-    if (conf >= 0.5) return 'text-yellow-600';
-    return 'text-red-600';
+    if (conf >= 0.8) return 'text-green-600 dark:text-green-400';
+    if (conf >= 0.5) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
   };
 
   const getConfidenceBg = (conf: number): string => {
-    if (conf >= 0.8) return 'bg-green-50';
-    if (conf >= 0.5) return 'bg-yellow-50';
-    return 'bg-red-50';
+    if (conf >= 0.8) return 'bg-green-50 dark:bg-green-900/20';
+    if (conf >= 0.5) return 'bg-yellow-50 dark:bg-yellow-900/20';
+    return 'bg-red-50 dark:bg-red-900/20';
   };
 
   return (
@@ -87,8 +87,8 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
       <Card>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Document Type</h3>
-            <p className="text-sm text-gray-600 mt-1">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Document Type</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               {DocumentClassifier.getLabel(scanResult.documentType)}
             </p>
           </div>
@@ -97,17 +97,17 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
           </Badge>
         </div>
         {scanResult.classificationReason && (
-          <p className="text-xs text-gray-500 mt-2">{scanResult.classificationReason}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{scanResult.classificationReason}</p>
         )}
       </Card>
 
       {/* Customer Matching */}
       <Card>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Match</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Customer Match</h3>
 
         {matches.length === 0 ? (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">No matching customer found. Create a new customer?</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">No matching customer found. Create a new customer?</p>
             <Button
               variant="secondary"
               size="sm"
@@ -124,14 +124,14 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
                 onClick={() => setSelectedCustomerId(match.id)}
                 className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                   selectedCustomerId === match.id
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 bg-white hover:border-primary-300'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-primary-300'
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="font-medium text-gray-900">{match.name}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="font-medium text-gray-900 dark:text-white">{match.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
                       {match.customer_code} • {match.phone}
                     </div>
                     <div className="text-xs text-gray-400 mt-1">{match.customer_type}</div>
@@ -140,7 +140,7 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
                     <Badge variant={CustomerMatcher.getMatchTypeVariant(match.match_type)}>
                       {CustomerMatcher.getMatchTypeLabel(match.match_type)}
                     </Badge>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {CustomerMatcher.formatMatchScore(match.match_score)}
                     </div>
                   </div>
@@ -151,8 +151,8 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
         )}
 
         {createNewCustomer && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600">
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               A new customer will be created when you save the entry/payment.
             </p>
           </div>
@@ -161,7 +161,7 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
 
       {/* Extracted Data */}
       <Card>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Extracted Data</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Extracted Data</h3>
 
         {isCredit && extractedData && 'items' in extractedData ? (
           <CreditDataReview
@@ -178,14 +178,14 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
             getConfidenceBg={getConfidenceBg}
           />
         ) : (
-          <p className="text-sm text-gray-500">No data extracted</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No data extracted</p>
         )}
       </Card>
 
       {/* Document Preview */}
       {scanResult.fileUrl && (
         <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Document Preview</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Document Preview</h3>
           {scanResult.fileType === 'image' ? (
             <img
               src={scanResult.fileUrl}
@@ -195,7 +195,7 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
             />
           ) : (
             <div className="text-center py-8">
-              <p className="text-gray-600 mb-4">PDF Document</p>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">PDF Document</p>
               <Button
                 variant="secondary"
                 size="sm"
@@ -245,7 +245,7 @@ function CreditDataReview({
       {/* Customer Info */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Name</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.customer_name || 0.5)}`}>
             <span className={getConfidenceColor(confidence.customer_name || 0.5)}>
               {data.customer_name || 'Not detected'}
@@ -253,7 +253,7 @@ function CreditDataReview({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.phone_number || 0.5)}`}>
             <span className={getConfidenceColor(confidence.phone_number || 0.5)}>
               {data.phone_number || 'Not detected'}
@@ -265,7 +265,7 @@ function CreditDataReview({
       {/* Invoice Details */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Invoice Number</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.invoice_number || 0.5)}`}>
             <span className={getConfidenceColor(confidence.invoice_number || 0.5)}>
               {data.invoice_number || 'Not detected'}
@@ -273,7 +273,7 @@ function CreditDataReview({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Date</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Invoice Date</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.invoice_date || 0.5)}`}>
             <span className={getConfidenceColor(confidence.invoice_date || 0.5)}>
               {data.invoice_date || 'Not detected'}
@@ -285,26 +285,26 @@ function CreditDataReview({
       {/* Items */}
       {data.items.length > 0 && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Items ({data.items.length})
           </label>
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Item</th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Qty</th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Rate</th>
-                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Item</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Qty</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Rate</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {data.items.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="px-3 py-2 text-gray-900">{item.item_name}</td>
-                    <td className="px-3 py-2 text-right text-gray-700">{item.quantity}</td>
-                    <td className="px-3 py-2 text-right text-gray-700">{formatCurrency(item.rate)}</td>
-                    <td className="px-3 py-2 text-right font-medium text-gray-900">{formatCurrency(item.amount)}</td>
+                    <td className="px-3 py-2 text-gray-900 dark:text-white">{item.item_name}</td>
+                    <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">{item.quantity}</td>
+                    <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">{formatCurrency(item.rate)}</td>
+                    <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-white">{formatCurrency(item.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -314,34 +314,34 @@ function CreditDataReview({
       )}
 
       {/* Totals */}
-      <div className="border-t border-gray-200 pt-4 space-y-2">
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2">
         <div className="flex justify-between">
-          <span className="text-gray-600">Subtotal:</span>
-          <span className="font-medium text-gray-900">{formatCurrency(data.subtotal)}</span>
+          <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
+          <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(data.subtotal)}</span>
         </div>
         {data.discount > 0 && (
           <div className="flex justify-between">
-            <span className="text-gray-600">Discount:</span>
-            <span className="font-medium text-gray-900">-{formatCurrency(data.discount)}</span>
+            <span className="text-gray-600 dark:text-gray-400">Discount:</span>
+            <span className="font-medium text-gray-900 dark:text-white">-{formatCurrency(data.discount)}</span>
           </div>
         )}
         {data.tax > 0 && (
           <div className="flex justify-between">
-            <span className="text-gray-600">Tax:</span>
-            <span className="font-medium text-gray-900">{formatCurrency(data.tax)}</span>
+            <span className="text-gray-600 dark:text-gray-400">Tax:</span>
+            <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(data.tax)}</span>
           </div>
         )}
         <div className="flex justify-between text-lg font-bold">
-          <span className="text-gray-900">Grand Total:</span>
-          <span className="text-primary-700">{formatCurrency(data.grand_total)}</span>
+          <span className="text-gray-900 dark:text-white">Grand Total:</span>
+          <span className="text-primary-700 dark:text-primary-300">{formatCurrency(data.grand_total)}</span>
         </div>
       </div>
 
       {/* Notes */}
       {data.notes && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-          <div className="p-2 bg-gray-50 rounded text-sm text-gray-700">{data.notes}</div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+          <div className="p-2 bg-gray-50 dark:bg-gray-900/50 rounded text-sm text-gray-700 dark:text-gray-300">{data.notes}</div>
         </div>
       )}
     </div>
@@ -367,7 +367,7 @@ function PaymentDataReview({
       {/* Customer & Amount */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Name</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.customer_name || 0.5)}`}>
             <span className={getConfidenceColor(confidence.customer_name || 0.5)}>
               {data.customer_name || 'Not detected'}
@@ -375,7 +375,7 @@ function PaymentDataReview({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Amount</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.payment_amount || 0.5)}`}>
             <span className={`text-lg font-bold ${getConfidenceColor(confidence.payment_amount || 0.5)}`}>
               {data.payment_amount > 0 ? formatCurrency(data.payment_amount) : 'Not detected'}
@@ -387,7 +387,7 @@ function PaymentDataReview({
       {/* Date & Method */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Date</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.payment_date || 0.5)}`}>
             <span className={getConfidenceColor(confidence.payment_date || 0.5)}>
               {data.payment_date || 'Not detected'}
@@ -395,7 +395,7 @@ function PaymentDataReview({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.payment_method || 0.5)}`}>
             <span className={getConfidenceColor(confidence.payment_method || 0.5)}>
               {data.payment_method || 'Not detected'}
@@ -407,7 +407,7 @@ function PaymentDataReview({
       {/* Reference & UPI */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Reference Number</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reference Number</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.reference_number || 0.5)}`}>
             <span className={getConfidenceColor(confidence.reference_number || 0.5)}>
               {data.reference_number || 'Not detected'}
@@ -415,7 +415,7 @@ function PaymentDataReview({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">UPI ID</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UPI ID</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.upi_id || 0.5)}`}>
             <span className={getConfidenceColor(confidence.upi_id || 0.5)}>
               {data.upi_id || 'Not detected'}
@@ -427,7 +427,7 @@ function PaymentDataReview({
       {/* Bank & Notes */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bank Name</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.bank_name || 0.5)}`}>
             <span className={getConfidenceColor(confidence.bank_name || 0.5)}>
               {data.bank_name || 'Not detected'}
@@ -435,7 +435,7 @@ function PaymentDataReview({
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
           <div className={`p-2 rounded ${getConfidenceBg(confidence.notes || 0.5)}`}>
             <span className={getConfidenceColor(confidence.notes || 0.5)}>
               {data.notes || 'Not detected'}

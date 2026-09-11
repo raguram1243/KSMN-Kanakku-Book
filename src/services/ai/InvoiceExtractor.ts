@@ -4,7 +4,7 @@
 // Maps AI-extracted credit data to the form fields
 // used by QuickAddPage.
 
-import { ExtractedCreditData, ConfidenceScores } from './types';
+import type { ExtractedCreditData, ConfidenceScores } from './types';
 
 export interface PrefilledCreditEntry {
   customerName?: string;
@@ -44,7 +44,7 @@ export class InvoiceExtractor {
       phoneNumber: data.phone_number || undefined,
       entryMode: 'detailed',
       lineItems: lineItems.length > 0 ? lineItems : [{ item_name: '', qty: 0, rate: 0, amount: 0 }],
-      description: data.notes || undefined,
+      description: data.description || data.notes || undefined,
       totalAmount: data.grand_total || data.subtotal || 0,
       notes: data.notes || undefined,
       confidence,

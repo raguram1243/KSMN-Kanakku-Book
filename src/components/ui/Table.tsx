@@ -9,15 +9,15 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
 
 export function Table({ children, className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`overflow-x-auto rounded-lg border border-gray-200 bg-white ${className}`.trim()} {...props}>
-      <table className="min-w-full text-sm text-gray-600">{children}</table>
+    <div className={`overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${className}`.trim()} {...props}>
+      <table className="min-w-full text-sm text-gray-600 dark:text-gray-400">{children}</table>
     </div>
   );
 }
 
 export function TableHead({ children, className = '', ...props }: HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <thead className={`bg-gray-50 ${className}`.trim()} {...props}>
+    <thead className={`bg-gray-50 dark:bg-gray-900/50 ${className}`.trim()} {...props}>
       {children}
     </thead>
   );
@@ -25,7 +25,7 @@ export function TableHead({ children, className = '', ...props }: HTMLAttributes
 
 export function TableHeadRow({ children, className = '', ...props }: HTMLAttributes<HTMLTableRowElement>) {
   return (
-    <tr className={`text-left text-xs font-semibold text-gray-500 uppercase tracking-wider ${className}`.trim()} {...props}>
+    <tr className={`text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${className}`.trim()} {...props}>
       {children}
     </tr>
   );
@@ -46,7 +46,7 @@ export function SortableHeader({
   const Icon = sortDirection === 'asc' ? ChevronUp : ChevronDown;
   return (
     <th
-      className={`px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none transition-opacity ${className}`.trim()}
+      className={`px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none transition-opacity ${className}`.trim()}
       onClick={() => onSort(sortKey)}
       {...props}
     >
@@ -59,13 +59,13 @@ export function SortableHeader({
 }
 
 export function TableBody({ children, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
-  return <tbody className="divide-y divide-gray-100" {...props}>{children}</tbody>;
+  return <tbody className="divide-y divide-gray-100 dark:divide-gray-800" {...props}>{children}</tbody>;
 }
 
 export function TableRow({ children, clickable = false, onClick, className = '', ...props }: HTMLAttributes<HTMLTableRowElement> & { clickable?: boolean }) {
   return (
     <tr
-      className={`transition-colors ${clickable ? 'cursor-pointer hover:bg-gray-50' : 'hover:bg-gray-50/60'} ${className}`.trim()}
+      className={`transition-colors ${clickable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60' : 'hover:bg-gray-50/60'} ${className}`.trim()}
       onClick={onClick}
       {...props}
     >
@@ -84,7 +84,7 @@ export function TableCell({ children, className = '', right = false, ...props }:
 
 export function TableHeaderCell({ children, className = '', right = false, ...props }: HTMLAttributes<HTMLTableCellElement> & { right?: boolean }) {
   return (
-    <th className={`px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider ${right ? 'text-right' : ''} ${className}`.trim()} {...props}>
+    <th className={`px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider ${right ? 'text-right' : ''} ${className}`.trim()} {...props}>
       {children}
     </th>
   );
@@ -97,7 +97,7 @@ export function MoneyCell({ value, prefix = '₹', zeroClass = 'text-gray-400', 
   const isZero = num === 0;
   return (
     <td
-      className={`px-4 py-2.5 text-right font-variant-numeric tabular-nums ${isZero ? zeroClass : 'text-gray-900 font-medium'} ${props.className || ''}`.trim()}
+      className={`px-4 py-2.5 text-right font-variant-numeric tabular-nums ${isZero ? zeroClass : 'text-gray-900 dark:text-white font-medium'} ${props.className || ''}`.trim()}
       {...props}
     >
       {formatted}
@@ -112,10 +112,10 @@ interface StatusBadgeProps {
 }
 
 const statusConfig = {
-  paid: { bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
-  partial: { bg: 'bg-amber-100', text: 'text-amber-800', dot: 'bg-amber-500' },
-  pending: { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
-  overdue: { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
+  paid: { bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-800 dark:text-green-300', dot: 'bg-green-500' },
+  partial: { bg: 'bg-amber-100 dark:bg-amber-900/40', text: 'text-amber-800 dark:text-amber-300', dot: 'bg-amber-500' },
+  pending: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-400', dot: 'bg-gray-400' },
+  overdue: { bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-800 dark:text-red-300', dot: 'bg-red-500' },
 };
 
 export function StatusBadge({ status, label, dot = true }: StatusBadgeProps) {
@@ -138,9 +138,9 @@ interface EmptyStateProps {
 export function EmptyState({ title = 'No data', description, icon, action }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-10 text-center">
-      {icon && <div className="mb-3 text-gray-300">{icon}</div>}
-      <p className="text-sm font-medium text-gray-700">{title}</p>
-      {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+      {icon && <div className="mb-3 text-gray-300 dark:text-gray-600">{icon}</div>}
+      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{title}</p>
+      {description && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -151,7 +151,7 @@ export function SkeletonRow({ columns = 4, ...props }: { columns?: number } & HT
     <tr {...props}>
       {Array.from({ length: columns }).map((_, i) => (
         <td key={i} className="px-4 py-2.5">
-          <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200 last:w-1/2"></div>
+          <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200 dark:bg-gray-700 last:w-1/2"></div>
         </td>
       ))}
     </tr>

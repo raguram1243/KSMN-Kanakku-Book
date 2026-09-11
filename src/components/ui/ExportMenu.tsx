@@ -121,7 +121,7 @@ export function ExportMenu({ onExportCsv, onExportPdf, disabled, label = 'Export
             style={{ top: position.top, left: position.left }}
           >
             <button role="menuitem" className={itemClass} onClick={runAndClose(onExportCsv)}>
-              <FileSpreadsheet size={15} className="text-green-600" />
+              <FileSpreadsheet size={15} className="text-green-600 dark:text-green-400" />
               Export as CSV
             </button>
             <button
@@ -129,7 +129,7 @@ export function ExportMenu({ onExportCsv, onExportPdf, disabled, label = 'Export
               className={`${itemClass} border-t border-gray-100 dark:border-gray-800`}
               onClick={runAndClose(onExportPdf)}
             >
-              <FileText size={15} className="text-red-600" />
+              <FileText size={15} className="text-red-600 dark:text-red-400" />
               Export as PDF
             </button>
           </div>,
