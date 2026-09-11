@@ -7,7 +7,7 @@
 // 3. Review results
 // 4. Confirm and fill form
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { MultiFileUpload, FileItem } from '../ui/MultiFileUpload';
@@ -32,6 +32,12 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
   const [uploading, setUploading] = useState(false);
   const [processingStep, setProcessingStep] = useState<ProcessingStep | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Where the photo already lives in storage, kept so a failed scan can be
+  // retried without uploading the same image a second time.
+  const [uploaded, setUploaded] = useState<{ file_url: string; file_type: string; mime_type?: string } | null>(null);
+  // Synchronous guard: `uploading` is state, so two fast clicks can both pass
+  // the disabled check before React re-renders and fire two scans.
+  const inFlight = useRef(false);
 
   const { setScanResult, setIsScanning, setProcessingState, setError: setStoreError, clearScan } = useAIScanStore();
 
@@ -43,12 +49,43 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
       setUploading(false);
       setProcessingStep(null);
       setError(null);
+      setUploaded(null);
+      inFlight.current = false;
       clearScan();
     }
   }, [isOpen, clearScan]);
 
-  // Handle file upload
+  /** Runs the scan against an image already in storage. Shared by first run and retry. */
+  const runScan = async (target: { file_url: string; file_type: string; mime_type?: string }) => {
+    setPhase('processing');
+    setIsScanning(true);
+
+    const scanResult = await aiService.scanDocument(
+      { file_url: target.file_url, file_type: target.file_type as any, mime_type: target.mime_type },
+      (state) => {
+        setProcessingStep(state);
+        setProcessingState(state);
+      }
+    );
+
+    if (!scanResult) throw new Error('No scan result received');
+    setScanResult(scanResult);
+    setPhase('review');
+  };
+
+  const reportFailure = (err: unknown) => {
+    const errorMessage = err instanceof Error ? err.message : 'Scan failed';
+    setError(errorMessage);
+    setStoreError(errorMessage);
+    setPhase('upload');
+  };
+
+  // Handle file upload + scan
   const handleUpload = async () => {
+    // `uploading` is state, so two fast clicks can both pass the disabled check
+    // before React re-renders. This ref blocks the second one synchronously.
+    if (inFlight.current) return;
+
     if (files.length === 0) {
       setError('Please select a file to scan');
       return;
@@ -57,9 +94,9 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
     const file = files[0].file;
     if (!file) return;
 
-    // AI Scan is image-only: the vision provider receives documents through
-    // OpenRouter's `image_url` field, which cannot read raw PDF bytes. The
-    // regular credit-entry attachment upload still accepts PDFs.
+    // AI Scan is image-only: the vision provider receives documents through an
+    // image field that cannot read raw PDF bytes. The regular credit-entry
+    // attachment upload still accepts PDFs.
     if (file.type === 'application/pdf') {
       setError(
         "PDF documents aren't supported for AI Scan yet. Please upload a photo of the document instead."
@@ -71,53 +108,49 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
       return;
     }
 
+    inFlight.current = true;
     setUploading(true);
     setError(null);
 
     try {
-      // Upload file using existing attachment API
       const response = await api.uploadAttachment(file, 'entry');
-      
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Upload failed');
       }
 
       const result = await response.json();
-      const fileUrl = result.url;
-      const fileType = result.file_type;
-      // Real MIME type of the original File, so ai-scan can label the bytes to
-      // the provider accurately instead of assuming JPEG. Falls back to the
-      // local File's type if the endpoint didn't report one.
-      const mimeType = result.mime_type || file.type || undefined;
+      const target = {
+        file_url: result.url,
+        file_type: result.file_type,
+        // Real MIME type of the original File, so ai-scan can label the bytes
+        // accurately rather than assuming JPEG.
+        mime_type: result.mime_type || file.type || undefined,
+      };
+      setUploaded(target);
 
-      // Move to processing phase
-      setPhase('processing');
-      setIsScanning(true);
-
-      // Process with AI. scanDocument resolves with the result; it does not
-      // write to the store itself, so take the return value here and publish it
-      // (ReviewScreen reads scanResult from the store).
-      const scanResult = await aiService.scanDocument(
-        { file_url: fileUrl, file_type: fileType, mime_type: mimeType },
-        (state) => {
-          setProcessingStep(state);
-          setProcessingState(state);
-        }
-      );
-
-      if (scanResult) {
-        setScanResult(scanResult);
-        setPhase('review');
-      } else {
-        throw new Error('No scan result received');
-      }
+      await runScan(target);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Scan failed';
-      setError(errorMessage);
-      setStoreError(errorMessage);
-      setPhase('upload');
+      reportFailure(err);
     } finally {
+      inFlight.current = false;
+      setUploading(false);
+      setIsScanning(false);
+    }
+  };
+
+  /** Re-runs the scan on the photo already uploaded - no second upload. */
+  const handleRetry = async () => {
+    if (inFlight.current || !uploaded) return;
+    inFlight.current = true;
+    setUploading(true);
+    setError(null);
+    try {
+      await runScan(uploaded);
+    } catch (err) {
+      reportFailure(err);
+    } finally {
+      inFlight.current = false;
       setUploading(false);
       setIsScanning(false);
     }
@@ -138,7 +171,15 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
       <div className="space-y-6">
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
-            {error}
+            <p>{error}</p>
+            {uploaded && (
+              <div className="mt-3">
+                <Button variant="secondary" size="sm" onClick={handleRetry} disabled={uploading}>
+                  {uploading ? 'Retrying...' : 'Retry scan'}
+                </Button>
+                <span className="ml-2 text-xs">Uses the photo you already uploaded.</span>
+              </div>
+            )}
           </div>
         )}
 

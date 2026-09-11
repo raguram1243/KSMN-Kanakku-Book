@@ -31,6 +31,30 @@ const DEFAULT_MODEL = 'gemini-3.6-flash';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const REQUEST_TIMEOUT_MS = 60_000;
 
+// Gemini sheds load with 503 ("model is overloaded" / "high demand") and
+// throttles with 429. Both are transient and usually clear within seconds, so
+// they are retried rather than surfaced as a failed scan.
+const MAX_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 1_000;
+const RETRYABLE_STATUSES = [429, 500, 502, 503, 504];
+
+/** Carries the upstream HTTP status so the edge function can pass it through. */
+export class AIProviderError extends Error {
+  status: number;
+  retryable: boolean;
+  /** From a Retry-After header, when Gemini sends one. */
+  retryAfterMs?: number;
+
+  constructor(message: string, status = 502, retryable = false) {
+    super(message);
+    this.name = 'AIProviderError';
+    this.status = status;
+    this.retryable = retryable;
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export interface AIProvider {
   analyzeDocument(
     fileBytes: Uint8Array,
@@ -60,11 +84,38 @@ class GeminiProvider implements AIProvider {
     prompt: string
   ): Promise<string> {
     if (!this.apiKey) {
-      throw new Error(
-        'GEMINI_API_KEY is not set. Add it with: supabase secrets set GEMINI_API_KEY=your_key'
+      throw new AIProviderError(
+        'GEMINI_API_KEY is not set. Add it with: supabase secrets set GEMINI_API_KEY=your_key',
+        503
       );
     }
 
+    let lastError: any;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        return await this.attempt(fileBytes, mimeType, prompt);
+      } catch (error: any) {
+        lastError = error;
+        const canRetry = error instanceof AIProviderError && error.retryable;
+        if (!canRetry || attempt === MAX_ATTEMPTS) break;
+
+        // Honour Retry-After when Gemini sends one, else exponential backoff.
+        const wait = error.retryAfterMs ?? RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
+        console.warn(
+          `[GeminiProvider] attempt ${attempt}/${MAX_ATTEMPTS} failed (${error.status}); retrying in ${wait}ms`
+        );
+        await sleep(wait);
+      }
+    }
+    throw lastError;
+  }
+
+  /** One request to Gemini. Retry policy lives in analyzeDocument. */
+  private async attempt(
+    fileBytes: Uint8Array,
+    mimeType: string,
+    prompt: string
+  ): Promise<string> {
     const requestBody = {
       contents: [
         {
@@ -115,21 +166,39 @@ class GeminiProvider implements AIProvider {
           errorMsg = `${errorMsg}: ${errorText.substring(0, 200)}`;
         }
         console.error('[GeminiProvider] API error:', response.status, errorText);
+
         if (response.status === 401 || response.status === 403) {
-          throw new Error('Gemini rejected the API key. Check the GEMINI_API_KEY secret.');
+          throw new AIProviderError(
+            'Gemini rejected the API key. Check the GEMINI_API_KEY secret.',
+            502
+          );
         }
         // Model retired, renamed, or not enabled for this key. Say which model
         // failed and which secret changes it, instead of only echoing Google.
         if (/not (found|available)|no longer available|does not exist|unsupported model/i.test(errorMsg)) {
-          throw new Error(
+          throw new AIProviderError(
             `${errorMsg} (configured model: "${this.model}") - set a different one with: ` +
-            'supabase secrets set GEMINI_MODEL=<model-id>'
+            'supabase secrets set GEMINI_MODEL=<model-id>',
+            502
           );
         }
-        if (response.status === 429) {
-          throw new Error('Gemini rate limit reached. Please wait a moment and try again.');
+        if (RETRYABLE_STATUSES.includes(response.status)) {
+          // 503 is Gemini shedding load ("high demand"); 429 is throttling.
+          const retryAfterHeader = response.headers?.get('retry-after');
+          const retryAfterMs = retryAfterHeader
+            ? Math.min(Number(retryAfterHeader) * 1000 || 0, 10_000)
+            : undefined;
+          const friendly =
+            response.status === 429
+              ? 'Gemini is rate limiting this key. Please wait a moment and try again.'
+              : 'Gemini is busy right now. Please try again in a moment.';
+          const err = new AIProviderError(friendly, response.status === 429 ? 429 : 503, true);
+          if (retryAfterMs) err.retryAfterMs = retryAfterMs;
+          throw err;
         }
-        throw new Error(errorMsg);
+
+        // 4xx we cannot fix by retrying - surface Google's own explanation.
+        throw new AIProviderError(errorMsg, 502);
       }
 
       const data = await response.json();
@@ -137,18 +206,18 @@ class GeminiProvider implements AIProvider {
       // A prompt can be refused outright, before any candidate is produced.
       const blockReason = data?.promptFeedback?.blockReason;
       if (blockReason) {
-        throw new Error(`Gemini declined to process this document (${blockReason}).`);
+        throw new AIProviderError(`Gemini declined to process this document (${blockReason}).`, 422);
       }
 
       const candidate = data?.candidates?.[0];
       if (!candidate) {
-        throw new Error('Gemini returned no result for this document.');
+        throw new AIProviderError('Gemini returned no result for this document.', 422);
       }
 
       // MAX_TOKENS means the JSON is truncated and will not parse; say so
       // plainly rather than failing later with a confusing parse error.
       if (candidate.finishReason && !['STOP', 'MAX_TOKENS'].includes(candidate.finishReason)) {
-        throw new Error(`Gemini stopped early (${candidate.finishReason}). Please try another photo.`);
+        throw new AIProviderError(`Gemini stopped early (${candidate.finishReason}). Please try another photo.`, 422);
       }
 
       const text = (candidate.content?.parts ?? [])
@@ -157,12 +226,13 @@ class GeminiProvider implements AIProvider {
         .join('');
 
       if (!text.trim()) {
-        throw new Error('Gemini returned an empty response.');
+        throw new AIProviderError('Gemini returned an empty response.', 422, true);
       }
 
       if (candidate.finishReason === 'MAX_TOKENS') {
-        throw new Error(
-          'The document produced more data than one response can hold. Try a clearer or simpler page.'
+        throw new AIProviderError(
+          'The document produced more data than one response can hold. Try a clearer or simpler page.',
+          422
         );
       }
 
@@ -170,7 +240,11 @@ class GeminiProvider implements AIProvider {
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error?.name === 'AbortError') {
-        throw new Error('AI request timed out after 60 seconds. Please try again.');
+        throw new AIProviderError(
+          'AI request timed out after 60 seconds. Please try again.',
+          504,
+          true
+        );
       }
       throw error;
     }
