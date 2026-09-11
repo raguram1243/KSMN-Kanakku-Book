@@ -46,6 +46,9 @@ export default function QuickAddPage() {
   // Common fields
   const [entryNotes, setEntryNotes] = useState('');
   const [attachments, setAttachments] = useState<FileItem[]>([]);
+  // The AI Scan photo is already in storage (it had to be uploaded to be
+  // analysed), so it is carried over by URL rather than uploaded a second time.
+  const [scannedAttachment, setScannedAttachment] = useState<{ file_url: string; file_type: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editPaidAmount, setEditPaidAmount] = useState<number | null>(null);
@@ -304,7 +307,7 @@ export default function QuickAddPage() {
           customer_id: selectedCustomer.id,
           entry_mode: entryMode,
           total_amount: totalAmount,
-          attachments: uploadedAttachments,
+          attachments: [...uploadedAttachments, ...(scannedAttachment ? [scannedAttachment] : [])],
         };
 
         if (entryMode === 'quick') {
@@ -364,7 +367,7 @@ export default function QuickAddPage() {
     const scanResult = useAIScanStore.getState().scanResult;
     if (scanResult && DocumentClassifier.isCreditInvoice(scanResult)) {
       const extracted = scanResult.extractedData;
-      if (extracted && 'items' in extracted) {
+      if (extracted && 'grand_total' in extracted) {
         const prefilled = InvoiceExtractor.toPrefilledEntry(extracted, scanResult.confidence);
         
         // Prefill customer
@@ -384,28 +387,28 @@ export default function QuickAddPage() {
           matchCustomer();
         }
 
-        // Smart mode selection: use detailed mode only if we have meaningful line items
-        const hasDetailedItems = prefilled.lineItems.length >= 2 && 
-                                 prefilled.lineItems[0].item_name.trim() !== '';
-
-        if (hasDetailedItems) {
-          // Use detailed mode with line items
-          setEntryMode('detailed');
-          setLineItems(prefilled.lineItems);
-        } else {
-          // Use quick mode with description and total
-          setEntryMode('quick');
-          if (prefilled.description) {
-            setQuickDescription(prefilled.description);
-          }
-          if (prefilled.totalAmount > 0) {
-            setQuickAmount(prefilled.totalAmount.toString());
-          }
+        // A scan always fills Quick Entry: a summary of the goods plus the bill
+        // total. Per-item rates on handwritten bills are not reliable enough to
+        // build a Detailed Entry from, and summing them loses any discount.
+        setEntryMode('quick');
+        if (prefilled.description) {
+          setQuickDescription(prefilled.description);
+        }
+        if (prefilled.totalAmount > 0) {
+          setQuickAmount(prefilled.totalAmount.toString());
         }
 
-        // Prefill notes (common to both modes)
+        // Prefill notes
         if (prefilled.notes) {
           setEntryNotes(prefilled.notes);
+        }
+
+        // Keep the scanned photo so it lands on the entry as an attachment.
+        if (scanResult.fileUrl) {
+          setScannedAttachment({
+            file_url: scanResult.fileUrl,
+            file_type: scanResult.fileType || 'image',
+          });
         }
 
         // Clear scan result after using it
@@ -750,6 +753,34 @@ export default function QuickAddPage() {
 
             {/* Multi-file Attachments */}
             <div className="pt-6 border-t">
+              {scannedAttachment && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Scanned document
+                  </label>
+                  <div className="flex items-center gap-3 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50">
+                    {scannedAttachment.file_type === 'image' ? (
+                      <img
+                        src={scannedAttachment.file_url}
+                        alt="Scanned document"
+                        className="h-16 w-16 object-cover rounded"
+                      />
+                    ) : (
+                      <span className="text-2xl">📄</span>
+                    )}
+                    <div className="flex-1 text-sm text-gray-600 dark:text-gray-400">
+                      Will be attached to this entry
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setScannedAttachment(null)}
+                      className="text-sm text-red-600 dark:text-red-400 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
               <MultiFileUpload
                 label="Attachments (optional, up to 3 files)"
                 maxFiles={3}

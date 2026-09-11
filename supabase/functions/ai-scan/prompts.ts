@@ -59,6 +59,10 @@ STEP 1 - Classify the document as exactly one of:
 
 STEP 2 - Extract the fields for the type you chose, into "data".
 
+Do NOT return a per-item price breakdown. Handwritten bills rarely show reliable
+unit rates, and a wrong split is worse than none. Summarise the items in words in
+"description", and put your effort into reading the total correctly.
+
 THE TOTAL AMOUNT IS THE MOST IMPORTANT FIELD. Get it exactly right:
   - Use the final payable figure: the largest bottom-line total, usually labelled Grand Total, Total, Net Amount, Bill Amount or Amount Payable.
   - It is the amount AFTER discount and AFTER tax. Never return the subtotal when a later total exists.
@@ -74,8 +78,7 @@ For a credit_invoice, "data" must be:
   "phone_number": "phone number if visible, else \"\"",
   "invoice_number": "invoice or bill number, else \"\"",
   "invoice_date": "YYYY-MM-DD, else \"\"",
-  "description": "a short summary of what was bought, e.g. \"Cement, sand and steel rods\". Always fill this, even when items are listed.",
-  "items": [{"item": "item name", "quantity": 0, "unit": "nos|kg|bag|box|ft|pcs", "rate": 0, "amount": 0}],
+  "description": "a COMPLETE one-line summary of everything bought, with quantities, e.g. \"Asian Putty 21, 10 inch putty blade 4, 4 inch DD 4, 150 grit 10, 180 grit 10\". This replaces an itemised table, so cover every line on the bill. Never leave it empty for a bill.",
   "subtotal": 0,
   "discount": 0,
   "tax": 0,

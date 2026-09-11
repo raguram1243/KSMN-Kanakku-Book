@@ -62,6 +62,10 @@ const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachmentType, relatedId, accept = DEFAULT_ACCEPT }: MultiFileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  // dragenter/dragleave also fire for child elements; count depth so the
+  // highlight does not flicker as the pointer crosses the buttons inside.
+  const dragDepth = useRef(0);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -139,48 +143,72 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
   }
 
   const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      addFile(file)
-    }
+    const picked = Array.from(e.target.files ?? [])
+    if (picked.length) addFiles(picked)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const addFile = (file: File) => {
-    if (files.length >= maxFiles) {
-      onFilesChange([...files, { file, preview: null, uploadedUrl: null, uploading: false, error: 'Max files reached' }])
-      return
-    }
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    dragDepth.current += 1
+    if (remaining > 0) setIsDragging(true)
+  }
 
-    // The `accept` attribute is advisory - users can pick any file via the
-    // OS dialog's "All files" option - so reject mismatches explicitly.
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    dragDepth.current = 0
+    setIsDragging(false)
+    const dropped = Array.from(e.dataTransfer?.files ?? [])
+    if (dropped.length) addFiles(dropped)
+  }
+
+  /** Validates one file into a FileItem, carrying any rejection as `error`. */
+  const buildItem = (file: File): FileItem => {
+    // The `accept` attribute is advisory - users can pick any file via the OS
+    // dialog's "All files" option, and a drop bypasses it entirely - so reject
+    // mismatches explicitly.
     if (!matchesAccept(file, accept)) {
-      const errorMsg = `Unsupported file type${file.type ? ` (${file.type})` : ''} — accepted: ${describeAccept(accept)}`
-      onFilesChange([...files, { file, preview: null, uploadedUrl: null, uploading: false, error: errorMsg }])
-      return
+      return {
+        file, preview: null, uploadedUrl: null, uploading: false,
+        error: `Unsupported file type${file.type ? ` (${file.type})` : ''} — accepted: ${describeAccept(accept)}`,
+      }
     }
-
-    // Client-side size check
     if (file.size > MAX_FILE_SIZE) {
-      const errorMsg = `File too large — max 4MB per file (got ${(file.size / 1024 / 1024).toFixed(2)}MB)`
-      onFilesChange([...files, { file, preview: null, uploadedUrl: null, uploading: false, error: errorMsg }])
-      return
+      return {
+        file, preview: null, uploadedUrl: null, uploading: false,
+        error: `File too large — max 4MB per file (got ${(file.size / 1024 / 1024).toFixed(2)}MB)`,
+      }
     }
-
     const isImage = file.type.startsWith('image/')
-    const preview = isImage ? URL.createObjectURL(file) : null
-
-    const newItem: FileItem = {
+    return {
       file,
-      preview,
+      preview: isImage ? URL.createObjectURL(file) : null,
       uploadedUrl: null,
       uploading: false,
       error: null,
     }
-
-    onFilesChange([...files, newItem])
   }
 
+  /** Adds a batch in one state update - a drop can deliver several files at once. */
+  const addFiles = (incoming: File[]) => {
+    if (incoming.length === 0) return
+
+    const room = maxFiles - files.length
+    if (room <= 0) {
+      onFilesChange([...files, { file: incoming[0], preview: null, uploadedUrl: null, uploading: false, error: 'Max files reached' }])
+      return
+    }
+
+    onFilesChange([...files, ...incoming.slice(0, room).map(buildItem)])
+  }
+
+  const addFile = (file: File) => addFiles([file])
   const removeFile = (index: number) => {
     const item = files[index]
     if (item.preview) URL.revokeObjectURL(item.preview)
@@ -296,8 +324,24 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
         </div>
       )}
 
-      {/* Upload buttons */}
+      {/* Drop zone + upload buttons */}
       {remaining > 0 && (
+        <div
+          onDragEnter={handleDragEnter}
+          onDragOver={(e) => e.preventDefault()}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`rounded-lg border-2 border-dashed p-4 transition-colors ${
+            isDragging
+              ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+              : 'border-gray-300 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30'
+          }`}
+        >
+          <p className="mb-3 text-center text-sm text-gray-600 dark:text-gray-400">
+            {isDragging
+              ? 'Drop to add'
+              : `Drag and drop ${describeAccept(accept)} here, or`}
+          </p>
         <div className="flex space-x-2">
           <button
             type="button"
@@ -314,12 +358,14 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
             📁 Upload File ({remaining} left)
           </button>
         </div>
+        </div>
       )}
 
       <input
         ref={fileInputRef}
         type="file"
         accept={accept}
+        multiple={maxFiles > 1}
         onChange={handleFilePick}
         className="hidden"
       />
