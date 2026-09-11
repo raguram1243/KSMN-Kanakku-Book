@@ -14,6 +14,7 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Input } from '../ui/Input';
 import { ImageLightbox } from '../common/ImageLightbox';
+import { CreateCustomerModal } from '../customer/CreateCustomerModal';
 import { useAIScanStore } from '../../store/aiScanStore';
 import { DocumentClassifier } from '../../services/ai/DocumentClassifier';
 import { CustomerMatcher } from '../../services/ai/CustomerMatcher';
@@ -31,7 +32,7 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
   const scanResult = useAIScanStore((state) => state.scanResult);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [createNewCustomer, setCreateNewCustomer] = useState(false);
+  const [showCreateCustomer, setShowCreateCustomer] = useState(false);
 
   // Editable copy of what the scan read. Seeded once, then owned by the user.
   const [form, setForm] = useState<any>(() => ({ ...(scanResult?.extractedData ?? {}) }));
@@ -100,7 +101,6 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
   /** Choosing a customer fills their name and phone into the extracted data. */
   const chooseCustomer = (customer: { id: string; name: string; phone?: string }) => {
     setSelectedCustomerId(customer.id);
-    setCreateNewCustomer(false);
     setForm((prev: any) => ({
       ...prev,
       customer_name: customer.name,
@@ -259,19 +259,11 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setCreateNewCustomer(!createNewCustomer)}
+            onClick={() => setShowCreateCustomer(true)}
           >
-            {createNewCustomer ? 'Cancel' : '+ Create New Customer'}
+            + Create New Customer
           </Button>
         </div>
-
-        {createNewCustomer && (
-          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              A new customer will be created when you save the entry/payment.
-            </p>
-          </div>
-        )}
       </Card>
 
       {/* Extracted Data */}
@@ -338,6 +330,19 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
           Back
         </Button>
       </div>
+
+      {/* Creating a customer here actually creates one, and selects it. */}
+      <CreateCustomerModal
+        isOpen={showCreateCustomer}
+        onClose={() => setShowCreateCustomer(false)}
+        initialName={form.customer_name || ''}
+        initialPhone={form.phone_number || form.phone || ''}
+        onCreated={(customer) => {
+          setShowCreateCustomer(false);
+          setPickedCustomer(customer);
+          chooseCustomer(customer);
+        }}
+      />
 
       {/* Lightbox */}
       {lightboxImage && (

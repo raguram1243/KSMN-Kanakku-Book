@@ -11,6 +11,9 @@ interface CreateCustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated: (customer: Customer) => void;
+  /** Seed the form, e.g. with the name and phone an AI Scan read off a bill. */
+  initialName?: string;
+  initialPhone?: string;
 }
 
 const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
@@ -21,7 +24,7 @@ const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'corporate', label: 'Corporate/Institutional' },
 ];
 
-export function CreateCustomerModal({ isOpen, onClose, onCreated }: CreateCustomerModalProps) {
+export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, initialPhone }: CreateCustomerModalProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -30,9 +33,13 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated }: CreateCustom
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Reset the form whenever the modal is dismissed.
+  // Seed from the caller when opening, and clear everything when dismissed.
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      setName(initialName ?? '');
+      setPhone(initialPhone ?? '');
+      setError('');
+    } else {
       setName('');
       setPhone('');
       setAddress('');
@@ -40,7 +47,7 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated }: CreateCustom
       setCustomerType('regular');
       setError('');
     }
-  }, [isOpen]);
+  }, [isOpen, initialName, initialPhone]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
