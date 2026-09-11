@@ -10,14 +10,6 @@ export interface ExtractedCreditData {
   invoice_number: string;
   invoice_date: string;
   description: string; // For quick mode
-  items: Array<{
-    item: string;
-    item_name: string; // Alias for compatibility
-    quantity: number;
-    unit: string;
-    rate: number;
-    amount: number;
-  }>;
   subtotal: number;
   discount: number;
   tax: number;

@@ -17,14 +17,6 @@ export interface CreditExtractionResult {
   invoice_number: string;
   invoice_date: string;
   description: string;
-  items: Array<{
-    item: string;
-    item_name: string;
-    quantity: number;
-    unit: string;
-    rate: number;
-    amount: number;
-  }>;
   subtotal: number;
   discount: number;
   tax: number;
@@ -197,7 +189,6 @@ export function validateCreditExtraction(data: any): CreditExtractionResult {
       invoice_number: '',
       invoice_date: '',
       description: '',
-      items: [],
       subtotal: 0,
       discount: 0,
       tax: 0,
@@ -206,17 +197,6 @@ export function validateCreditExtraction(data: any): CreditExtractionResult {
       confidence: emptyConfidence,
     };
   }
-
-  const items = Array.isArray(data.items)
-    ? data.items.map((it: any) => ({
-        item: toStringValue(it?.item ?? it?.item_name),
-        item_name: toStringValue(it?.item ?? it?.item_name),
-        quantity: toNumberValue(it?.quantity),
-        unit: toStringValue(it?.unit),
-        rate: toNumberValue(it?.rate),
-        amount: toNumberValue(it?.amount),
-      }))
-    : [];
 
   const phone = toStringValue(data.phone_number ?? data.phone);
 
@@ -228,7 +208,6 @@ export function validateCreditExtraction(data: any): CreditExtractionResult {
     invoice_number: toStringValue(data.invoice_number),
     invoice_date: toStringValue(data.invoice_date),
     description: toStringValue(data.description),
-    items,
     subtotal: toNumberValue(data.subtotal),
     discount: toNumberValue(data.discount),
     tax: toNumberValue(data.tax),
