@@ -79,7 +79,12 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
    ```
    `GEMINI_API_KEY` powers the AI Scan feature. Get one from
    [Google AI Studio](https://aistudio.google.com/apikey). Optionally set
-   `GEMINI_MODEL` to override the default `gemini-2.5-flash`.
+   `GEMINI_MODEL` to override the default `gemini-3.6-flash`.
+
+   If scans fail with "this model is no longer available", Google has retired
+   that model for new keys. `GET <project-url>/functions/v1/ai-scan/health`
+   lists the models your key can actually use; set one with
+   `supabase secrets set GEMINI_MODEL=<model-id>` and redeploy.
 
    > **Never** put this key in a `VITE_`-prefixed variable. Vite inlines
    > those into the JavaScript bundle, which would publish your key to

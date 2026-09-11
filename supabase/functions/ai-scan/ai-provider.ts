@@ -19,10 +19,15 @@
 // Get a key from Google AI Studio: https://aistudio.google.com/apikey
 //
 // Optional overrides:
-//   GEMINI_MODEL - model id (default: gemini-2.5-flash)
+//   GEMINI_MODEL - model id (default: gemini-3.6-flash)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+// gemini-2.5-flash was the original default, but Google stopped offering it to
+// newly created API keys: requests fail with "no longer available to new users".
+// 3.6-flash is the current stable Flash model and supports everything this flow
+// needs - generateContent, inline image input, and responseMimeType JSON.
+// Override with the GEMINI_MODEL secret without touching this file.
+const DEFAULT_MODEL = 'gemini-3.6-flash';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const REQUEST_TIMEOUT_MS = 60_000;
 
@@ -113,6 +118,14 @@ class GeminiProvider implements AIProvider {
         if (response.status === 401 || response.status === 403) {
           throw new Error('Gemini rejected the API key. Check the GEMINI_API_KEY secret.');
         }
+        // Model retired, renamed, or not enabled for this key. Say which model
+        // failed and which secret changes it, instead of only echoing Google.
+        if (/not (found|available)|no longer available|does not exist|unsupported model/i.test(errorMsg)) {
+          throw new Error(
+            `${errorMsg} (configured model: "${this.model}") - set a different one with: ` +
+            'supabase secrets set GEMINI_MODEL=<model-id>'
+          );
+        }
         if (response.status === 429) {
           throw new Error('Gemini rate limit reached. Please wait a moment and try again.');
         }
@@ -164,7 +177,9 @@ class GeminiProvider implements AIProvider {
   }
 }
 
-// Health check (exposed via the function's /health path)
+// Health check (exposed via the function's /health path).
+// Asks Gemini which models this key can actually use, so a retired or
+// mistyped model id shows up here instead of as a failed scan for a user.
 export async function checkAIProviderHealth(): Promise<{ status: string; message: string }> {
   // @ts-ignore - Deno.env is available in Edge Functions
   const apiKey = Deno.env.get('GEMINI_API_KEY') || '';
@@ -179,9 +194,56 @@ export async function checkAIProviderHealth(): Promise<{ status: string; message
     };
   }
 
+  let available: string[];
+  try {
+    available = await listUsableModels(apiKey);
+  } catch (error: any) {
+    // Could not reach the catalogue; the key is at least present.
+    return {
+      status: 'warning',
+      message: `Configured model "${model}", but could not verify it: ${error?.message || 'unknown error'}`,
+    };
+  }
+
+  if (!available.includes(model)) {
+    const flash = available.filter((m) => m.includes('flash')).slice(0, 5);
+    const suggestions = (flash.length ? flash : available.slice(0, 5)).join(', ');
+    return {
+      status: 'error',
+      message:
+        `Model "${model}" is not available to this API key. ` +
+        `Pick one of: ${suggestions || '(none returned)'} ` +
+        'and set it with: supabase secrets set GEMINI_MODEL=<model-id>',
+    };
+  }
+
   return { status: 'ok', message: `Gemini provider configured (model: ${model})` };
 }
 
+/** Model ids this key may call with generateContent, without the "models/" prefix. */
+async function listUsableModels(apiKey: string): Promise<string[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(`${API_BASE}?pageSize=200`, {
+      headers: { 'x-goog-api-key': apiKey },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error(`model list request failed (${response.status})`);
+    }
+    const data = await response.json();
+    return (data?.models ?? [])
+      .filter((m: any) => (m?.supportedGenerationMethods ?? []).includes('generateContent'))
+      .map((m: any) => String(m?.name ?? '').replace(/^models\//, ''))
+      .filter(Boolean);
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error?.name === 'AbortError') throw new Error('model list request timed out');
+    throw error;
+  }
+}
 // Base64 helpers (chunked to avoid call-stack limits on large images)
 function bytesToBase64(bytes: Uint8Array): string {
   const chunkSize = 0x8000;
