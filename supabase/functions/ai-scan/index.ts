@@ -25,7 +25,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyToken } from '../_shared/jwt-utils.ts';
-import { getProvider, checkAIProviderHealth } from './ai-provider.ts';
+import { AIProviderError, getProvider, checkAIProviderHealth } from './ai-provider.ts';
 import { DOCUMENT_ANALYSIS_PROMPT } from './prompts.ts';
 import {
   extractJsonFromText,
@@ -184,16 +184,22 @@ serve(async (req) => {
       const raw = await provider.analyzeDocument(fileBytes, mimeType, DOCUMENT_ANALYSIS_PROMPT);
       analysis = extractJsonFromText(raw);
     } catch (analyzeError: any) {
+      // Report what actually went wrong. Gemini shedding load is a 503, not a
+      // fault in this function, and a caller that sees 500 for everything
+      // cannot tell a retryable blip from a broken request.
+      const status = analyzeError instanceof AIProviderError ? analyzeError.status : 500;
+      const retryable = analyzeError instanceof AIProviderError ? analyzeError.retryable : false;
       return new Response(
         JSON.stringify({
           error: `Document analysis failed: ${analyzeError.message}`,
+          retryable,
           documentType: 'unknown',
           documentTypeConfidence: 0,
           extractedData: null,
           customerMatches: [],
           confidence: {},
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
