@@ -13,7 +13,7 @@ import type { AIScanResult, CustomerMatch } from '../services/ai/types';
 export type { AIScanResult, CustomerMatch };
 
 export interface ProcessingStep {
-  step: 'uploading' | 'reading' | 'classifying' | 'extracting' | 'matching' | 'preparing';
+  step: 'uploading' | 'reading' | 'analyzing' | 'matching' | 'preparing';
   message: string;
   progress: number;
 }

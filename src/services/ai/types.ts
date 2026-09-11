@@ -97,7 +97,7 @@ export interface PrefilledPayment {
 // Store Types (re-exported for convenience)
 // ============================================
 export interface ProcessingStep {
-  step: 'uploading' | 'reading' | 'classifying' | 'extracting' | 'matching' | 'preparing';
+  step: 'uploading' | 'reading' | 'analyzing' | 'matching' | 'preparing';
   message: string;
   progress: number;
 }

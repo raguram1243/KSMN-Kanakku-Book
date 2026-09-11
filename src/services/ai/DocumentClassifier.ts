@@ -3,7 +3,7 @@
 // ============================================
 // Utility functions to classify document types
 
-import { AIScanResult } from './types';
+import type { AIScanResult } from './types';
 
 export class DocumentClassifier {
   /**

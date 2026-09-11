@@ -15,8 +15,7 @@ export function ProcessingDialog({ step }: ProcessingDialogProps) {
   const steps: Array<{ key: ProcessingStep['step']; label: string }> = [
     { key: 'uploading', label: 'Uploading' },
     { key: 'reading', label: 'Reading' },
-    { key: 'classifying', label: 'Classifying' },
-    { key: 'extracting', label: 'Extracting' },
+    { key: 'analyzing', label: 'Analysing' },
     { key: 'matching', label: 'Matching' },
     { key: 'preparing', label: 'Preparing' },
   ];

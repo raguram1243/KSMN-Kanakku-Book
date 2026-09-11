@@ -4,7 +4,7 @@
 // Maps AI-extracted payment data to the form fields
 // used by PaymentReceivedPage.
 
-import { ExtractedPaymentData, ConfidenceScores } from './types';
+import type { ExtractedPaymentData, ConfidenceScores } from './types';
 
 export interface PrefilledPayment {
   customerName?: string;

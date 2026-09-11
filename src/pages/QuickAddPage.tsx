@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -355,8 +355,12 @@ export default function QuickAddPage() {
     }
   };
 
-  // Auto-fill from AI scan
-  useEffect(() => {
+  // Auto-fill from AI scan.
+  // Runs on mount (a scan started from another page) and again when the user
+  // presses "Confirm & Fill Form". It cannot simply subscribe to the store:
+  // the result lands there before the review screen is shown, and clearing it
+  // then would blank the review the user is still reading.
+  const applyScanResult = useCallback(() => {
     const scanResult = useAIScanStore.getState().scanResult;
     if (scanResult && DocumentClassifier.isCreditInvoice(scanResult)) {
       const extracted = scanResult.extractedData;
@@ -406,18 +410,19 @@ export default function QuickAddPage() {
 
         // Clear scan result after using it
         useAIScanStore.getState().clearScan();
-
-        // Clear scan result after using it
-        useAIScanStore.getState().clearScan();
       }
     }
   }, []);
+
+  useEffect(() => {
+    applyScanResult();
+  }, [applyScanResult]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isEditMode ? 'Edit Credit Entry' : 'Add Credit Entry'}</h1>
-        {!isEditMode && <AIScanButton variant="primary" />}
+        {!isEditMode && <AIScanButton variant="primary" onScanComplete={applyScanResult} />}
       </div>
 
 

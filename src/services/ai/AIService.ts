@@ -3,7 +3,7 @@
 // ============================================
 // Main service for AI document scanning
 
-import { AIScanResult, ProcessingStep, AIScanRequest } from './types';
+import type { AIScanResult, ProcessingStep, AIScanRequest } from './types';
 
 export interface AIServiceInterface {
   scanDocument(
@@ -46,14 +46,14 @@ export class AIService implements AIServiceInterface {
         }
       );
 
-      onProgress?.({ step: 'classifying', message: 'Classifying document...', progress: 50 });
+      onProgress?.({ step: 'analyzing', message: 'Reading the document with AI...', progress: 55 });
 
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'AI scan failed');
       }
 
-      onProgress?.({ step: 'extracting', message: 'Extracting data...', progress: 75 });
+      onProgress?.({ step: 'matching', message: 'Matching customer...', progress: 85 });
 
       const result = await response.json();
       

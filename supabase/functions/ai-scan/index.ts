@@ -9,27 +9,24 @@
 // Flow:
 //   1. Verify JWT
 //   2. Download file from Supabase Storage
-//   3. Classify document type (credit_invoice | payment_receipt | bank_receipt | unknown)
-//   4. Extract structured data based on document type
-//   5. Match customers from database
-//   6. Return clean JSON with confidence scores
+//   3. One Gemini call: classify the document AND extract its fields
+//   4. Match customers from database
+//   5. Return clean JSON with confidence scores
+//
+// There is no OCR step - the vision model reads the document directly.
 //
 // Environment variables (set as Edge Function secrets):
-//   AI_PROVIDER        - "openrouter" (default)
-//   OPENROUTER_API_KEY - OpenRouter API key (Bearer token)
-//   OPENROUTER_MODEL   - Free vision model ID (e.g. "provider/model:free")
-//   SUPABASE_URL      - (auto-provided by Supabase)
+//   GEMINI_API_KEY - Google AI Studio key. REQUIRED. Set with:
+//                      supabase secrets set GEMINI_API_KEY=your_key_here
+//   GEMINI_MODEL   - optional model override (default: gemini-2.5-flash)
+//   SUPABASE_URL              - (auto-provided by Supabase)
 //   SUPABASE_SERVICE_ROLE_KEY - (auto-provided by Supabase)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyToken } from '../_shared/jwt-utils.ts';
 import { getProvider, checkAIProviderHealth } from './ai-provider.ts';
-import {
-  CLASSIFICATION_PROMPT,
-  CREDIT_EXTRACTION_PROMPT,
-  PAYMENT_EXTRACTION_PROMPT,
-} from './prompts.ts';
+import { DOCUMENT_ANALYSIS_PROMPT } from './prompts.ts';
 import {
   extractJsonFromText,
   validateClassification,
@@ -179,24 +176,17 @@ serve(async (req) => {
       );
     }
 
-    // 5. Initialize AI provider
-    const providerName = Deno.env.get('AI_PROVIDER') || 'openrouter';
-    const provider = getProvider(providerName);
+    // 5. One AI call: classify the document and extract its fields together.
+    const provider = getProvider();
 
-    // 6. Classify document
-    let classificationResult;
+    let analysis: any;
     try {
-      const classificationResponse = await provider.analyzeDocument(
-        fileBytes,
-        mimeType,
-        CLASSIFICATION_PROMPT
-      );
-      const classificationJson = extractJsonFromText(classificationResponse);
-      classificationResult = validateClassification(classificationJson);
-    } catch (classifyError: any) {
+      const raw = await provider.analyzeDocument(fileBytes, mimeType, DOCUMENT_ANALYSIS_PROMPT);
+      analysis = extractJsonFromText(raw);
+    } catch (analyzeError: any) {
       return new Response(
         JSON.stringify({
-          error: `Document classification failed: ${classifyError.message}`,
+          error: `Document analysis failed: ${analyzeError.message}`,
           documentType: 'unknown',
           documentTypeConfidence: 0,
           extractedData: null,
@@ -207,7 +197,14 @@ serve(async (req) => {
       );
     }
 
-    // 7. If unknown or low confidence, return early
+    // The classification half of the response.
+    const classificationResult = validateClassification({
+      document_type: analysis?.document_type,
+      confidence: analysis?.confidence,
+      reason: analysis?.reason,
+    });
+
+    // 6. Unknown or low-confidence: hand back to the user to classify.
     if (
       classificationResult.document_type === 'unknown' ||
       classificationResult.confidence < 0.7
@@ -226,25 +223,16 @@ serve(async (req) => {
       );
     }
 
-    // 8. Extract data based on document type
+    // 7. Validate the extracted half against the shape for that document type.
     let extractedData: any = null;
     let confidence: Record<string, number> = {};
 
     try {
       if (classificationResult.document_type === 'credit_invoice') {
-        const extractionResponse = await provider.analyzeDocument(
-          fileBytes,
-          mimeType,
-          CREDIT_EXTRACTION_PROMPT
-        );
-        const extractionJson = extractJsonFromText(extractionResponse);
-        extractedData = validateCreditExtraction(extractionJson);
+        extractedData = validateCreditExtraction(analysis?.data);
         confidence = generateFieldConfidence('credit_invoice', extractedData);
-      } else if (
-        classificationResult.document_type === 'payment_receipt' ||
-        classificationResult.document_type === 'bank_receipt'
-      ) {
-        // Payment extraction requires admin (matching record-payment pattern)
+      } else {
+        // payment_receipt | bank_receipt - admin only, matching record-payment.
         if (token.role !== 'admin') {
           return new Response(
             JSON.stringify({
@@ -259,13 +247,7 @@ serve(async (req) => {
           );
         }
 
-        const extractionResponse = await provider.analyzeDocument(
-          fileBytes,
-          mimeType,
-          PAYMENT_EXTRACTION_PROMPT
-        );
-        const extractionJson = extractJsonFromText(extractionResponse);
-        extractedData = validatePaymentExtraction(extractionJson);
+        extractedData = validatePaymentExtraction(analysis?.data);
         confidence = generateFieldConfidence(classificationResult.document_type, extractedData);
       }
     } catch (extractError: any) {
@@ -282,7 +264,7 @@ serve(async (req) => {
       );
     }
 
-    // 9. Match customers
+    // 8. Match customers
     let customerMatches: any[] = [];
     if (extractedData) {
       try {
@@ -297,7 +279,7 @@ serve(async (req) => {
       }
     }
 
-    // 10. Return structured JSON
+    // 9. Return structured JSON
     return new Response(
       JSON.stringify({
         documentType: classificationResult.document_type,
@@ -318,7 +300,7 @@ serve(async (req) => {
 
     if (errorMessage.includes('timed out')) {
       errorMessage = 'The AI service took too long to respond. Please try again with a clearer image.';
-    } else if (errorMessage.includes('OPENROUTER_API_KEY') || errorMessage.includes('OPENROUTER_MODEL')) {
+    } else if (errorMessage.includes('GEMINI_API_KEY')) {
       errorMessage = 'AI service is not properly configured. Please contact administrator.';
     } else if (errorMessage.includes('Invalid or expired token')) {
       errorMessage = 'Your session has expired. Please log in again.';

@@ -41,107 +41,74 @@ export interface PaymentExtraction {
 }
 
 // ============================================
-// Classification Prompt
+// Combined analysis prompt (single model call)
 // ============================================
-export const CLASSIFICATION_PROMPT = `You are a document classification expert. Analyze the provided document image/PDF and classify it into one of these categories:
+// Classification and extraction used to be two separate round trips to the
+// model. Gemini is asked for both at once: it decides the document type and
+// pulls the fields for that type in one response, halving latency and cost.
+// Paired with responseMimeType: application/json, the reply is raw JSON.
+export const DOCUMENT_ANALYSIS_PROMPT = `You are an expert at reading Indian shop invoices, bills and payment receipts.
 
-1. "credit_invoice" - An invoice, bill, or receipt showing items purchased with quantities, rates, and a total amount. This includes shop bills, supplier invoices, material bills, etc.
+Look at the document image and do TWO things in one response:
 
-2. "payment_receipt" - A payment confirmation showing money transferred/paid. This includes UPI screenshots, payment app confirmations, bank transfer receipts, cash payment receipts, etc.
+STEP 1 - Classify the document as exactly one of:
+  "credit_invoice"  - an invoice, bill or shop receipt listing goods bought, with quantities, rates and a total payable. Supplier invoices, material bills, hardware/shop bills.
+  "payment_receipt" - proof that money was paid or transferred: UPI screenshots, payment-app confirmations, cash receipts.
+  "bank_receipt"    - a bank statement, deposit slip or bank transaction receipt.
+  "unknown"         - it does not clearly fit any of the above, or is too unclear to read.
 
-3. "bank_receipt" - A bank statement, deposit slip, or bank transaction receipt.
+STEP 2 - Extract the fields for the type you chose, into "data".
 
-4. "unknown" - If the document doesn't clearly fit any of the above categories.
+THE TOTAL AMOUNT IS THE MOST IMPORTANT FIELD. Get it exactly right:
+  - Use the final payable figure: the largest bottom-line total, usually labelled Grand Total, Total, Net Amount, Bill Amount or Amount Payable.
+  - It is the amount AFTER discount and AFTER tax. Never return the subtotal when a later total exists.
+  - Ignore "amount paid", "advance", "balance due" and previous/outstanding balances when reading the bill total.
+  - Read digits carefully. Drop currency symbols, and drop thousands separators: 1,23,456.78 is 123456.78.
+  - If the printed line items do not add up to the printed total, trust the printed total.
+  - If you genuinely cannot read the total, return 0 and set its confidence low. Never guess a plausible number.
 
-Respond with ONLY a JSON object in this exact format (no markdown, no explanation):
-{
-  "document_type": "credit_invoice" | "payment_receipt" | "bank_receipt" | "unknown",
-  "confidence": <number between 0 and 1>,
-  "reason": "<brief explanation>"
-}`;
-
-// ============================================
-// Credit Invoice Extraction Prompt
-// ============================================
-export const CREDIT_EXTRACTION_PROMPT = `You are a data extraction expert. Extract the following information from this invoice/bill document.
-
-Extract these fields:
-- document_type: "credit_invoice"
-- customer_name: The name of the customer/buyer (the person being billed)
-- phone: Phone number if visible (empty string if not found)
-- invoice_number: Invoice or bill number (empty string if not found)
-- invoice_date: Date on the invoice in YYYY-MM-DD format (empty string if not found)
-- items: Array of line items, each with:
-  - item: Name/description of the item
-  - quantity: Quantity (number)
-  - unit: Unit of measurement (e.g., "nos", "kg", "bag", "box", "ft", "pcs")
-  - rate: Unit price (number)
-  - amount: Total amount for this item (number)
-- subtotal: Subtotal before tax/discount (number, 0 if not found)
-- discount: Discount amount (number, 0 if not found)
-- tax: Tax amount (number, 0 if not found)
-- grand_total: Final total amount (number)
-- notes: Any additional notes (empty string if not found)
-- confidence: Object with confidence scores (0-1) for key fields:
-  - customer_name: <confidence>
-  - invoice_number: <confidence>
-  - invoice_date: <confidence>
-  - grand_total: <confidence>
-
-IMPORTANT:
-- Respond with ONLY a JSON object (no markdown, no explanation, no code blocks)
-- Use 0 for any numeric field that cannot be determined
-- Use empty string "" for any text field that cannot be determined
-- If items are not clearly listed, return an empty array
-- All amounts should be numbers (not strings)
-- Confidence scores should be between 0 and 1 (e.g., 0.95 for 95% confident)
-
-JSON Schema:
+For a credit_invoice, "data" must be:
 {
   "document_type": "credit_invoice",
-  "customer_name": "string",
-  "phone": "string",
-  "invoice_number": "string",
-  "invoice_date": "YYYY-MM-DD",
-  "items": [{"item": "string", "quantity": 0, "unit": "string", "rate": 0, "amount": 0}],
+  "customer_name": "name of the customer/buyer being billed, else \"\"",
+  "phone_number": "phone number if visible, else \"\"",
+  "invoice_number": "invoice or bill number, else \"\"",
+  "invoice_date": "YYYY-MM-DD, else \"\"",
+  "description": "a short summary of what was bought, e.g. \"Cement, sand and steel rods\". Always fill this, even when items are listed.",
+  "items": [{"item": "item name", "quantity": 0, "unit": "nos|kg|bag|box|ft|pcs", "rate": 0, "amount": 0}],
   "subtotal": 0,
   "discount": 0,
   "tax": 0,
   "grand_total": 0,
-  "notes": "string",
+  "notes": "any handwritten note, delivery or payment remark on the document, else \"\"",
   "confidence": {"customer_name": 0, "invoice_number": 0, "invoice_date": 0, "grand_total": 0}
-}`;
+}
 
-// ============================================
-// Payment Receipt Extraction Prompt
-// ============================================
-export const PAYMENT_EXTRACTION_PROMPT = `You are a data extraction expert. Extract the following information from this payment receipt/UPI screenshot/bank receipt.
-
-Extract these fields:
-- customer_name: The name of the person who made or received the payment (empty string if not found)
-- payment_amount: The payment amount as a number (0 if not found)
-- payment_date: Payment date in YYYY-MM-DD format (empty string if not found)
-- payment_method: One of "cash", "upi", "bank_transfer", "card", "others" (empty string if not found)
-- reference_number: Transaction/reference number (empty string if not found)
-- upi_id: UPI ID if visible (empty string if not found)
-- bank_name: Bank name if visible (empty string if not found)
-- notes: Any additional notes (empty string if not found)
-
-IMPORTANT:
-- Respond with ONLY a JSON object (no markdown, no explanation)
-- Use 0 for any numeric field that cannot be determined
-- Use empty string "" for any text field that cannot be determined
-- For payment_method, use the closest match from: cash, upi, bank_transfer, card, others
-- The amount should be a number (not a string)
-
-Format:
+For a payment_receipt or bank_receipt, "data" must be:
 {
-  "customer_name": "string",
+  "customer_name": "who paid or was paid, else \"\"",
   "payment_amount": 0,
-  "payment_date": "YYYY-MM-DD",
-  "payment_method": "cash" | "upi" | "bank_transfer" | "card" | "others" | "",
-  "reference_number": "string",
-  "upi_id": "string",
-  "bank_name": "string",
-  "notes": "string"
+  "payment_date": "YYYY-MM-DD, else \"\"",
+  "payment_method": "cash|upi|bank_transfer|card|others, else \"\"",
+  "reference_number": "transaction/reference number, else \"\"",
+  "upi_id": "UPI ID if visible, else \"\"",
+  "bank_name": "bank name if visible, else \"\"",
+  "notes": "anything else relevant, else \"\""
+}
+
+For "unknown", set "data" to null.
+
+RULES:
+  - Reply with ONE JSON object and nothing else. No markdown, no code fences, no commentary.
+  - Every amount is a number, never a string. Use 0 when a number cannot be read.
+  - Use "" for any text field you cannot read. Never invent a value.
+  - Confidence scores are between 0 and 1 and must reflect how clearly you could actually read that field.
+  - If the image is blurred, cropped or unreadable, return "unknown" with a low confidence rather than guessing.
+
+Response shape:
+{
+  "document_type": "credit_invoice" | "payment_receipt" | "bank_receipt" | "unknown",
+  "confidence": <0 to 1, how sure you are of the CLASSIFICATION>,
+  "reason": "<brief explanation of why you chose that type>",
+  "data": { ...fields for the chosen type, or null for unknown... }
 }`;

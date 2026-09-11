@@ -11,7 +11,7 @@
 
 export const AI_CONFIG = {
   // Current AI provider
-  provider: 'qwen' as const,
+  provider: 'gemini' as const,
 
   // Edge function endpoint (relative to Supabase URL)
   edgeFunction: 'ai-scan',
@@ -37,8 +37,7 @@ export const AI_CONFIG = {
   processingMessages: {
     uploading: 'Uploading document...',
     reading: 'Reading document...',
-    classifying: 'Classifying document type...',
-    extracting: 'Extracting data...',
+    analyzing: 'Reading the document with AI...',
     matching: 'Matching customer...',
     preparing: 'Preparing form...',
   },

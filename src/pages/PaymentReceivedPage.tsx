@@ -74,8 +74,11 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
   const [receiptNumber, setReceiptNumber] = useState('');
   const [attachments, setAttachments] = useState<FileItem[]>([]);
 
-  // Auto-fill from AI scan
-  useEffect(() => {
+  // Auto-fill from AI scan.
+  // Runs on mount (a scan started from another page) and again when the user
+  // presses "Confirm & Fill Form" — the AI Scan button is on this same page,
+  // so confirming a scan never remounts it and a mount-only effect never fired.
+  const applyScanResult = useCallback(() => {
     const scanResult = useAIScanStore.getState().scanResult;
     if (scanResult && DocumentClassifier.isPaymentReceipt(scanResult)) {
       const extracted = scanResult.extractedData;
@@ -121,6 +124,10 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
       }
     }
   }, []);
+
+  useEffect(() => {
+    applyScanResult();
+  }, [applyScanResult]);
 
   useEffect(() => {
     if (rawCustomerId) {
@@ -729,7 +736,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
           <p className="text-gray-600 dark:text-gray-400">{customer.name} • {customer.customer_code}</p>
         </div>
-        <AIScanButton variant="primary" />
+        <AIScanButton variant="primary" onScanComplete={applyScanResult} />
       </div>
 
       {error && (
