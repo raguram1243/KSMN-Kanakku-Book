@@ -922,7 +922,6 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           maxFiles={2}
           files={attachments}
           onFilesChange={setAttachments}
-          attachmentType="payment"
         />
       </div>
 

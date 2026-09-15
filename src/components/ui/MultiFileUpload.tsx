@@ -1,6 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
 import { Button } from './Button';
-import { api } from '../../lib/api';
 import { debugError } from '../../lib/utils';
 
 interface FileItem {
@@ -16,8 +15,6 @@ interface MultiFileUploadProps {
   onFilesChange: (files: FileItem[]) => void;
   files: FileItem[];
   label?: string;
-  attachmentType: 'entry' | 'payment';
-  relatedId?: string;
   /**
    * File types this picker accepts, as an `accept` attribute value. Defaults to
    * images + PDF, which is what the credit-entry and payment attachment flows
@@ -59,7 +56,7 @@ function describeAccept(accept: string): string {
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 
-export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachmentType, relatedId, accept = DEFAULT_ACCEPT }: MultiFileUploadProps) {
+export function MultiFileUpload({ maxFiles, onFilesChange, files, label, accept = DEFAULT_ACCEPT }: MultiFileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -215,62 +212,6 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, attachm
     onFilesChange(files.filter((_, i) => i !== index))
   }
 
-  const uploadFile = async (index: number) => {
-    const item = files[index]
-    if (!item || item.uploading || item.uploadedUrl) return
-
-    // Update state to uploading
-    const updatedFiles = [...files]
-    updatedFiles[index] = { ...item, uploading: true, error: null }
-    onFilesChange(updatedFiles)
-
-    try {
-      const response = await api.uploadAttachment(item.file, attachmentType, relatedId)
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Upload failed')
-      }
-
-      const result = await response.json()
-
-      // Update with success
-      const successFiles = [...files]
-      successFiles[index] = {
-        ...item,
-        uploading: false,
-        uploadedUrl: result.url,
-        error: null,
-      }
-      onFilesChange(successFiles)
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Upload failed'
-      const errorFiles = [...files]
-      errorFiles[index] = {
-        ...item,
-        uploading: false,
-        error: errorMsg,
-      }
-      onFilesChange(errorFiles)
-    }
-  }
-
-  const uploadAllPending = async () => {
-    const pendingIndices = files
-      .map((item, index) => (!item.uploadedUrl && !item.uploading && !item.error ? index : -1))
-      .filter(index => index !== -1)
-
-    for (const index of pendingIndices) {
-      await uploadFile(index)
-    }
-  }
-
-  // Expose upload function to parent
-  useEffect(() => {
-    if (typeof (window as any).__uploadAllAttachments === 'undefined') {
-      ;(window as any).__uploadAllAttachments = uploadAllPending
-    }
-  }, [files])
 
   const remaining = maxFiles - files.length
 

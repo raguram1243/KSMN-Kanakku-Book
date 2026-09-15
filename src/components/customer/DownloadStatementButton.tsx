@@ -44,7 +44,7 @@ export function DownloadStatementButton({ customerId }: DownloadStatementButtonP
         const data = await response.json();
         alert(data.error || 'Failed to download statement');
       }
-    } catch (error) {
+    } catch {
       alert('Failed to download statement');
     } finally {
       setDownloading(false);

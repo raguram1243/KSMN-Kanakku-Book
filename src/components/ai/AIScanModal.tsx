@@ -197,7 +197,6 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
               maxFiles={1}
               files={files}
               onFilesChange={setFiles}
-              attachmentType="entry"
               accept="image/*"
             />
 
