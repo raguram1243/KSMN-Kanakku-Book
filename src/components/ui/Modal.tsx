@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   isOpen: boolean;
@@ -39,8 +40,13 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
 
   if (!isOpen) return null;
 
-  return (
-    <div 
+  // Portalled to <body> so the overlay is always relative to the viewport.
+  // Rendered in place, any ancestor with a transform, filter or animation (the
+  // page fade-in wrapper, for one) became its containing block: the dialog was
+  // centred on the whole scrolled page and could open off-screen, and it was
+  // trapped beneath the fixed sidebar.
+  return createPortal(
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
       onClick={onClose}
     >
@@ -63,6 +69,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
