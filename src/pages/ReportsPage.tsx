@@ -10,6 +10,7 @@ import { formatCurrency } from '../lib/utils';
 import { useLedgerReport } from '../hooks/useApi';
 import { useClientSort } from '../hooks/useClientSort';
 import { useClientPagination } from '../hooks/useClientPagination';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { exportPdf, reportDateRangeLabel } from '../lib/exportPdf';
 import { downloadCsv } from '../lib/exportCsv';
 import { SUMMARY_HEADERS, buildSummaryCsv } from '../lib/summaryReport';
@@ -35,6 +36,9 @@ export default function ReportsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  // Filter on the settled value so every keystroke doesn't re-filter, re-sort
+  // and re-page the whole report.
+  const debouncedSearch = useDebouncedValue(searchQuery, 200);
   const [customerType, setCustomerType] = useState<CustomerType | 'all'>('all');
   const [outstandingOnly, setOutstandingOnly] = useState(false);
 
@@ -42,7 +46,7 @@ export default function ReportsPage() {
   const customers = (data?.customers as LedgerRow[] | undefined) ?? EMPTY;
 
   const matching = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     return customers.filter(c => {
       if (q && !(c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.customer_code.toLowerCase().includes(q))) {
         return false;
@@ -51,13 +55,13 @@ export default function ReportsPage() {
       if (outstandingOnly && !((c.outstanding ?? 0) > 0.01)) return false;
       return true;
     });
-  }, [customers, searchQuery, customerType, outstandingOnly]);
+  }, [customers, debouncedSearch, customerType, outstandingOnly]);
 
   const { sorted, sortKey, direction, toggleSort } = useClientSort(matching, 'name', 'asc');
   const pager = useClientPagination(
     sorted,
     PAGE_SIZE,
-    [dateFrom, dateTo, searchQuery, customerType, outstandingOnly, sortKey, direction].join('|')
+    [dateFrom, dateTo, debouncedSearch, customerType, outstandingOnly, sortKey, direction].join('|')
   );
 
   // Totals and exports cover every matching row, not just the visible page.

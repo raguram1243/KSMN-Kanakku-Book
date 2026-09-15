@@ -11,6 +11,7 @@ import { formatCurrency, formatDateTime } from '../lib/utils';
 import { usePaymentsReport } from '../hooks/useApi';
 import { useClientSort } from '../hooks/useClientSort';
 import { useClientPagination } from '../hooks/useClientPagination';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { buildCsv, downloadCsv } from '../lib/exportCsv';
 import { exportPdf, reportDateRangeLabel } from '../lib/exportPdf';
 
@@ -57,6 +58,9 @@ const methodLabel = (method: string) => (method ? method.replace(/_/g, ' ') : ''
 
 export default function ReportPaymentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  // Filter on the settled value so every keystroke doesn't re-filter, re-sort
+  // and re-page the whole report.
+  const debouncedSearch = useDebouncedValue(searchQuery, 200);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
@@ -80,7 +84,7 @@ export default function ReportPaymentsPage() {
   }, [data]);
 
   const matching = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter(
       r =>
@@ -89,13 +93,13 @@ export default function ReportPaymentsPage() {
         r.receipt_number.toLowerCase().includes(q) ||
         r.payment_method.toLowerCase().includes(q)
     );
-  }, [rows, searchQuery]);
+  }, [rows, debouncedSearch]);
 
   const { sorted, sortKey, direction, toggleSort } = useClientSort(matching, 'payment_date', 'desc');
   const pager = useClientPagination(
     sorted,
     PAGE_SIZE,
-    [dateFrom, dateTo, searchQuery, sortKey, direction].join('|')
+    [dateFrom, dateTo, debouncedSearch, sortKey, direction].join('|')
   );
 
   // Totals and exports cover every matching row, not just the visible page.

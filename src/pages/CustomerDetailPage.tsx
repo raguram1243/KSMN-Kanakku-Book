@@ -19,6 +19,9 @@ import { EditCustomerModal } from '../components/customer/EditCustomerModal';
 import { DeleteCustomerModal } from '../components/customer/DeleteCustomerModal';
 import { useCustomer, useUpdateCustomer } from '../hooks/useApi';
 import { useToastStore } from '../store/toastStore';
+import { PaginationControls } from '../components/ui/PaginationControls';
+import { useClientPagination } from '../hooks/useClientPagination';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 interface CreditEntryWithItems extends CreditEntry {
   items?: any[];
@@ -27,6 +30,7 @@ interface CreditEntryWithItems extends CreditEntry {
 
 const NO_ENTRIES: CreditEntryWithItems[] = [];
 const NO_PAYMENTS: Payment[] = [];
+const PAGE_SIZE = 25;
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +51,6 @@ export default function CustomerDetailPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [displayedCount, setDisplayedCount] = useState(50);
 
         const customerQuery = useCustomer(id);
   const updateCustomer = useUpdateCustomer();
@@ -163,6 +166,8 @@ export default function CustomerDetailPage() {
   }, [entries, payments]);
 
   // Apply filters (after balance calculation)
+  // Filter on the settled search so each keystroke doesn't rebuild the ledger.
+  const debouncedLedgerSearch = useDebouncedValue(searchQuery, 200);
   const filteredTransactions = useMemo(() => {
     return ledgerTransactions.filter(t => {
       // Type filter
@@ -175,8 +180,8 @@ export default function CustomerDetailPage() {
       if (dateTo && transactionDate > dateTo) return false;
 
       // Search
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
+      if (debouncedLedgerSearch.trim()) {
+        const query = debouncedLedgerSearch.toLowerCase();
         return (
           t.reference.toLowerCase().includes(query) ||
           t.description.toLowerCase().includes(query)
@@ -185,20 +190,19 @@ export default function CustomerDetailPage() {
 
       return true;
     });
-  }, [ledgerTransactions, filterType, dateFrom, dateTo, searchQuery]);
+  }, [ledgerTransactions, filterType, dateFrom, dateTo, debouncedLedgerSearch]);
 
-  // Pagination
-  const displayedTransactions = filteredTransactions.slice(0, displayedCount);
-  const hasMore = displayedCount < filteredTransactions.length;
+  // 25 per page. Returns to page 1 whenever the filters change - previously a
+  // useEffect reset a load-more counter, costing an extra render each time.
+  const ledgerPager = useClientPagination(
+    filteredTransactions,
+    PAGE_SIZE,
+    [filterType, dateFrom, dateTo, debouncedLedgerSearch].join('|')
+  );
+  const displayedTransactions = ledgerPager.pageRows;
 
-  const loadMore = () => {
-    setDisplayedCount(prev => prev + 50);
-  };
-
-  // Reset pagination when filters change
-  useEffect(() => {
-    setDisplayedCount(50);
-  }, [filterType, dateFrom, dateTo, searchQuery]);
+  const entriesPager = useClientPagination(entries, PAGE_SIZE, id ?? '');
+  const paymentsPager = useClientPagination(payments, PAGE_SIZE, id ?? '');
 
   if (loading) {
     return (
@@ -513,7 +517,7 @@ export default function CustomerDetailPage() {
               <p className="text-gray-500 dark:text-gray-400 text-center py-8">No entries yet.</p>
             ) : (
               <div className="space-y-4">
-                {entries.map(entry => (
+                {entriesPager.pageRows.map(entry => (
                   <div 
                     key={entry.id} 
                     className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -635,6 +639,15 @@ export default function CustomerDetailPage() {
                 ))}
               </div>
             )}
+            {entriesPager.total > PAGE_SIZE && (
+              <PaginationControls
+                page={entriesPager.page}
+                totalPages={entriesPager.totalPages}
+                pageSize={entriesPager.pageSize}
+                total={entriesPager.total}
+                onPageChange={entriesPager.setPage}
+              />
+            )}
           </Card>
 
           {/* Payment History */}
@@ -644,7 +657,7 @@ export default function CustomerDetailPage() {
               <p className="text-gray-500 dark:text-gray-400 text-center py-8">No payment history available.</p>
             ) : (
               <div className="space-y-4">
-                {payments.map(payment => (
+                {paymentsPager.pageRows.map(payment => (
                   <div 
                     key={payment.id} 
                     className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -677,6 +690,15 @@ export default function CustomerDetailPage() {
                   </div>
                 ))}
               </div>
+            )}
+            {paymentsPager.total > PAGE_SIZE && (
+              <PaginationControls
+                page={paymentsPager.page}
+                totalPages={paymentsPager.totalPages}
+                pageSize={paymentsPager.pageSize}
+                total={paymentsPager.total}
+                onPageChange={paymentsPager.setPage}
+              />
             )}
           </Card>
         </>
@@ -753,13 +775,13 @@ export default function CustomerDetailPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {/* Opening Balance Row */}
-                <tr className="bg-gray-100 dark:bg-gray-700 italic">
+                {ledgerPager.page === 1 && (<tr className="bg-gray-100 dark:bg-gray-700 italic">
                   <td colSpan={3} className="px-3 py-2 text-gray-600 dark:text-gray-400">Opening Balance</td>
                   <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">-</td>
                   <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">-</td>
                   <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(0)}</td>
                   <td colSpan={2}></td>
-                </tr>
+                </tr>)}
 
                 {/* Transaction Rows */}
                 {displayedTransactions.map(transaction => (
@@ -805,12 +827,12 @@ export default function CustomerDetailPage() {
           {/* Ledger Cards - Mobile */}
           <div className="md:hidden space-y-3">
             {/* Opening Balance Card */}
-            <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg italic">
+            {ledgerPager.page === 1 && (<div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg italic">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600 dark:text-gray-400">Opening Balance</span>
                 <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(0)}</span>
               </div>
-            </div>
+            </div>)}
 
             {/* Transaction Cards */}
             {displayedTransactions.map(transaction => (
@@ -868,18 +890,13 @@ export default function CustomerDetailPage() {
           </div>
 
           {/* Load More Button */}
-          {hasMore && (
-            <div className="mt-4 text-center">
-              <Button variant="secondary" onClick={loadMore}>
-                Load More ({filteredTransactions.length - displayedCount} remaining)
-              </Button>
-            </div>
-          )}
-
-          {/* Results count */}
-          <div className="mt-3 text-sm text-gray-500 dark:text-gray-400 text-center">
-            Showing {displayedTransactions.length} of {filteredTransactions.length} transactions
-          </div>
+          <PaginationControls
+            page={ledgerPager.page}
+            totalPages={ledgerPager.totalPages}
+            pageSize={ledgerPager.pageSize}
+            total={ledgerPager.total}
+            onPageChange={ledgerPager.setPage}
+          />
         </Card>
       )}
 
