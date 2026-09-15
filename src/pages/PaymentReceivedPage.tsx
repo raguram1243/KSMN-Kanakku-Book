@@ -14,6 +14,8 @@ import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../com
 import { Modal } from '../components/ui/Modal';
 import { AIScanButton } from '../components/ai/AIScanButton';
 import { ArrowLeft } from 'lucide-react';
+import { PaginationControls } from '../components/ui/PaginationControls';
+import { useClientPagination } from '../hooks/useClientPagination';
 import { useAIScanStore } from '../store/aiScanStore';
 import { useToastStore } from '../store/toastStore';
 import { PaymentExtractor } from '../services/ai/PaymentExtractor';
@@ -177,15 +179,16 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
 
   // Live search for customers (when no customerId)
   useEffect(() => {
-    if (!customerId && searchQuery.length >= 2) {
-      const timeoutId = setTimeout(() => {
-        searchCustomers();
-      }, 300);
-      return () => clearTimeout(timeoutId);
-    } else {
-      setSearchResults([]);
-    }
+    if (customerId || searchQuery.length < 2) return;
+    const timeoutId = setTimeout(() => {
+      searchCustomers();
+    }, 300);
+    return () => clearTimeout(timeoutId);
   }, [searchQuery, customerId]);
+
+  // Derived instead of clearing results in the effect above, which cost an
+  // extra render on every keystroke below two characters.
+  const visibleSearchResults = !customerId && searchQuery.length >= 2 ? searchResults : [];
 
   const searchCustomers = async () => {
     setSearchLoading(true);
@@ -526,6 +529,10 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
     }
   };
 
+  // A customer can have many open entries. Selections live in `entries`, so
+  // paging only changes what is displayed; allocations on other pages keep.
+  const entriesPager = useClientPagination(entries, 25, customerId ?? '');
+
   if (!isAdmin) {
     return (
       <div className="text-center py-12">
@@ -561,9 +568,9 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
                   <Spinner size="sm" />
                 </div>
               )}
-              {searchResults.length > 0 && (
+              {visibleSearchResults.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
-                  {searchResults.map(cust => (
+                  {visibleSearchResults.map(cust => (
                     <div
                       key={cust.id}
                       className="p-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer border-b last:border-b-0"
@@ -856,7 +863,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
         <Card>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Allocate Payment to Entries</h2>
           <div className="space-y-3">
-            {entries.map(entry => (
+            {entriesPager.pageRows.map(entry => (
               <div
                 key={entry.id}
                 className={`p-4 rounded-lg border-2 transition-colors ${
@@ -912,6 +919,15 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
               </span>
             </div>
           </div>
+          {entriesPager.total > 25 && (
+            <PaginationControls
+              page={entriesPager.page}
+              totalPages={entriesPager.totalPages}
+              pageSize={entriesPager.pageSize}
+              total={entriesPager.total}
+              onPageChange={entriesPager.setPage}
+            />
+          )}
         </Card>
       )}
 

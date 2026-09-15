@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 import { Staff, JWTPayload } from '../types';
 import { debugLog } from '../lib/utils';
 
@@ -14,40 +14,40 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [staff, setStaff] = useState<Staff | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+/**
+ * Reads the saved session synchronously, so the very first render already
+ * knows who is signed in. This used to happen in a useEffect: the whole app
+ * rendered once with no user and a "Loading..." screen, then again after the
+ * effect set token, staff and loading - a guaranteed extra render of every
+ * route on every page load.
+ */
+function readStoredSession(): { token: string; staff: Staff } | null {
+  const storedToken = localStorage.getItem('ksmn_token');
+  const storedStaff = localStorage.getItem('ksmn_staff');
+  debugLog('[Auth] Init - storedToken exists:', !!storedToken, 'storedStaff exists:', !!storedStaff);
+  if (!storedToken || !storedStaff) return null;
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem('ksmn_token');
-    const storedStaff = localStorage.getItem('ksmn_staff');
-    debugLog('[Auth] Init - storedToken exists:', !!storedToken, 'storedStaff exists:', !!storedStaff);
-
-    if (storedToken && storedStaff) {
-      try {
-        const payload = JSON.parse(atob(storedToken.split('.')[1])) as JWTPayload;
-        const now = Date.now();
-        const exp = payload.exp * 1000;
-        debugLog('[Auth] Token exp:', new Date(exp).toISOString(), 'now:', new Date(now).toISOString(), 'valid:', exp > now);
-
-        if (exp > now) {
-          setToken(storedToken);
-          setStaff(JSON.parse(storedStaff));
-          debugLog('[Auth] Session restored from localStorage');
-        } else {
-          debugLog('[Auth] Token expired, clearing');
-          localStorage.removeItem('ksmn_token');
-          localStorage.removeItem('ksmn_staff');
-        }
-      } catch (e) {
-        debugLog('[Auth] Failed to parse stored session:', e);
-        localStorage.removeItem('ksmn_token');
-        localStorage.removeItem('ksmn_staff');
-      }
+  try {
+    const payload = JSON.parse(atob(storedToken.split('.')[1])) as JWTPayload;
+    if (payload.exp * 1000 > Date.now()) {
+      debugLog('[Auth] Session restored from localStorage');
+      return { token: storedToken, staff: JSON.parse(storedStaff) };
     }
-    setLoading(false);
-  }, []);
+    debugLog('[Auth] Token expired, clearing');
+  } catch (e) {
+    debugLog('[Auth] Failed to parse stored session:', e);
+  }
+  localStorage.removeItem('ksmn_token');
+  localStorage.removeItem('ksmn_staff');
+  return null;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [initialSession] = useState(readStoredSession);
+  const [staff, setStaff] = useState<Staff | null>(initialSession?.staff ?? null);
+  const [token, setToken] = useState<string | null>(initialSession?.token ?? null);
+  // Kept for consumers; the session is resolved before the first render now.
+  const loading = false;
 
   const login = (newToken: string, newStaff: Staff) => {
     debugLog('[Auth] login() called with staff:', newStaff.name, 'role:', newStaff.role);

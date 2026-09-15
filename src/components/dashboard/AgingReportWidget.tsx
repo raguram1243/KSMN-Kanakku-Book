@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Card } from '../ui/Card';
 import { Modal } from '../ui/Modal';
 import { formatCurrency } from '../../lib/utils';
+import { PaginationControls } from '../ui/PaginationControls';
+import { useClientPagination } from '../../hooks/useClientPagination';
 
 interface CustomerBreakdown {
   customer_id: string;
@@ -78,31 +80,57 @@ export function AgingReportWidget({ aging }: AgingReportWidgetProps) {
       </Card>
 
       {selectedBucket && (
-        <Modal isOpen onClose={() => setSelectedBucket(null)} title={`${selectedBucket.label} — ${formatCurrency(selectedBucket.total)} outstanding`} size="md">
-          <div className="space-y-2">
-            {selectedBucket.customers.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No customers in this range.</p>
-            ) : (
-              <div className="space-y-2">
-                {selectedBucket.customers.map((customer) => (
-                  <Link
-                    key={customer.customer_id}
-                    to={`/customers/${customer.customer_id}`}
-                    className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => setSelectedBucket(null)}
-                  >
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-white text-sm">{customer.name}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{customer.code}</div>
-                    </div>
-                    <div className="font-semibold text-sm text-gray-900 dark:text-white">{formatCurrency(customer.amount)}</div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </Modal>
+        <BucketDialog bucket={selectedBucket} onClose={() => setSelectedBucket(null)} />
       )}
     </>
   )
+}
+
+const PAGE_SIZE = 25;
+
+/** Customers in one aging bucket. A bucket can hold most of the ledger, so it pages at 25. */
+function BucketDialog({
+  bucket,
+  onClose,
+}: {
+  bucket: { label: string; total: number; customers: CustomerBreakdown[] };
+  onClose: () => void;
+}) {
+  const pager = useClientPagination(bucket.customers, PAGE_SIZE, bucket.label);
+
+  return (
+    <Modal isOpen onClose={onClose} title={`${bucket.label} — ${formatCurrency(bucket.total)} outstanding`} size="md">
+      {bucket.customers.length === 0 ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No customers in this range.</p>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {pager.pageRows.map((customer) => (
+              <Link
+                key={customer.customer_id}
+                to={`/customers/${customer.customer_id}`}
+                className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                onClick={onClose}
+              >
+                <div>
+                  <div className="font-medium text-gray-900 dark:text-white text-sm">{customer.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{customer.code}</div>
+                </div>
+                <div className="font-semibold text-sm text-gray-900 dark:text-white">{formatCurrency(customer.amount)}</div>
+              </Link>
+            ))}
+          </div>
+          {pager.total > PAGE_SIZE && (
+            <PaginationControls
+              page={pager.page}
+              totalPages={pager.totalPages}
+              pageSize={pager.pageSize}
+              total={pager.total}
+              onPageChange={pager.setPage}
+            />
+          )}
+        </>
+      )}
+    </Modal>
+  );
 }

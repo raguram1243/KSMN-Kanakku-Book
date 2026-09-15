@@ -9,6 +9,7 @@ import { Customer } from '../types';
 import { FileItem } from '../components/ui/MultiFileUpload';
 import { MultiFileUpload } from '../components/ui/MultiFileUpload';
 import { AIScanButton } from '../components/ai/AIScanButton';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useAIScanStore } from '../store/aiScanStore';
 import { InvoiceExtractor } from '../services/ai/InvoiceExtractor';
 import { DocumentClassifier } from '../services/ai/DocumentClassifier';
@@ -102,13 +103,29 @@ export default function QuickAddPage() {
     }
   };
 
+  // Search once typing pauses rather than on every keystroke, and ignore any
+  // response that arrives after a newer query has started, so results for
+  // "ra" can never overwrite results for "ragu".
+  const debouncedSearch = useDebouncedValue(searchQuery.trim(), 300);
   useEffect(() => {
-    if (searchQuery.length >= 2) {
-      searchCustomers();
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery]);
+    if (debouncedSearch.length < 2) return;
+    let cancelled = false;
+    api
+      .listCustomers(debouncedSearch)
+      .then(async (response) => {
+        if (!response.ok || cancelled) return;
+        const data = await response.json();
+        if (!cancelled) setSearchResults(data.customers);
+      })
+      .catch((error) => debugError('Search failed:', error));
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch]);
+
+  // Short queries show no results; derived here instead of clearing state in an
+  // effect, which cost an extra render per keystroke.
+  const visibleSearchResults = searchQuery.trim().length >= 2 ? searchResults : [];
 
   // Load recent customers and stats on mount
   useEffect(() => {
@@ -152,17 +169,6 @@ export default function QuickAddPage() {
     }
   };
 
-  const searchCustomers = async () => {
-    try {
-      const response = await api.listCustomers(searchQuery);
-      if (response.ok) {
-        const data = await response.json();
-        setSearchResults(data.customers);
-      }
-    } catch (error) {
-      debugError('Search failed:', error);
-    }
-  };
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -470,9 +476,9 @@ export default function QuickAddPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               
-              {searchResults.length > 0 && (
+              {visibleSearchResults.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
-                  {searchResults.map(customer => (
+                  {visibleSearchResults.map(customer => (
                     <div
                       key={customer.id}
                       className="p-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer border-b last:border-b-0"

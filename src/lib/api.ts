@@ -27,7 +27,11 @@ async function apiCall(path: string, options: RequestInit = {}): Promise<Respons
     headers: finalHeaders,
   })
 
-  if (response.status === 401 && isSessionExpired()) {
+  // Only a request that carried a session can have that session expire.
+  // isSessionExpired() is also true when there is no token at all, so without
+  // the `Authorization` check a wrong PIN on the login page (401, no token)
+  // reloaded /login and wiped the "Invalid credentials" message.
+  if (response.status === 401 && headers.Authorization && isSessionExpired()) {
     localStorage.removeItem('ksmn_token')
     localStorage.removeItem('ksmn_staff')
     window.location.href = '/login'

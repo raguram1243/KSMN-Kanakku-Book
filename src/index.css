@@ -49,12 +49,19 @@ body {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
+/* No `forwards`. With it, the final keyframe stayed applied for the life of
+   the page, and an animated transform/opacity makes this wrapper both the
+   containing block for position: fixed descendants and a stacking context.
+   Dialogs were then centred on the whole scrolled page instead of the
+   screen, and drawn beneath the fixed sidebar. Without a fill mode the
+   wrapper returns to plain styles as soon as the fade-in ends. Modal also
+   portals to <body>, so dialogs are correct even mid-animation. */
 .page-enter {
-  animation: page-enter 180ms ease-out forwards;
+  animation: page-enter 180ms ease-out;
 }
 
 /* Toast entrance animations */

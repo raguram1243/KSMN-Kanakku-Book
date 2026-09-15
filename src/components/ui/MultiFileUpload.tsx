@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from './Button';
 import { debugError } from '../../lib/utils';
 
@@ -312,7 +313,9 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, accept 
       />
 
       {/* Camera Modal */}
-      {showCamera && (
+      {/* Portalled for the same reason as Modal: a transformed ancestor would
+          otherwise pin this full-screen overlay to the page, not the screen. */}
+      {showCamera && createPortal(
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-2xl w-full">
             <div className="flex items-center justify-between mb-4">
@@ -354,7 +357,8 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, accept 
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

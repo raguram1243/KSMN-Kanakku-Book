@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../ui/Modal';
 import { Card } from '../ui/Card';
@@ -8,6 +8,8 @@ import { api } from '../../lib/api';
 import { formatCurrency, formatDateTime, debugError } from '../../lib/utils';
 import { Customer, CreditEntry, Payment } from '../../types';
 import { buildLedgerTransactions } from '../../lib/ledger';
+import { PaginationControls } from '../ui/PaginationControls';
+import { useClientPagination } from '../../hooks/useClientPagination';
 import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../ui/Skeleton';
 
 interface CustomerLedgerModalProps {
@@ -54,9 +56,12 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
     navigate(`/payment-received/${customerId}`);
   };
 
+  // Memoised: this rebuilt and re-sorted the whole ledger on every render.
+  const ledgerTransactions = useMemo(() => buildLedgerTransactions(entries, payments), [entries, payments]);
+  const pager = useClientPagination(ledgerTransactions, 25, customerId ?? '');
+
   if (!customerId) return null;
 
-  const ledgerTransactions = buildLedgerTransactions(entries, payments);
   const totalOutstanding = entries.reduce((sum, entry) => sum + Number(entry.balance), 0);
 
   return (
@@ -157,16 +162,16 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {/* Opening Balance Row */}
-                      <tr className="bg-gray-100 dark:bg-gray-700 italic">
+                      {pager.page === 1 && (<tr className="bg-gray-100 dark:bg-gray-700 italic">
                         <td colSpan={3} className="px-3 py-2 text-gray-600 dark:text-gray-400">Opening Balance</td>
                         <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">-</td>
                         <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">-</td>
                         <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(0)}</td>
                         <td colSpan={2}></td>
-                      </tr>
+                      </tr>)}
 
                       {/* Transaction Rows */}
-                      {ledgerTransactions.map(transaction => (
+                      {pager.pageRows.map(transaction => (
                         <tr key={transaction.id} className="border-b border-gray-200 dark:border-gray-700">
                           <td className="px-3 py-2 text-gray-900 dark:text-white">{formatDateTime(transaction.date)}</td>
                           <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{transaction.reference}</td>
@@ -199,15 +204,15 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
                 {/* Mobile Cards */}
                 <div className="md:hidden space-y-3">
                   {/* Opening Balance Card */}
-                  <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg italic">
+                  {pager.page === 1 && (<div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg italic">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600 dark:text-gray-400">Opening Balance</span>
                       <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(0)}</span>
                     </div>
-                  </div>
+                  </div>)}
 
                   {/* Transaction Cards */}
-                  {ledgerTransactions.map(transaction => (
+                  {pager.pageRows.map(transaction => (
                     <div key={transaction.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -250,6 +255,15 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
                     </div>
                   ))}
                 </div>
+                {pager.total > 25 && (
+                  <PaginationControls
+                    page={pager.page}
+                    totalPages={pager.totalPages}
+                    pageSize={pager.pageSize}
+                    total={pager.total}
+                    onPageChange={pager.setPage}
+                  />
+                )}
               </>
             )}
           </Card>

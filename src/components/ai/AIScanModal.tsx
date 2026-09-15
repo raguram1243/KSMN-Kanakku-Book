@@ -41,18 +41,11 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
 
   const { setScanResult, setIsScanning, setProcessingState, setError: setStoreError, clearScan } = useAIScanStore();
 
-  // Reset state when modal opens
+  // AIScanButton mounts this modal fresh each time it opens, so local state
+  // already starts clean. Resetting all six fields here too only cost an
+  // extra render per open. Only the shared store needs clearing.
   useEffect(() => {
-    if (isOpen) {
-      setPhase('upload');
-      setFiles([]);
-      setUploading(false);
-      setProcessingStep(null);
-      setError(null);
-      setUploaded(null);
-      inFlight.current = false;
-      clearScan();
-    }
+    if (isOpen) clearScan();
   }, [isOpen, clearScan]);
 
   /** Runs the scan against an image already in storage. Shared by first run and retry. */
