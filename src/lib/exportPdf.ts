@@ -109,3 +109,9 @@ export function buildReportPdf({
 export function exportPdf(options: ExportPdfOptions) {
   buildReportPdf(options).save(`${options.filename}.pdf`)
 }
+
+/** Subtitle line for report exports describing the active date filter. */
+export function reportDateRangeLabel(from: string, to: string): string {
+  if (!from && !to) return 'Date range: all time'
+  return 'Date range: ' + (from || 'start') + ' to ' + (to || 'today')
+}
