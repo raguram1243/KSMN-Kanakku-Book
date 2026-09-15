@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, PlusCircle, Users, UserCog, CreditCard, Settings, LogOut, BarChart3, RefreshCw, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Users, UserCog, CreditCard, Settings, BarChart3 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
 import { useState } from 'react';
 
 interface SidebarProps {
@@ -11,8 +10,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
-    const { staff, logout, isAdmin } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { staff, isAdmin } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const isExpanded = isHovered || isOpen;
 
@@ -109,46 +107,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
           </nav>
 
-          {/* User section at bottom */}
-          <div className="border-t border-gray-200 dark:border-gray-800 px-3 py-4">
-            <div className={`flex items-center ${isExpanded ? 'justify-between' : 'justify-center'} lg:justify-between px-3 py-2`}>
-              <div className={`
-                flex-1 min-w-0
-                transition-opacity duration-200
-                ${isExpanded ? 'opacity-100' : 'opacity-0 invisible'}
-                lg:opacity-100 lg:visible
-              `}>
-                <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {staff?.name}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                  {staff?.role}
-                </div>
-              </div>
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={() => window.location.reload()}
-                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
-                  title="Refresh"
-                >
-                  <RefreshCw size={18} />
-                </button>
-                <button
-                  onClick={toggleTheme}
-                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
-                  title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                >
-                  {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-              </div>
-              <button
-                onClick={logout}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800 flex-shrink-0"
-                title="Logout"
-              >
-                <LogOut size={18} />
-              </button>
-            </div>
+          {/* Signed-in user. Refresh, theme and logout live only in the top nav. */}
+          <div
+            className={`border-t border-gray-200 dark:border-gray-800 px-6 py-4 ${isExpanded ? 'block' : 'hidden'} lg:block`}
+          >
+            <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{staff?.name}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">{staff?.role}</div>
           </div>
         </div>
       </aside>
