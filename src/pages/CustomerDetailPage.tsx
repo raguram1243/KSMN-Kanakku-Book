@@ -25,6 +25,9 @@ interface CreditEntryWithItems extends CreditEntry {
   attachments?: any[];
 }
 
+const NO_ENTRIES: CreditEntryWithItems[] = [];
+const NO_PAYMENTS: Payment[] = [];
+
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { isAdmin } = useAuth();
@@ -93,8 +96,10 @@ export default function CustomerDetailPage() {
   };
 
   const customer = customerQuery.data?.customer ?? null;
-  const entries = (customerQuery.data?.entries ?? []) as CreditEntryWithItems[];
-  const payments = (customerQuery.data?.payments ?? []) as Payment[];
+  // Stable empty fallbacks: a fresh `[]` each render would rebuild the whole
+  // ledger below on every keystroke while the customer is loading.
+  const entries = (customerQuery.data?.entries as CreditEntryWithItems[] | undefined) ?? NO_ENTRIES;
+  const payments = (customerQuery.data?.payments as Payment[] | undefined) ?? NO_PAYMENTS;
   const loading = customerQuery.isLoading;
   const error = (customerQuery.error as Error)?.message || null;
 

@@ -42,7 +42,7 @@ export function buildLedgerTransactions(entries: CreditEntry[], payments: Paymen
     const date = t.created_at;
 
     // Generate smart description
-    let description = '';
+    let description: string;
     if (t.type === 'entry') {
       const entry = t as CreditEntry;
       if (entry.entry_mode === 'quick' && entry.description) {

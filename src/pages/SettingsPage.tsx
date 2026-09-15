@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { debugError } from '../lib/utils';
 import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
 import { Download } from 'lucide-react';
+import { BackupStatusCard } from '../components/settings/BackupStatusCard';
 
 interface Setting {
   key: string;
@@ -158,6 +159,8 @@ export function SettingsPage() {
         </div>
       </Card>
 
+      <BackupStatusCard />
+
       {/* Export Data */}
       <Card>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Data</h2>
@@ -222,7 +225,7 @@ export function SettingsPage() {
                   const data = await response.json();
                   alert(data.error || 'Failed to export data');
                 }
-              } catch (error) {
+              } catch {
                 alert('Failed to export data');
               }
             }}

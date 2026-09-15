@@ -3,46 +3,75 @@ import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { ExportMenu } from '../components/ui/ExportMenu';
-import { ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { PaginationControls } from '../components/ui/PaginationControls';
+import { DateRangeFilter } from '../components/reports/DateRangeFilter';
+import { PlainHeader, SortableHeader } from '../components/reports/SortableHeader';
+import { ReportError, ReportLoading } from '../components/reports/ReportStates';
 import { formatCurrency, formatDateTime } from '../lib/utils';
 import { usePaymentsReport } from '../hooks/useApi';
-import { DateRangeFilter } from '../components/reports/DateRangeFilter';
+import { useClientSort } from '../hooks/useClientSort';
+import { useClientPagination } from '../hooks/useClientPagination';
 import { buildCsv, downloadCsv } from '../lib/exportCsv';
-import { exportPdf } from '../lib/exportPdf';
-
-type SortKey = 'payment_date' | 'customer_name' | 'amount';
+import { exportPdf, reportDateRangeLabel } from '../lib/exportPdf';
 
 interface PaymentRow {
   id: string;
   payment_date: string;
   amount: number;
-  payment_method: string | null;
-  receipt_number: string | null;
-  notes: string | null;
+  payment_method: string;
+  receipt_number: string;
+  notes: string;
   customer_name: string;
   customer_code: string;
   customer_id: string;
   staff_name: string;
 }
 
+/** Shape returned by the get-payments-report function. */
+interface RawPayment {
+  id: string;
+  payment_date: string;
+  amount: number | string | null;
+  payment_method?: string | null;
+  receipt_number?: string | null;
+  notes?: string | null;
+  customer_id: string;
+  customer?: { name?: string; customer_code?: string } | null;
+  staff?: { name?: string } | null;
+}
+
+const PAGE_SIZE = 25;
+
+const EXPORT_HEADERS = [
+  'Date & Time',
+  'Customer Name',
+  'Customer Code',
+  'Amount',
+  'Payment Method',
+  'Receipt Number',
+  'Notes',
+  'Recorded By',
+];
+
+const methodLabel = (method: string) => (method ? method.replace(/_/g, ' ') : '');
+
 export default function ReportPaymentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('payment_date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const { data, isLoading, error } = usePaymentsReport(dateFrom, dateTo);
+  const { data, isLoading, error, refetch } = usePaymentsReport(dateFrom, dateTo);
 
+  // Empty strings rather than null so every column sorts the same way.
   const rows: PaymentRow[] = useMemo(() => {
-    const payments = data?.payments ?? [];
-    return payments.map((p: any) => ({
+    const payments: RawPayment[] = data?.payments ?? [];
+    return payments.map(p => ({
       id: p.id,
       payment_date: p.payment_date,
       amount: Number(p.amount) || 0,
-      payment_method: p.payment_method ?? null,
-      receipt_number: p.receipt_number ?? null,
-      notes: p.notes ?? null,
+      payment_method: p.payment_method ?? '',
+      receipt_number: p.receipt_number ?? '',
+      notes: p.notes ?? '',
       customer_name: p.customer?.name ?? '',
       customer_code: p.customer?.customer_code ?? '',
       customer_id: p.customer_id,
@@ -50,65 +79,45 @@ export default function ReportPaymentsPage() {
     }));
   }, [data]);
 
-  const filtered = useMemo(() => {
-    let list = rows;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(r =>
+  const matching = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      r =>
         r.customer_name.toLowerCase().includes(q) ||
         r.customer_code.toLowerCase().includes(q) ||
-        (r.receipt_number && r.receipt_number.toLowerCase().includes(q)) ||
-        (r.payment_method && r.payment_method.toLowerCase().includes(q))
-      );
-    }
-    const dir = sortDirection === 'asc' ? 1 : -1;
-    return [...list].sort((a, b) => {
-      const aVal = a[sortKey];
-      const bVal = b[sortKey];
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return aVal.localeCompare(bVal) * dir;
-      }
-      return ((Number(aVal) || 0) - (Number(bVal) || 0)) * dir;
-    });
-  }, [rows, searchQuery, sortKey, sortDirection]);
+        r.receipt_number.toLowerCase().includes(q) ||
+        r.payment_method.toLowerCase().includes(q)
+    );
+  }, [rows, searchQuery]);
 
-  const totals = useMemo(() => {
-    return { totalAmount: filtered.reduce((s, r) => s + r.amount, 0) };
-  }, [filtered]);
+  const { sorted, sortKey, direction, toggleSort } = useClientSort(matching, 'payment_date', 'desc');
+  const pager = useClientPagination(
+    sorted,
+    PAGE_SIZE,
+    [dateFrom, dateTo, searchQuery, sortKey, direction].join('|')
+  );
 
-  const EXPORT_HEADERS = [
-    'Date & Time',
-    'Customer Name',
-    'Customer Code',
-    'Amount',
-    'Payment Method',
-    'Receipt Number',
-    'Notes',
-    'Recorded By',
-  ];
-
-  const dateRangeLabel =
-    dateFrom || dateTo
-      ? `Date range: ${dateFrom || 'start'} to ${dateTo || 'today'}`
-      : 'Date range: all time';
+  // Totals and exports cover every matching row, not just the visible page.
+  const totalAmount = useMemo(() => sorted.reduce((s, r) => s + r.amount, 0), [sorted]);
 
   const exportRows = (money: (value: number) => string) =>
-    filtered.map(p => [
+    sorted.map(p => [
       formatDateTime(p.payment_date),
       p.customer_name,
       p.customer_code,
       money(p.amount),
-      p.payment_method ? p.payment_method.replace(/_/g, ' ') : '',
-      p.receipt_number || '',
-      p.notes || '',
-      p.staff_name || '',
+      methodLabel(p.payment_method),
+      p.receipt_number,
+      p.notes,
+      p.staff_name,
     ]);
 
   const exportFooter = (money: (value: number) => string) => [
     '',
-    `TOTALS (${filtered.length})`,
+    `TOTALS (${sorted.length})`,
     '',
-    money(totals.totalAmount),
+    money(totalAmount),
     '',
     '',
     '',
@@ -117,49 +126,21 @@ export default function ReportPaymentsPage() {
 
   const plain = (value: number) => value.toFixed(2);
 
-  const exportCsv = () => {
-    downloadCsv(
-      'payments_received_report',
-      buildCsv(EXPORT_HEADERS, exportRows(plain), exportFooter(plain))
-    );
-  };
+  const exportCsv = () =>
+    downloadCsv('payments_received_report', buildCsv(EXPORT_HEADERS, exportRows(plain), exportFooter(plain)));
 
-  const exportPdfFile = () => {
+  const exportPdfFile = () =>
     exportPdf({
       title: 'Payments Received Report',
-      subtitle: dateRangeLabel,
+      subtitle: reportDateRangeLabel(dateFrom, dateTo),
       filename: 'payments_received_report',
       headers: EXPORT_HEADERS,
       rows: exportRows(formatCurrency),
       footer: exportFooter(formatCurrency),
       rightAlignColumns: [3],
     });
-  };
 
-  const toggleSort = (key: SortKey) => {
-    if (key === sortKey) {
-      setSortDirection(d => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDirection('asc');
-    }
-  };
-
-  const Sort = ({ column }: { column: SortKey }) => {
-    const active = column === sortKey;
-    return (
-      <button
-        onClick={() => toggleSort(column)}
-        className="inline-flex items-center gap-1 ml-1 align-middle"
-        title={`Sort by ${column}`}
-      >
-        {active ? (sortDirection === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />) : <ArrowUpDown size={13} className="text-gray-400" />}
-      </button>
-    );
-  };
-
-  if (isLoading) return <Card className="p-6 text-gray-500 dark:text-gray-400">Loading payments...</Card>;
-  if (error) return <Card className="p-6 text-red-600 dark:text-red-400">{(error as Error).message}</Card>;
+  const header = { activeColumn: sortKey, direction, onSort: toggleSort };
 
   return (
     <Card className="p-5">
@@ -173,64 +154,79 @@ export default function ReportPaymentsPage() {
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
-        <DateRangeFilter
-          from={dateFrom}
-          to={dateTo}
-          onFromChange={setDateFrom}
-          onToChange={setDateTo}
-        />
-        <ExportMenu
-          onExportCsv={exportCsv}
-          onExportPdf={exportPdfFile}
-          disabled={filtered.length === 0}
-        />
+        <DateRangeFilter from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        <ExportMenu onExportCsv={exportCsv} onExportPdf={exportPdfFile} disabled={sorted.length === 0} />
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-900/50">
-            <tr className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              <th className="px-3 py-2">Date & Time <Sort column="payment_date" /></th>
-              <th className="px-3 py-2">Customer Name <Sort column="customer_name" /></th>
-              <th className="px-3 py-2 text-right">Amount <Sort column="amount" /></th>
-              <th className="px-3 py-2">Payment Method</th>
-              <th className="px-3 py-2">Receipt Number</th>
-              <th className="px-3 py-2">Notes</th>
-              <th className="px-3 py-2">Recorded By</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-            {filtered.map(p => (
-              <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
-                <td className="px-3 py-2 whitespace-nowrap">{formatDateTime(p.payment_date)}</td>
-                <td className="px-3 py-2">
-                  <Link to={`/customers/${p.customer_id}`} className="text-primary-600 dark:text-primary-400 hover:underline font-medium">
-                    {p.customer_name}
-                  </Link>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{p.customer_code}</div>
-                </td>
-                <td className="px-3 py-2 text-right font-medium">{formatCurrency(p.amount)}</td>
-                <td className="px-3 py-2 capitalize">{p.payment_method ? p.payment_method.replace(/_/g, ' ') : '—'}</td>
-                <td className="px-3 py-2 font-mono text-xs">{p.receipt_number || '—'}</td>
-                <td className="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-[180px] truncate">{p.notes || '—'}</td>
-                <td className="px-3 py-2">{p.staff_name || '—'}</td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-gray-500 dark:text-gray-400">No payments match the current filters.</td>
-              </tr>
-            )}
-          </tbody>
-          <tfoot>
-            <tr className="border-t-2 border-gray-300 dark:border-gray-600 font-semibold">
-              <td colSpan={2} className="px-3 py-2 text-gray-900 dark:text-white">Totals ({filtered.length} {filtered.length === 1 ? 'payment' : 'payments'})</td>
-              <td className="px-3 py-2 text-right">{formatCurrency(totals.totalAmount)}</td>
-              <td colSpan={4}></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      {isLoading ? (
+        <ReportLoading columns={7} />
+      ) : error ? (
+        <ReportError error={error} onRetry={() => refetch()} />
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
+                <tr className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                  <SortableHeader label="Date & Time" column="payment_date" {...header} />
+                  <SortableHeader label="Customer Name" column="customer_name" {...header} />
+                  <SortableHeader label="Amount" column="amount" align="right" {...header} />
+                  <SortableHeader label="Payment Method" column="payment_method" {...header} />
+                  <SortableHeader label="Receipt Number" column="receipt_number" {...header} />
+                  <PlainHeader label="Notes" />
+                  <SortableHeader label="Recorded By" column="staff_name" {...header} />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {pager.pageRows.map(p => (
+                  <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                    <td className="px-3 py-2 whitespace-nowrap">{formatDateTime(p.payment_date)}</td>
+                    <td className="px-3 py-2">
+                      <Link
+                        to={`/customers/${p.customer_id}`}
+                        className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                      >
+                        {p.customer_name}
+                      </Link>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{p.customer_code}</div>
+                    </td>
+                    <td className="px-3 py-2 text-right font-medium">{formatCurrency(p.amount)}</td>
+                    <td className="px-3 py-2 capitalize">{methodLabel(p.payment_method) || '—'}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{p.receipt_number || '—'}</td>
+                    <td className="px-3 py-2 text-gray-600 dark:text-gray-400 max-w-[180px] truncate">
+                      {p.notes || '—'}
+                    </td>
+                    <td className="px-3 py-2">{p.staff_name || '—'}</td>
+                  </tr>
+                ))}
+                {sorted.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-6 text-center text-gray-500 dark:text-gray-400">
+                      No payments match the current filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-300 dark:border-gray-600 font-semibold">
+                  <td colSpan={2} className="px-3 py-2 text-gray-900 dark:text-white">
+                    Totals ({sorted.length} {sorted.length === 1 ? 'payment' : 'payments'})
+                  </td>
+                  <td className="px-3 py-2 text-right">{formatCurrency(totalAmount)}</td>
+                  <td colSpan={4}></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <PaginationControls
+            page={pager.page}
+            totalPages={pager.totalPages}
+            pageSize={pager.pageSize}
+            total={pager.total}
+            onPageChange={pager.setPage}
+          />
+        </>
+      )}
     </Card>
   );
 }

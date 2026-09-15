@@ -786,7 +786,6 @@ export default function QuickAddPage() {
                 maxFiles={3}
                 files={attachments}
                 onFilesChange={setAttachments}
-                attachmentType="entry"
               />
             </div>
 

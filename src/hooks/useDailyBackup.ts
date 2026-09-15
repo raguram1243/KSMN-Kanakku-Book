@@ -23,6 +23,49 @@ export function backupFilename(date = new Date()): string {
   return `backup_kanakkubook_${datePart}_${timePart}.csv`;
 }
 
+export const BACKUP_AT_KEY = 'lastBackupAt';
+/** Fired on window after any backup completes, so open views can refresh. */
+export const BACKUP_EVENT = 'ksmn:backup-completed';
+
+/** When this browser last downloaded a backup, or null if it never has. */
+export function getLastBackupAt(): Date | null {
+  try {
+    const stamp = localStorage.getItem(BACKUP_AT_KEY);
+    if (stamp) {
+      const at = new Date(stamp);
+      if (!Number.isNaN(at.getTime())) return at;
+    }
+    // Backups made before the timestamp was recorded only stored the day.
+    const day = localStorage.getItem(BACKUP_DATE_KEY);
+    if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      const [y, m, d] = day.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+  } catch {
+    // localStorage can throw in private modes; treat as no backup.
+  }
+  return null;
+}
+
+/**
+ * Fetches the Summary report and downloads it as CSV, then records the backup.
+ * Shared by the automatic daily run and the manual button in Settings, so both
+ * produce the identical file and both count as today's backup.
+ * Resolves with the number of customers written.
+ */
+export async function runSummaryBackup(now = new Date()): Promise<number> {
+  const res = await api.getLedgerReport();
+  if (!res.ok) throw new Error('Failed to load summary report for backup');
+  const data = await res.json();
+  const rows = (data?.customers ?? []) as SummaryRow[];
+
+  downloadSummaryCsv(rows, backupFilename(now));
+  localStorage.setItem(BACKUP_DATE_KEY, localDateKey(now));
+  localStorage.setItem(BACKUP_AT_KEY, now.toISOString());
+  window.dispatchEvent(new Event(BACKUP_EVENT));
+  return rows.length;
+}
+
 /**
  * Downloads the Reports > Summary data as CSV once per calendar day, per
  * browser/device, for admins only (the summary carries full financial data).
@@ -48,19 +91,12 @@ export function useDailyBackup() {
     inFlight.current = true;
     (async () => {
       try {
-        debugLog('[Backup] Fetching summary report for daily backup');
-        const res = await api.getLedgerReport();
-        if (!res.ok) throw new Error('Failed to load summary report for backup');
-        const data = await res.json();
-        const rows = (data?.customers ?? []) as SummaryRow[];
-
-        downloadSummaryCsv(rows, backupFilename());
-        localStorage.setItem(BACKUP_DATE_KEY, today);
-
+        debugLog('[Backup] Running daily summary backup');
+        const count = await runSummaryBackup();
         addToast({
           type: 'success',
           title: 'Daily backup downloaded',
-          description: `${rows.length} customer${rows.length === 1 ? '' : 's'} saved to your downloads folder.`,
+          description: `${count} customer${count === 1 ? '' : 's'} saved to your downloads folder.`,
         });
       } catch (error) {
         // Leave lastBackupDate untouched so the next load retries.
