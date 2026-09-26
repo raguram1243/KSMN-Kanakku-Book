@@ -22,7 +22,7 @@ const sizeClasses = {
  */
 export function AppLogo({ size = 'md', variant = 'icon', className = '' }: AppLogoProps) {
   const [failed, setFailed] = useState(false);
-  const src = variant === 'full' ? '/ksmn-logo-full.jpeg' : '/ksmn-logo-icon.jpeg';
+  const src = variant === 'full' ? '/ksmn-logo-full.png' : '/ksmn-logo-icon.png';
   if (failed) {
     return (
       <span
