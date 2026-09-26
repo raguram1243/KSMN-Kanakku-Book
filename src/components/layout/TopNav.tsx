@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Menu, LogOut, RefreshCw, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { AppLogo } from '../common/AppLogo';
 
 interface TopNavProps {
   onMenuClick: () => void;
@@ -13,7 +14,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <nav className="bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-800 md:ml-16 lg:ml-60">
+    <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-gray-200 dark:bg-gray-900/95 dark:border-gray-800 md:ml-16 lg:ml-60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-4">
@@ -27,8 +28,8 @@ export function TopNav({ onMenuClick }: TopNavProps) {
             </button>
 
             {/* Logo + Title */}
-                        <Link to="/dashboard" className="flex items-center space-x-2">
-              <img src="/KSMN_logo.png" alt="KSMN Logo" className="h-7 sm:h-8 w-8 object-contain flex-shrink-0" />
+                        <Link to="/dashboard" className="flex items-center space-x-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+              <AppLogo size="sm" />
               <span className="hidden sm:inline text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">KSMN Kanakku-Book</span>
               <span className="sm:hidden text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">KSMN</span>
             </Link>

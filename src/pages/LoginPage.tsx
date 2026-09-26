@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { PasswordInput } from '../components/ui/PasswordInput';
+import { AppLogo } from '../components/common/AppLogo';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { debugLog } from '../lib/utils';
@@ -44,10 +46,12 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900/50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-gray-50 to-gray-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <img src="/KSMN_logo.png" alt="KSMN Logo" className="mx-auto h-16 w-16 object-contain" />
+          <div className="mx-auto w-fit overflow-hidden rounded-2xl bg-white px-5 py-3 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700">
+            <AppLogo size="lg" variant="full" className="mx-auto" />
+          </div>
           <h2 className="mt-4 text-3xl font-bold text-gray-900 dark:text-white">KSMN Kanakku-Book</h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Credit Ledger Management System</p>
         </div>
@@ -64,9 +68,8 @@ export function LoginPage() {
               autoComplete="username"
             />
 
-            <Input
+            <PasswordInput
               label="PIN"
-              type="password"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               placeholder="Enter your PIN"

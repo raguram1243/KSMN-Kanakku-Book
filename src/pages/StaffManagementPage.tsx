@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
+import { PasswordInput } from '../components/ui/PasswordInput';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
@@ -261,12 +262,13 @@ export function StaffManagementPage() {
             onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
             required
           />
-          <Input
+          <PasswordInput
             label="PIN"
-            type="text"
             value={newStaff.pin}
             onChange={(e) => setNewStaff({ ...newStaff, pin: e.target.value })}
+            placeholder="Set a PIN for this staff member"
             required
+            autoComplete="new-password"
             maxLength={20}
           />
           <div>
@@ -297,12 +299,13 @@ export function StaffManagementPage() {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Reset PIN for <strong>{selectedStaff?.name}</strong>
           </p>
-          <Input
+          <PasswordInput
             label="New PIN"
-            type="text"
             value={resetPin}
             onChange={(e) => setResetPin(e.target.value)}
+            placeholder="Enter the new PIN"
             required
+            autoComplete="new-password"
             maxLength={20}
           />
           <div className="flex space-x-3 pt-4">

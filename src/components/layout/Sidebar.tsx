@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, PlusCircle, Users, UserCog, CreditCard, Settings, BarChart3 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useState } from 'react';
+import { AppLogo } from '../common/AppLogo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -56,7 +57,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center px-4 py-5 border-b border-gray-200 dark:border-gray-800">
-            <img src="/KSMN_logo.png" alt="KSMN Logo" className="h-8 w-8 object-contain flex-shrink-0" />
+            <AppLogo size="md" />
             <span className={`
               ml-3 text-lg font-bold text-gray-900 dark:text-white whitespace-nowrap
               transition-opacity duration-200
