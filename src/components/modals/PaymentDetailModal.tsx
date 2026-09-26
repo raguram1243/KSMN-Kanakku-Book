@@ -1,5 +1,6 @@
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { Alert } from '../ui/Alert';
 import { ImageLightbox } from '../common/ImageLightbox';
 import { formatCurrency, formatDateTime } from '../../lib/utils';
 import { Payment } from '../../types';
@@ -194,16 +195,17 @@ export function PaymentDetailModal({ payment, onClose, onModify, onDelete }: Pay
 
         {/* Delete confirmation inline message */}
         {confirmDelete && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
+          <Alert variant="error">
             Are you sure? This cannot be undone.
-          </div>
+          </Alert>
         )}
       </Modal>
 
       {/* Lightbox */}
       {lightboxImage && (
         <ImageLightbox
-          imageUrl={lightboxImage}
+          images={[lightboxImage]}
+          initialIndex={0}
           onClose={() => setLightboxImage(null)}
         />
       )}

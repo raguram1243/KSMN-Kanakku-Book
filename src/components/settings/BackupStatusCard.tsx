@@ -68,14 +68,14 @@ export function BackupStatusCard() {
       <div
         className={`flex items-start gap-3 rounded-lg border p-3 mb-4 ${
           backedUpToday
-            ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
-            : 'border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20'
+            ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20'
+            : 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
         }`}
       >
         {backedUpToday ? (
-          <CheckCircle2 size={20} className="mt-0.5 flex-shrink-0 text-green-600 dark:text-green-400" />
+          <CheckCircle2 size={20} className="mt-0.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
         ) : (
-          <AlertTriangle size={20} className="mt-0.5 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
+          <AlertTriangle size={20} className="mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
         )}
         <div className="text-sm">
           <div className="font-medium text-gray-900 dark:text-white">

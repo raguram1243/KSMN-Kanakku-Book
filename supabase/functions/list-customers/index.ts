@@ -1,4 +1,4 @@
-ï»¿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyToken } from '../_shared/jwt-utils.ts'
 
@@ -29,25 +29,25 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+    // Parse params
     const url = new URL(req.url)
     const search = url.searchParams.get('search') || ''
     const view = url.searchParams.get('view') || 'grid'
     const recent = url.searchParams.get('recent') === 'true'
     const limitParam = url.searchParams.get('limit')
     const limit = limitParam ? parseInt(limitParam) : 5
-
-    // New pagination/filter params
     const pageParam = url.searchParams.get('page')
     const pageSizeParam = url.searchParams.get('pageSize')
     const filterParam = url.searchParams.get('filter') || 'all'
+    const sortParam = url.searchParams.get('sort') || 'name_asc'
     const page = pageParam ? parseInt(pageParam) : 1
     const pageSize = pageSizeParam ? parseInt(pageSizeParam) : 50
-    const usePagination = page > 1 || pageSize !== 200 || filterParam !== 'all' || recent
 
     let customers: any[] = []
     let total = 0
 
     if (recent) {
+      // Recent-customers path: unchanged, uses recency ordering
       const { data: recentEntries, error: entriesError } = await supabase
         .from('credit_entries')
         .select('customer_id, created_at')
@@ -81,72 +81,78 @@ serve(async (req) => {
           .map(id => customerMap.get(id))
           .filter(Boolean)
       }
-    } else {
-      // Resolve balance-based filter to a set of customer ids
-      let filterIds: string[] | null = null
-      if (filterParam === 'outstanding' || filterParam === 'paid') {
-        const { data: outRows } = await supabase
+
+      // Attach balances for the recency list (single aggregate query)
+      if (customers.length > 0) {
+        const customerIds = customers.map((c: any) => c.id)
+        const { data: balanceRows } = await supabase
           .from('credit_entries')
-          .select('customer_id')
-          .neq('status', 'paid')
-          .gt('balance', 0)
-
-        const outstandingIds = new Set((outRows || []).map((r: any) => r.customer_id))
-        if (filterParam === 'outstanding') {
-          filterIds = Array.from(outstandingIds)
-        } else {
-          // paid = all customers minus those with outstanding balance
-          const { data: allRows } = await supabase
-            .from('customer_view_staff')
-            .select('id')
-          filterIds = (allRows || []).map((r: any) => r.id).filter((id: string) => !outstandingIds.has(id))
+          .select('customer_id, balance')
+          .in('customer_id', customerIds)
+        const balanceMap = new Map<string, number>()
+        for (const row of balanceRows || []) {
+          const current = balanceMap.get(row.customer_id) || 0
+          balanceMap.set(row.customer_id, current + Number(row.balance))
         }
-      } else if (filterParam === 'advance') {
-        const { data: advRows } = await supabase
+        const { data: advanceRows } = await supabase
           .from('customer_advance_balance')
-          .select('customer_id')
-          .gt('advance_balance', 0)
-
-        filterIds = Array.from(new Set((advRows || []).map((r: any) => r.customer_id)))
+          .select('customer_id, advance_balance')
+          .in('customer_id', customerIds)
+        const advanceMap = new Map<string, number>()
+        for (const row of advanceRows || []) {
+          advanceMap.set(row.customer_id, Number(row.advance_balance) || 0)
+        }
+        const { data: unpaidRows } = await supabase
+          .from('credit_entries')
+          .select('customer_id, created_at')
+          .neq('status', 'paid')
+          .in('customer_id', customerIds)
+          .order('created_at', { ascending: true })
+        const oldestUnpaidMap = new Map<string, string>()
+        for (const row of unpaidRows || []) {
+          if (!oldestUnpaidMap.has(row.customer_id)) {
+            oldestUnpaidMap.set(row.customer_id, row.created_at)
+          }
+        }
+        customers = customers.map((c: any) => ({
+          ...c,
+          balance: balanceMap.get(c.id) || 0,
+          advance_balance: advanceMap.get(c.id) || 0,
+          oldest_unpaid_date: oldestUnpaidMap.get(c.id) || null,
+        }))
       }
+    } else {
+      // Main paginated path — delegate sorting + pagination to the
+      // list_customers RPC so balances are computed across the full
+      // dataset and sorted BEFORE the page slice is taken.
+      const { data, error } = await supabase.rpc('list_customers', {
+        p_search: search,
+        p_filter: filterParam,
+        p_sort: sortParam,
+        p_page: page,
+        p_page_size: pageSize,
+      })
+      if (error) throw error
 
-      const paginate = pageParam !== null || pageSizeParam !== null
+      // total_count is returned on every row by the RPC — capture it
+      // from the raw response BEFORE mapping, since mapped objects drop it.
+      const totalCount = data && data.length > 0 ? Number(data[0].total_count) || 0 : 0
 
-      let query = supabase
-        .from('customer_view_staff')
-        .select(
-          'id, customer_code, name, phone, address, customer_type, notes, created_at, custom_overdue_days',
-          paginate ? { count: 'exact' } : undefined
-        )
-
-      if (filterIds !== null) {
-        query = query.in(
-          'id',
-          filterIds.length > 0 ? filterIds : ['00000000-0000-0000-0000-000000000000']
-        )
-      }
-
-      if (search) {
-        query = query.or(
-          `name.ilike.%${search}%,phone.ilike.%${search}%,customer_code.ilike.%${search}%`
-        )
-      }
-
-      query = query.order('created_at', { ascending: false })
-
-      if (paginate) {
-        const from = (page - 1) * pageSize
-        const to = from + pageSize - 1
-        const { data: fetched, count, error } = await query.range(from, to)
-        if (error) throw error
-        customers = fetched || []
-        total = count || 0
-      } else {
-        const { data: fetched, error } = await query.limit(200)
-        if (error) throw error
-        customers = fetched || []
-        total = customers.length
-      }
+      customers = (data || []).map((row: any) => ({
+        id: row.id,
+        customer_code: row.customer_code,
+        name: row.name,
+        phone: row.phone,
+        address: row.address,
+        customer_type: row.customer_type,
+        notes: row.notes,
+        created_at: row.created_at,
+        custom_overdue_days: row.custom_overdue_days,
+        balance: Number(row.balance) || 0,
+        advance_balance: Number(row.advance_balance) || 0,
+        oldest_unpaid_date: row.oldest_unpaid_date || null,
+      }))
+      total = totalCount
     }
 
     if (customers.length === 0) {
@@ -156,56 +162,8 @@ serve(async (req) => {
       )
     }
 
-    const customerIds = customers.map(c => c.id)
-
-    // Aggregate balances via SQL scoped to returned customers (not full-table scan)
-    const { data: balanceRows } = await supabase
-      .from('credit_entries')
-      .select('customer_id, balance')
-      .in('customer_id', customerIds)
-
-    const balanceMap = new Map<string, number>()
-    for (const row of balanceRows || []) {
-      const current = balanceMap.get(row.customer_id) || 0
-      balanceMap.set(row.customer_id, current + Number(row.balance))
-    }
-
-    // Oldest unpaid date per customer via SQL
-    const { data: unpaidRows } = await supabase
-      .from('credit_entries')
-      .select('customer_id, created_at')
-      .neq('status', 'paid')
-      .in('customer_id', customerIds)
-      .order('created_at', { ascending: true })
-
-    const oldestUnpaidMap = new Map<string, string>()
-    for (const row of unpaidRows || []) {
-      if (!oldestUnpaidMap.has(row.customer_id)) {
-        oldestUnpaidMap.set(row.customer_id, row.created_at)
-      }
-    }
-
-    // Advance balances for returned customers
-    const { data: advanceRows } = await supabase
-      .from('customer_advance_balance')
-      .select('customer_id, advance_balance')
-      .in('customer_id', customerIds)
-
-    const advanceMap = new Map<string, number>()
-    for (const row of advanceRows || []) {
-      advanceMap.set(row.customer_id, Number(row.advance_balance) || 0)
-    }
-
-    // Build response with per-customer balance, advance balance, oldest unpaid date
-    const customersWithBalance = customers.map(c => ({
-      ...c,
-      balance: balanceMap.get(c.id) || 0,
-      advance_balance: advanceMap.get(c.id) || 0,
-      oldest_unpaid_date: oldestUnpaidMap.get(c.id) || null,
-    }))
-
     return new Response(
-      JSON.stringify({ customers: customersWithBalance, total, page, pageSize, view, filter: filterParam }),
+      JSON.stringify({ customers, total, page, pageSize, view, filter: filterParam }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

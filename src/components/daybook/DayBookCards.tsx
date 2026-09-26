@@ -18,7 +18,7 @@ export function DayBookStat({ label, value, sub, tone }: { label: string; value:
   return (
     <Card>
       <div className="text-sm text-gray-500 dark:text-gray-400">{label}</div>
-      <div className={`mt-1 text-2xl font-bold ${color}`}>{value}</div>
+      <div className={`mt-1 text-2xl font-bold tnum ${color}`}>{value}</div>
       <div className="text-xs text-gray-500">{sub}</div>
     </Card>
   );

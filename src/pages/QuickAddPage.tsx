@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { Alert } from '../components/ui/Alert';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatCurrency, debugError } from '../lib/utils';
@@ -430,16 +431,14 @@ export default function QuickAddPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isEditMode ? 'Edit Credit Entry' : 'Add Credit Entry'}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{isEditMode ? 'Edit Credit Entry' : 'Add Credit Entry'}</h1>
         {!isEditMode && <AIScanButton variant="primary" onScanComplete={applyScanResult} />}
       </div>
 
 
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
-          {error}
-        </div>
+        <Alert variant="error">{error}</Alert>
       )}
 
       {/* Customer Selection */}
@@ -469,9 +468,9 @@ export default function QuickAddPage() {
                   const over = projected - limit;
                   if (over > 0) {
                     return (
-                      <div className="mt-2 text-xs font-semibold px-2 py-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
-                        ⚠ Credit limit exceeded by {formatCurrency(over)} (new balance will be {formatCurrency(projected)})
-                      </div>
+                      <Alert variant="warning" className="mt-2 text-xs py-2 px-3">
+                        Credit limit exceeded by {formatCurrency(over)} (new balance will be {formatCurrency(projected)})
+                      </Alert>
                     );
                   }
                   return (
@@ -696,9 +695,9 @@ export default function QuickAddPage() {
                   required
                 />
                 {isEditMode && editPaidAmount !== null && editPaidAmount > 0 && (
-                  <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                  <Alert variant="warning">
                     ₹{formatCurrency(editPaidAmount)} already paid — amount can't go below this
-                  </div>
+                  </Alert>
                 )}
               </div>
             ) : (
@@ -761,9 +760,9 @@ export default function QuickAddPage() {
                   Total: {formatCurrency(getTotalAmount())}
                 </div>
                 {isEditMode && editPaidAmount !== null && editPaidAmount > 0 && (
-                  <div className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                  <Alert variant="warning">
                     ₹{formatCurrency(editPaidAmount)} already paid — amount can't go below this
-                  </div>
+                  </Alert>
                 )}
               </div>
             )}
@@ -805,7 +804,7 @@ export default function QuickAddPage() {
                     <button
                       type="button"
                       onClick={() => setScannedAttachment(null)}
-                      className="text-sm text-red-600 dark:text-red-400 hover:underline"
+                      className="text-sm text-red-600 dark:text-red-400 hover:underline focus-ring"
                     >
                       Remove
                     </button>

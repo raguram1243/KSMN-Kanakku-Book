@@ -9,7 +9,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f3f4f6;
+  background-color: #f8fafc;
+  color: #0f172a;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
 /* Dark theme: `dark` is set on <html> by ThemeContext. */
@@ -20,8 +22,29 @@ body {
 }
 
 .dark body {
-  background-color: #111827;
-  color: #f9fafb;
+  background-color: #0b0f19;
+  color: #f8fafc;
+}
+
+/* Utility for numbers/currencies that shouldn't jitter when updated */
+.tnum,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shared keyboard focus style for raw <button>/<a> elements that are not the
+   UI Button component (filter pills, WhatsApp chips, clickable cards). Keeps
+   keyboard navigation visible without adding a ring on mouse clicks. */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+.dark .focus-ring:focus-visible {
+  outline-color: #a5b4fc;
 }
 
 /* Shimmer animation for skeleton loading states */

@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { api } from '../../lib/api';
 import { Customer } from '../../types';
 import { CustomerType } from './CreateCustomerModal';
+import { Alert } from '../ui/Alert';
 
 const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'walk-in', label: 'Walk-in' },
@@ -82,9 +83,9 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Customer" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm">
+          <Alert variant="error">
             {error}
-          </div>
+          </Alert>
         )}
         {/* Customer code is read-only — it is a generated, immutable identifier */}
         <Input

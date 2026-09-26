@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { PasswordInput } from '../components/ui/PasswordInput';
+import { Alert } from '../components/ui/Alert';
 import { AppLogo } from '../components/common/AppLogo';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -79,9 +80,7 @@ export function LoginPage() {
             />
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
+              <Alert variant="error">{error}</Alert>
             )}
           </div>
 

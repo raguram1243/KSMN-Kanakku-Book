@@ -36,7 +36,7 @@ export function SortableHeader({
         onClick={() => onSort(column)}
         className={`inline-flex items-center gap-1 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded ${
           align === 'right' ? 'flex-row-reverse' : ''
-        } ${active ? 'text-gray-900 dark:text-white' : ''}`}
+        } ${active ? 'text-gray-900 dark:text-white' : ''} focus-ring`}
       >
         <span>{label}</span>
         {active ? (

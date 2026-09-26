@@ -25,6 +25,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.remove('dark');
     }
     localStorage.setItem('ksmn_theme', theme);
+
+    // Sync browser theme-color meta tag (status bar on mobile)
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute('content', theme === 'dark' ? '#0b0f19' : '#1d4ed8');
+    }
   }, [theme]);
 
   const toggleTheme = () => {

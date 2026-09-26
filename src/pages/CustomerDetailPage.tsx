@@ -3,9 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { StatusPill } from '../components/ui/StatusPill';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import { formatCurrency, formatDate, formatDateTime, debugError } from '../lib/utils';
+import { formatCurrency, formatDate, formatDateTime, debugError, getBalanceTone, getOverdueStatus } from '../lib/utils';
 import { api } from '../lib/api';
 import { CreditEntry, Payment } from '../types';
 import { EntryDetailModal } from '../components/modals/EntryDetailModal';
@@ -284,7 +285,7 @@ export default function CustomerDetailPage() {
         <p className="text-red-500">{error}</p>
         <button
           onClick={() => customerQuery.refetch()}
-          className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors focus-ring"
         >
           Retry
         </button>
@@ -312,7 +313,7 @@ export default function CustomerDetailPage() {
           <Link to="/customers" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700">
             <ArrowLeft size={14} className="inline mr-1" /> Back to Customers
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{customer.name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white mt-2">{customer.name}</h1>
           <p className="text-gray-600 dark:text-gray-400">{customer.customer_code} • {customer.phone}</p>
         </div>
         {isAdmin && (
@@ -382,9 +383,14 @@ export default function CustomerDetailPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Outstanding Balance</div>
-              <div className={`text-3xl font-bold ${totalOutstanding > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+              <div className={`text-3xl font-bold tnum ${getBalanceTone(getOverdueStatus(customer), totalOutstanding)}`}>
                 {formatCurrency(totalOutstanding)}
               </div>
+              {getOverdueStatus(customer) && (
+                <div className={`mt-1 text-xs font-semibold ${getOverdueStatus(customer)!.isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {getOverdueStatus(customer)!.label}
+                </div>
+              )}
               {(customer.advance_balance ?? 0) > 0 && (
                 <div className="mt-2 flex items-center space-x-2">
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
@@ -416,18 +422,20 @@ export default function CustomerDetailPage() {
                     onClick={() => {
                       openWhatsAppAggregate(customer, 'en');
                     }}
-                    className="inline-flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold text-xs rounded-lg shadow-sm transition-colors focus-ring"
+                    title="Send WhatsApp summary (English)"
                   >
-                    <MessageCircle size={16} />
+                    <MessageCircle size={15} />
                     <span>EN</span>
                   </button>
                   <button
                     onClick={() => {
                       openWhatsAppAggregate(customer, 'ta');
                     }}
-                    className="inline-flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold text-xs rounded-lg shadow-sm transition-colors focus-ring"
+                    title="Send WhatsApp summary (Tamil)"
                   >
-                    <MessageCircle size={16} />
+                    <MessageCircle size={15} />
                     <span>தமிழ்</span>
                   </button>
                 </div>
@@ -551,9 +559,7 @@ export default function CustomerDetailPage() {
                             </div>
                           </>
                         )}
-                        <Badge variant={entry.status === 'paid' ? 'success' : entry.status === 'partial' ? 'warning' : 'danger'}>
-                          {entry.status}
-                        </Badge>
+                        <StatusPill status={entry.status} size="sm" />
                                                 {entry.balance > 0 && (
                           <div className="mt-2 flex items-center space-x-2">
                             <button
@@ -561,9 +567,10 @@ export default function CustomerDetailPage() {
                                 e.stopPropagation();
                                 openWhatsAppEntry(customer, entry.balance, entry.description ?? null, entry.created_at ?? '', 'en');
                               }}
-                              className="inline-flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors"
+                              className="inline-flex items-center space-x-1 px-2 py-0.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold text-[11px] rounded shadow-sm transition-colors focus-ring"
+                              title="Send WhatsApp entry reminder (English)"
                             >
-                              <MessageCircle size={14} />
+                              <MessageCircle size={12} />
                               <span>EN</span>
                             </button>
                             <button
@@ -571,9 +578,10 @@ export default function CustomerDetailPage() {
                                 e.stopPropagation();
                                 openWhatsAppEntry(customer, entry.balance, entry.description ?? null, entry.created_at ?? '', 'ta');
                               }}
-                              className="inline-flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors"
+                              className="inline-flex items-center space-x-1 px-2 py-0.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold text-[11px] rounded shadow-sm transition-colors focus-ring"
+                              title="Send WhatsApp entry reminder (Tamil)"
                             >
-                              <MessageCircle size={14} />
+                              <MessageCircle size={12} />
                               <span>தமிழ்</span>
                             </button>
                           </div>
@@ -890,9 +898,7 @@ export default function CustomerDetailPage() {
 
                   {transaction.status && (
                     <div className="pt-2 border-t">
-                      <Badge variant={transaction.status === 'paid' ? 'success' : transaction.status === 'partial' ? 'warning' : 'danger'}>
-                        {transaction.status}
-                      </Badge>
+                      <StatusPill status={transaction.status} size="sm" />
                     </div>
                   )}
                 </div>

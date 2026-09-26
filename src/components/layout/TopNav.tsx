@@ -21,7 +21,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
             {/* Hamburger menu button - mobile only */}
             <button
               onClick={onMenuClick}
-              className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+              className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800 focus-ring"
               title="Open menu"
             >
               <Menu size={24} />
@@ -52,21 +52,21 @@ export function TopNav({ onMenuClick }: TopNavProps) {
             </span>
             <button
               onClick={() => window.location.reload()}
-                            className="inline-flex p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+                            className="inline-flex p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800 focus-ring"
               title="Refresh"
             >
               <RefreshCw size={18} />
             </button>
             <button
               onClick={toggleTheme}
-                            className="inline-flex p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+                            className="inline-flex p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800 focus-ring"
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
             <button
               onClick={logout}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800 focus-ring"
               title="Logout"
             >
               <LogOut size={18} />

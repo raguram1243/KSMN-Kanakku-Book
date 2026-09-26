@@ -67,11 +67,11 @@ export function usePaymentsReport(fromDate?: string, toDate?: string) {
   });
 }
 
-export function useCustomers(search?: string, page?: number, pageSize?: number, filter?: string) {
+export function useCustomers(search?: string, page?: number, pageSize?: number, filter?: string, sort?: string) {
   return useQuery<any, Error, any, any>({
-    queryKey: ['customers', search ?? '', page ?? 1, pageSize ?? 50, filter ?? 'all'],
+    queryKey: ['customers', search ?? '', page ?? 1, pageSize ?? 50, filter ?? 'all', sort ?? 'name_asc'],
     queryFn: async () => {
-      const res = await api.listCustomers(search, page, pageSize, filter);
+      const res = await api.listCustomers(search, page, pageSize, filter, sort);
       if (!res.ok) throw new Error('Failed to load customers');
       return res.json();
     },

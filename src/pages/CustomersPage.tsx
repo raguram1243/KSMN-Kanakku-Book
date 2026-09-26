@@ -4,6 +4,8 @@ import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { StatusPill } from '../components/ui/StatusPill';
+import { Alert } from '../components/ui/Alert';
 import { formatDate, formatCurrency } from '../lib/utils';
 import { Customer } from '../types';
 import { SkeletonCard } from '../components/ui/Skeleton';
@@ -11,7 +13,7 @@ import { CreateCustomerModal } from '../components/customer/CreateCustomerModal'
 import { useCustomers } from '../hooks/useApi';
 import { PaginationControls, PaginationSkeleton } from '../components/ui/PaginationControls';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 const OVERDUE_DEFAULTS: Record<string, number> = {
   'walk-in': 30,
@@ -46,6 +48,7 @@ export function CustomersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filter, setFilter] = useState('all');
+  const [sortBy, setSortBy] = useState<'name_asc' | 'newest' | 'oldest' | 'balance_desc' | 'balance_asc'>('name_asc');
   const [page, setPage] = useState(1);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -62,12 +65,17 @@ export function CustomersPage() {
     setPage(1);
   }, [debouncedSearch, filter]);
 
-  const customersQuery = useCustomers(debouncedSearch, page, PAGE_SIZE, filter);
+  const customersQuery = useCustomers(debouncedSearch, page, PAGE_SIZE, filter, sortBy);
 
   const customers = (customersQuery.data?.customers ?? []) as Customer[];
   const total = customersQuery.data?.total ?? 0;
   const loading = customersQuery.isLoading;
   const error = (customersQuery.error as Error)?.message || null;
+
+  // Sorting is now applied server-side by the list_customers RPC across the
+  // full dataset before pagination, so the page is returned in the correct
+  // global order. No client-side re-sort needed (and doing one would be wrong
+  // — it would re-introduce the per-page sort bug).
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -83,7 +91,7 @@ export function CustomersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Customers</h1>
         <div className="flex space-x-2">
           <Button
             variant={view === 'grid' ? 'primary' : 'secondary'}
@@ -103,15 +111,9 @@ export function CustomersPage() {
       </div>
 
       {toast && (
-        <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-2 rounded-lg text-sm">
-          <span>{toast}</span>
-          <button
-            onClick={() => setToast(null)}
-            className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 font-medium"
-          >
-            &times;
-          </button>
-        </div>
+        <Alert variant="success" onClose={() => setToast(null)} className="mb-0">
+          {toast}
+        </Alert>
       )}
 
       <div className="flex items-center gap-3">
@@ -133,6 +135,18 @@ export function CustomersPage() {
           <option value="paid">Fully Paid</option>
           <option value="advance">Has Advance</option>
         </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+          aria-label="Sort customers"
+        >
+          <option value="name_asc">Name (A-Z)</option>
+          <option value="balance_desc">Outstanding Balance: High to Low</option>
+          <option value="balance_asc">Outstanding Balance: Low to High</option>
+          <option value="newest">Newest Customer First</option>
+          <option value="oldest">Oldest Customer First</option>
+        </select>
         <Button variant="primary" size="sm" onClick={() => setShowCreateCustomer(true)}>
           + Add Customer
         </Button>
@@ -148,7 +162,7 @@ export function CustomersPage() {
             <p className="text-red-500">{error}</p>
             <button
               onClick={() => customersQuery.refetch()}
-              className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors focus-ring"
             >
               Retry
             </button>
@@ -188,23 +202,37 @@ export function CustomersPage() {
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t">
                     <div className="flex items-center space-x-2">
-                      {(customer.balance ?? 0) > 0 && (
-                        <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-                          Owes: {formatCurrency(customer.balance ?? 0)}
-                        </span>
-                      )}
+                      {(() => {
+                        const bal = customer.balance ?? 0;
+                        if (bal <= 0) return null;
+                        const status = getOverdueStatus(customer);
+                        const isOverdue = status?.isOverdue ?? false;
+                        const textColor = isOverdue
+                          ? 'text-red-600 dark:text-red-400'
+                          : status
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-gray-900 dark:text-gray-100';
+                        return (
+                          <span className={`text-sm font-semibold tabular-nums ${textColor}`}>
+                            Owes: {formatCurrency(bal)}
+                          </span>
+                        );
+                      })()}
                       {(customer.advance_balance ?? 0) > 0 && (
-                        <span className="text-xs font-semibold text-green-600 dark:text-green-400">
+                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
                           Adv: {formatCurrency(customer.advance_balance ?? 0)}
                         </span>
                       )}
                       {(() => {
                         const status = getOverdueStatus(customer)
                         if (!status) return null
-                        if (status.isOverdue) {
-                          return <Badge variant="danger">{status.label}</Badge>
-                        }
-                        return <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{status.label}</span>
+                        return (
+                          <StatusPill
+                            status={status.isOverdue ? 'overdue' : 'partial'}
+                            label={status.label}
+                            size="sm"
+                          />
+                        )
                       })()}
                     </div>
                     <Badge variant={customer.customer_type === 'regular' ? 'info' : 'default'}>
@@ -229,23 +257,37 @@ export function CustomersPage() {
                   <div className="text-sm text-gray-500 dark:text-gray-400">{customer.customer_code} • {customer.phone}</div>
                 </div>
                 <div className="flex items-center space-x-3">
-                  {(customer.balance ?? 0) > 0 && (
-                    <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-                      Owes: {formatCurrency(customer.balance ?? 0)}
-                    </span>
-                  )}
+                  {(() => {
+                    const bal = customer.balance ?? 0;
+                    if (bal <= 0) return null;
+                    const status = getOverdueStatus(customer);
+                    const isOverdue = status?.isOverdue ?? false;
+                    const textColor = isOverdue
+                      ? 'text-red-600 dark:text-red-400'
+                      : status
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-gray-900 dark:text-gray-100';
+                    return (
+                      <span className={`text-sm font-semibold tabular-nums ${textColor}`}>
+                        Owes: {formatCurrency(bal)}
+                      </span>
+                    );
+                  })()}
                   {(customer.advance_balance ?? 0) > 0 && (
-                    <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                    <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
                       Adv: {formatCurrency(customer.advance_balance ?? 0)}
                     </span>
                   )}
                   {(() => {
                     const status = getOverdueStatus(customer)
                     if (!status) return null
-                    if (status.isOverdue) {
-                      return <Badge variant="danger">{status.label}</Badge>
-                    }
-                    return <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{status.label}</span>
+                    return (
+                      <StatusPill
+                        status={status.isOverdue ? 'overdue' : 'partial'}
+                        label={status.label}
+                        size="sm"
+                      />
+                    )
                   })()}
                   <Badge variant={customer.customer_type === 'regular' ? 'info' : 'default'}>
                     {customer.customer_type}

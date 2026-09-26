@@ -7,7 +7,8 @@ import { PaginationControls } from '../components/ui/PaginationControls';
 import { DateRangeFilter } from '../components/reports/DateRangeFilter';
 import { PlainHeader, SortableHeader } from '../components/reports/SortableHeader';
 import { ReportError, ReportLoading } from '../components/reports/ReportStates';
-import { formatCurrency, formatDateTime, getStatusColor } from '../lib/utils';
+import { StatusPill } from '../components/ui/StatusPill';
+import { formatCurrency, formatDateTime } from '../lib/utils';
 import { useEntriesReport } from '../hooks/useApi';
 import { useClientSort } from '../hooks/useClientSort';
 import { useClientPagination } from '../hooks/useClientPagination';
@@ -212,11 +213,7 @@ export default function ReportEntriesPage() {
                     <td className="px-3 py-2 text-right">{formatCurrency(r.paid_amount)}</td>
                     <td className="px-3 py-2 text-right font-medium">{formatCurrency(r.balance)}</td>
                     <td className="px-3 py-2">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(r.status)}`}
-                      >
-                        {r.status}
-                      </span>
+                      <StatusPill status={r.status} size="sm" />
                     </td>
                   </tr>
                 ))}

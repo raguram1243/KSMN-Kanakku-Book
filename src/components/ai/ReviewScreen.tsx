@@ -124,15 +124,15 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
   };
 
   const getConfidenceColor = (conf: number): string => {
-    if (conf >= 0.8) return 'text-green-600 dark:text-green-400';
-    if (conf >= 0.5) return 'text-yellow-600 dark:text-yellow-400';
+    if (conf >= 0.8) return 'text-emerald-600 dark:text-emerald-400';
+    if (conf >= 0.5) return 'text-amber-600 dark:text-amber-400';
     return 'text-red-600 dark:text-red-400';
   };
 
   const getConfidenceBg = (conf: number): string => {
-    if (conf >= 0.8) return 'bg-green-50 dark:bg-green-900/20';
-    if (conf >= 0.5) return 'bg-yellow-50 dark:bg-yellow-900/20';
-    return 'bg-red-50 dark:bg-red-900/20';
+    if (conf >= 0.8) return 'bg-emerald-50 dark:bg-emerald-950/40';
+    if (conf >= 0.5) return 'bg-amber-50 dark:bg-amber-950/40';
+    return 'bg-red-50 dark:bg-red-950/40';
   };
 
   const selectedFromMatches = matches.find((m) => m.id === selectedCustomerId);
@@ -184,7 +184,7 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
                   key={customer.id}
                   type="button"
                   onClick={() => pickFromSearch(customer)}
-                  className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800 last:border-b-0"
+                  className="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800 last:border-b-0 focus-ring"
                 >
                   <div className="font-medium text-gray-900 dark:text-white">{customer.name}</div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -346,7 +346,7 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
 
       {/* Lightbox */}
       {lightboxImage && (
-        <ImageLightbox imageUrl={lightboxImage} onClose={() => setLightboxImage(null)} />
+        <ImageLightbox images={[lightboxImage]} initialIndex={0} onClose={() => setLightboxImage(null)} />
       )}
     </div>
   );

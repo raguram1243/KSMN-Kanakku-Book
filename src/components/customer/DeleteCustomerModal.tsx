@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { Alert } from '../ui/Alert';
 import { api } from '../../lib/api';
 import { Customer } from '../../types';
 
@@ -75,9 +76,9 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
       size="md"
     >
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm mb-3">
+        <Alert variant="error" className="mb-3">
           {error}
-        </div>
+        </Alert>
       )}
 
       {step === 1 && (

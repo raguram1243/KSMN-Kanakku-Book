@@ -34,7 +34,7 @@ export function PasswordInput({ label, error, className = '', ...props }: Passwo
           onClick={() => setShow((v) => !v)}
           aria-label={show ? 'Hide password' : 'Show password'}
           title={show ? 'Hide' : 'Show'}
-          className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors rounded-r-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors rounded-r-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-ring"
           tabIndex={-1}
         >
           {show ? <EyeOff size={18} /> : <Eye size={18} />}

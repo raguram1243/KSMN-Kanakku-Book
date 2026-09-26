@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from './Button';
+import { Alert } from './Alert';
 import { debugError } from '../../lib/utils';
 
 interface FileItem {
@@ -242,7 +243,7 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, accept 
               <button
                 type="button"
                 onClick={() => removeFile(index)}
-                className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity focus-ring"
               >
                 ×
               </button>
@@ -288,14 +289,14 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, accept 
           <button
             type="button"
             onClick={startCamera}
-            className="flex-1 px-3 py-2 text-sm font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors"
+            className="flex-1 px-3 py-2 text-sm font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 rounded-lg hover:bg-primary-100 transition-colors focus-ring"
           >
             📷 Camera ({remaining} left)
           </button>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus-ring"
           >
             📁 Upload File ({remaining} left)
           </button>
@@ -323,16 +324,16 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, accept 
               <button
                 type="button"
                 onClick={stopCamera}
-                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-2xl focus-ring"
               >
                 ×
               </button>
             </div>
 
             {cameraError ? (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
+              <Alert variant="error">
                 {cameraError}
-              </div>
+              </Alert>
             ) : (
               <>
                                 <video

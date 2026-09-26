@@ -10,6 +10,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { Alert } from '../ui/Alert';
 import { MultiFileUpload, FileItem } from '../ui/MultiFileUpload';
 import { ProcessingDialog } from './ProcessingDialog';
 import { ReviewScreen } from './ReviewScreen';
@@ -163,7 +164,7 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
     <Modal isOpen={isOpen} onClose={handleCloseModal} title="AI Document Scan" size="xl">
       <div className="space-y-6">
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
+          <Alert variant="error">
             <p>{error}</p>
             {uploaded && (
               <div className="mt-3">
@@ -173,7 +174,7 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
                 <span className="ml-2 text-xs">Uses the photo you already uploaded.</span>
               </div>
             )}
-          </div>
+          </Alert>
         )}
 
         {phase === 'upload' && (

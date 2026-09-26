@@ -9,6 +9,7 @@ import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
 import { Download } from 'lucide-react';
 import { BackupStatusCard } from '../components/settings/BackupStatusCard';
 import { useToastStore } from '../store/toastStore';
+import { Alert } from '../components/ui/Alert';
 
 interface Setting {
   key: string;
@@ -121,16 +122,12 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Settings</h1>
 
       {message && (
-        <div className={`px-4 py-3 rounded-lg text-sm ${
-          message.type === 'success'
-            ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
-            : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
-        }`}>
+        <Alert variant={message.type === 'success' ? 'success' : 'error'}>
           {message.text}
-        </div>
+        </Alert>
       )}
 
       <Card>

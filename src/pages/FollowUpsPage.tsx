@@ -49,7 +49,7 @@ export function FollowUpsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Follow-ups</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Follow-ups</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Who promised to pay, and when. {dueCount > 0 ? `${dueCount} due today or earlier.` : 'Nothing due right now.'}
           </p>
@@ -65,7 +65,7 @@ export function FollowUpsPage() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === f ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === f ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'} focus-ring`}
             >
               {f === 'all' ? 'All' : f === 'due' ? `Due (${dueCount})` : f === 'open' ? 'Open' : 'Done'}
             </button>

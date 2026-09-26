@@ -12,6 +12,7 @@ import { FileItem } from '../components/ui/MultiFileUpload';
 import { MultiFileUpload } from '../components/ui/MultiFileUpload';
 import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
 import { Modal } from '../components/ui/Modal';
+import { Alert } from '../components/ui/Alert';
 import { AIScanButton } from '../components/ai/AIScanButton';
 import { ArrowLeft } from 'lucide-react';
 import { PaginationControls } from '../components/ui/PaginationControls';
@@ -549,7 +550,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           <Link to="/dashboard" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700">
             <ArrowLeft size={14} className="inline mr-1" /> Back to Dashboard
           </Link>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
           <p className="text-gray-600 dark:text-gray-400">Search or select a customer to receive a payment for.</p>
         </div>
 
@@ -740,16 +741,14 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           <Link to="/payment-received" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700">
             <ArrowLeft size={14} className="inline mr-1" /> Change Customer
           </Link>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
+                  <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white mt-2">{isEditMode ? 'Edit Payment' : 'Payment Received'}</h1>
           <p className="text-gray-600 dark:text-gray-400">{customer.name} • {customer.customer_code}</p>
         </div>
         <AIScanButton variant="primary" onScanComplete={applyScanResult} />
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
-          {error}
-        </div>
+        <Alert variant="error">{error}</Alert>
       )}
 
       <Card>
@@ -811,7 +810,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium text-blue-900 dark:text-blue-200">Total Outstanding</div>
-                <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">{formatCurrency(totalOutstanding)}</div>
+                <div className="text-2xl font-bold tnum text-blue-900 dark:text-blue-200">{formatCurrency(totalOutstanding)}</div>
                 {(customer?.advance_balance ?? 0) > 0 && (
                   <div className="text-sm text-green-700 dark:text-green-300 mt-1">
                     Advance Credit: {formatCurrency(customer.advance_balance ?? 0)}
@@ -839,9 +838,9 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           </label>
 
           {advanceOnly && (
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 rounded-lg text-sm">
+            <Alert variant="success">
               Full payment amount will be recorded as advance credit
-            </div>
+            </Alert>
           )}
 
           {/* Advance credit informational line */}
@@ -849,9 +848,9 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
             const amount = parseFloat(paymentAmount) || 0;
             if (amount > selectedTotal + 0.01) {
               return (
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-300 px-4 py-3 rounded-lg text-sm">
+                <Alert variant="info">
                   {formatCurrency(amount - selectedTotal)} will be added as advance credit for this customer
-                </div>
+                </Alert>
               );
             }
             return null;

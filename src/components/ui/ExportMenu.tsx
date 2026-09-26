@@ -94,7 +94,7 @@ export function ExportMenu({ onExportCsv, onExportPdf, disabled, label = 'Export
   };
 
   const itemClass =
-    'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800';
+    'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800 focus-ring';
 
   return (
     <div ref={triggerRef} className="inline-block">
@@ -126,7 +126,7 @@ export function ExportMenu({ onExportCsv, onExportPdf, disabled, label = 'Export
             </button>
             <button
               role="menuitem"
-              className={`${itemClass} border-t border-gray-100 dark:border-gray-800`}
+              className={`${itemClass} border-t border-gray-100 dark:border-gray-800 focus-ring`}
               onClick={runAndClose(onExportPdf)}
             >
               <FileText size={15} className="text-red-600 dark:text-red-400" />

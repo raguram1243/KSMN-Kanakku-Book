@@ -132,7 +132,7 @@ export function DashboardPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
 
         {/* KPI Cards Skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -200,7 +200,7 @@ export function DashboardPage() {
         {error && (
           <button
             onClick={() => statsQuery.refetch()}
-            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors focus-ring"
           >
             Retry
           </button>
@@ -217,7 +217,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -254,11 +254,11 @@ export function DashboardPage() {
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="text-sm text-blue-700 dark:text-blue-300">Total Credit Given</div>
-            <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">{formatCurrency(stats.totalCreditLast30 ?? 0)}</div>
+            <div className="text-2xl font-bold tnum text-blue-900 dark:text-blue-200">{formatCurrency(stats.totalCreditLast30 ?? 0)}</div>
           </div>
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
             <div className="text-sm text-green-700 dark:text-green-300">Total Collection</div>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-200">{formatCurrency(stats.totalCollectionLast30 ?? 0)}</div>
+            <div className="text-2xl font-bold tnum text-green-900 dark:text-green-200">{formatCurrency(stats.totalCollectionLast30 ?? 0)}</div>
           </div>
         </div>
 
@@ -404,7 +404,7 @@ export function DashboardPage() {
               <button
                 key={debtor.id}
                 onClick={() => setSelectedDebtorId(debtor.id)}
-                className="flex items-center justify-between py-2 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded px-2 -mx-2 transition-colors w-full text-left"
+                className="flex items-center justify-between py-2 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded px-2 -mx-2 transition-colors w-full text-left focus-ring"
               >
                 <div>
                   <div className="font-medium text-gray-900 dark:text-white">{debtor.name}</div>
@@ -456,7 +456,7 @@ export function DashboardPage() {
                   {(stats.alerts?.overdueEntries ?? []).map((entry) => (
                     <div
                       key={entry.id}
-                      className="flex items-center justify-between py-2 px-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition-colors"
+                      className="flex items-center justify-between py-2 px-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
                       onClick={() => handleEntryClick(entry.id)}
                     >
                       <div className="flex-1 min-w-0">
@@ -475,7 +475,7 @@ export function DashboardPage() {
                                 e.stopPropagation();
                                 openWhatsAppOverdue(entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'en');
                               }}
-                              className="px-1.5 py-1 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors text-xs font-medium"
+                              className="px-2 py-0.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold rounded text-xs transition-colors shadow-xs focus-ring"
                               title="Send WhatsApp reminder (English)"
                             >
                               EN
@@ -485,7 +485,7 @@ export function DashboardPage() {
                                 e.stopPropagation();
                                 openWhatsAppOverdue(entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'ta');
                               }}
-                              className="px-1.5 py-1 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors text-xs font-medium"
+                              className="px-2 py-0.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold rounded text-xs transition-colors shadow-xs focus-ring"
                               title="Send WhatsApp reminder (Tamil)"
                             >
                               தமிழ்

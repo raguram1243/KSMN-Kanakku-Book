@@ -1,6 +1,7 @@
 import { Modal } from '../ui/Modal';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { Alert } from '../ui/Alert';
 import { ImageLightbox } from '../common/ImageLightbox';
 import { formatCurrency, formatDateTime } from '../../lib/utils';
 import { CreditEntry, CreditEntryItem } from '../../types';
@@ -15,8 +16,17 @@ interface EntryDetailModalProps {
 }
 
 export function EntryDetailModal({ entry, customerName, onClose, onModify, onDelete }: EntryDetailModalProps) {
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Collect all image-type attachment URLs for the gallery
+  const imageAttachments = (entry.attachments ?? []).filter((a: any) => a.file_type === 'image');
+  const imageUrls = imageAttachments.map((a: any) => a.file_url);
+
+  const openLightbox = (fileUrl: string) => {
+    const idx = imageUrls.indexOf(fileUrl);
+    setLightbox({ images: imageUrls, index: idx >= 0 ? idx : 0 });
+  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -112,6 +122,25 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
                   {entry.status.toUpperCase()}
                 </Badge>
               </div>
+
+              {/* Progress bar for partial payments — quick visual of settled share */}
+              {entry.status === 'partial' && Number(entry.total_amount) > 0 && (() => {
+                const pct = Math.min(100, (Number(entry.paid_amount) / Number(entry.total_amount)) * 100);
+                return (
+                  <div className="pt-1">
+                    <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-green-500 transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <span>{Math.round(pct)}% paid</span>
+                      <span>{formatCurrency(entry.paid_amount)} of {formatCurrency(entry.total_amount)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -158,7 +187,7 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
                         src={att.file_url}
                         alt="Attachment"
                         className="w-full h-32 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => setLightboxImage(att.file_url)}
+                        onClick={() => openLightbox(att.file_url)}
                       />
                     ) : (
                       <div className="flex space-x-2">
@@ -221,17 +250,18 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
 
         {/* Delete confirmation inline message */}
         {confirmDelete && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
+          <Alert variant="error">
             Are you sure? This cannot be undone.
-          </div>
+          </Alert>
         )}
       </Modal>
 
-      {/* Lightbox */}
-      {lightboxImage && (
+      {/* Lightbox (rendered via portal above the modal) */}
+      {lightbox && (
         <ImageLightbox
-          imageUrl={lightboxImage}
-          onClose={() => setLightboxImage(null)}
+          images={lightbox.images}
+          initialIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
         />
       )}
     </>

@@ -105,28 +105,13 @@ export function MoneyCell({ value, prefix = '₹', zeroClass = 'text-gray-400', 
   );
 }
 
-interface StatusBadgeProps {
-  status: 'paid' | 'partial' | 'pending' | 'overdue';
-  label?: string;
-  dot?: boolean;
-}
-
-const statusConfig = {
-  paid: { bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-800 dark:text-green-300', dot: 'bg-green-500' },
-  partial: { bg: 'bg-amber-100 dark:bg-amber-900/40', text: 'text-amber-800 dark:text-amber-300', dot: 'bg-amber-500' },
-  pending: { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-400', dot: 'bg-gray-400' },
-  overdue: { bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-800 dark:text-red-300', dot: 'bg-red-500' },
-};
-
-export function StatusBadge({ status, label, dot = true }: StatusBadgeProps) {
-  const cfg = statusConfig[status] || statusConfig.pending;
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg.bg} ${cfg.text}`}>
-      {dot && <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`}></span>}
-      {label ?? status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
-}
+/*
+ * Status presentation lives in exactly one place (ui/StatusPill). Table used to
+ * carry its own second palette, so the same "partial" entry looked different
+ * depending on which screen rendered it. Kept as an alias so existing imports
+ * keep working.
+ */
+export { StatusPill as StatusBadge } from './StatusPill';
 
 interface EmptyStateProps {
   title?: string;

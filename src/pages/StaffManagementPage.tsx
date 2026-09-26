@@ -5,6 +5,7 @@ import { PasswordInput } from '../components/ui/PasswordInput';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { Alert } from '../components/ui/Alert';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { formatDate, debugError } from '../lib/utils';
@@ -187,16 +188,14 @@ export function StaffManagementPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Staff Management</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Staff Management</h1>
         <Button onClick={() => setShowAddModal(true)}>
           + Add Staff Member
         </Button>
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-sm">
-          {error}
-        </div>
+        <Alert variant="error">{error}</Alert>
       )}
 
       <Card>
@@ -326,10 +325,9 @@ export function StaffManagementPage() {
             Are you sure you want to delete <strong>{selectedStaff?.name}</strong>?
           </p>
           {deleteWarning && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-300 px-4 py-3 rounded-lg text-sm">
-              <p className="font-semibold mb-1">⚠️ Warning</p>
-              <p>{deleteWarning}</p>
-            </div>
+            <Alert variant="warning" title="Warning">
+              {deleteWarning}
+            </Alert>
           )}
           <div className="flex space-x-3 pt-4">
             {!deleteWarning ? (

@@ -76,7 +76,7 @@ export function DayBookPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Day-book</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Day-book</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">Daily close: credit given vs collection{source === 'local' ? ' (computed on device)' : ''}.</p>
         </div>
         <input type="date" value={day} max={todayKey()} onChange={(e) => e.target.value && setDay(e.target.value)}

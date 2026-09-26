@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import { Alert } from '../ui/Alert';
 import { api } from '../../lib/api';
 import { Customer } from '../../types';
 
@@ -85,9 +86,9 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Customer" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-3 py-2 rounded-lg text-sm">
+          <Alert variant="error">
             {error}
-          </div>
+          </Alert>
         )}
         <Input
           label="Customer Name"

@@ -16,9 +16,9 @@ export function ReportError({ error, onRetry }: { error: unknown; onRetry: () =>
   return (
     <div
       role="alert"
-      className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-6 text-center"
+      className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-4 py-6 text-center"
     >
-      <p className="text-sm text-red-700 dark:text-red-300">{message}</p>
+      <p className="text-sm text-red-800 dark:text-red-200">{message}</p>
       <Button variant="secondary" size="sm" className="mt-3" onClick={onRetry}>
         Try again
       </Button>

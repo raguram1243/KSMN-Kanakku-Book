@@ -5,7 +5,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { api } from '../../lib/api';
-import { formatCurrency, formatDateTime, debugError } from '../../lib/utils';
+import { formatCurrency, formatDateTime, debugError, getBalanceTone, getOverdueStatus } from '../../lib/utils';
 import { Customer, CreditEntry, Payment } from '../../types';
 import { buildLedgerTransactions } from '../../lib/ledger';
 import { PaginationControls } from '../ui/PaginationControls';
@@ -120,7 +120,7 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
           {/* Net Outstanding */}
           <Card>
             <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Net Outstanding</div>
-            <div className={`text-3xl font-bold ${totalOutstanding > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+            <div className={`text-3xl font-bold tnum ${getBalanceTone(getOverdueStatus(customer), totalOutstanding)}`}>
               {formatCurrency(totalOutstanding)}
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
