@@ -8,6 +8,7 @@ import { debugError } from '../lib/utils';
 import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
 import { Download } from 'lucide-react';
 import { BackupStatusCard } from '../components/settings/BackupStatusCard';
+import { useToastStore } from '../store/toastStore';
 
 interface Setting {
   key: string;
@@ -28,6 +29,10 @@ export function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const addToast = useToastStore((s) => s.addToast);
+  const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
+  const [exportDataset, setExportDataset] = useState('customers');
 
   useEffect(() => {
     if (isAdmin) {
@@ -172,33 +177,28 @@ export function SettingsPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Format</label>
             <div className="flex space-x-3">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="exportFormat"
-                  value="xlsx"
-                  defaultChecked
-                  className="text-primary-600 dark:text-primary-400 focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">Excel (XLSX)</span>
-              </label>
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="exportFormat"
-                  value="csv"
-                  className="text-primary-600 dark:text-primary-400 focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">CSV</span>
-              </label>
+              {(['xlsx', 'csv'] as const).map((f) => (
+                <label key={f} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    value={f}
+                    checked={exportFormat === f}
+                    onChange={() => setExportFormat(f)}
+                    className="text-primary-600 dark:text-primary-400 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{f === 'xlsx' ? 'Excel (XLSX)' : 'CSV'}</span>
+                </label>
+              ))}
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dataset</label>
             <select
-              id="exportDataset"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              value={exportDataset}
+              onChange={(e) => setExportDataset(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="customers">Customers</option>
               <option value="entries">Credit Entries</option>
@@ -208,28 +208,31 @@ export function SettingsPage() {
 
           <Button
             onClick={async () => {
-              const format = (document.querySelector('input[name="exportFormat"]:checked') as HTMLInputElement)?.value as 'xlsx' | 'csv';
-              const dataset = (document.getElementById('exportDataset') as HTMLSelectElement)?.value;
-              
+              setExporting(true);
               try {
-                const response = await api.exportData(format, dataset);
+                const response = await api.exportData(exportFormat, exportDataset);
                 if (response.ok) {
                   const blob = await response.blob();
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `ksmn-export-${dataset}.${format}`;
+                  a.download = `ksmn-export-${exportDataset}.${exportFormat}`;
                   a.click();
                   URL.revokeObjectURL(url);
+                  addToast({ type: 'success', title: 'Export downloaded' });
                 } else {
                   const data = await response.json();
-                  alert(data.error || 'Failed to export data');
+                  addToast({ type: 'error', title: 'Export failed', description: data.error || 'Failed to export data' });
                 }
               } catch {
-                alert('Failed to export data');
+                addToast({ type: 'error', title: 'Export failed', description: 'Failed to export data' });
+              } finally {
+                setExporting(false);
               }
             }}
             className="w-full"
+            disabled={exporting}
+            loading={exporting}
           >
             <Download size={18} className="mr-2" />
             Download Export

@@ -26,6 +26,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
   const [phone, setPhone] = useState(customer.phone);
   const [address, setAddress] = useState(customer.address || '');
   const [notes, setNotes] = useState(customer.notes || '');
+  const [creditLimit, setCreditLimit] = useState(customer.credit_limit?.toString() || '');
   const [customerType, setCustomerType] = useState<CustomerType>(customer.customer_type);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,6 +38,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
       setPhone(customer.phone);
       setAddress(customer.address || '');
       setNotes(customer.notes || '');
+      setCreditLimit(customer.credit_limit?.toString() || '');
       setCustomerType(customer.customer_type);
       setError('');
     }
@@ -51,11 +53,13 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
     setLoading(true);
     setError('');
     try {
+      const parsedLimit = creditLimit.trim() === '' ? null : Number(creditLimit);
       const response = await api.updateCustomer(customer.id, {
         name,
         phone,
         address: address || null,
         notes: notes || null,
+        credit_limit: Number.isFinite(parsedLimit as number) ? parsedLimit : null,
         customer_type: customerType,
       });
 
@@ -107,6 +111,15 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="Customer address"
+        />
+        <Input
+          label="Credit Limit (₹, optional)"
+          type="number"
+          min="0"
+          step="1000"
+          value={creditLimit}
+          onChange={(e) => setCreditLimit(e.target.value)}
+          placeholder="e.g. 50000 (leaves blank for no limit)"
         />
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>

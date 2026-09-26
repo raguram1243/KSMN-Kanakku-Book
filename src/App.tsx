@@ -20,6 +20,8 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const ReportLayout = lazy(() => import('./components/reports/ReportLayout'));
 const ReportEntriesPage = lazy(() => import('./pages/ReportEntriesPage'));
 const ReportPaymentsPage = lazy(() => import('./pages/ReportPaymentsPage'));
+const DayBookPage = lazy(() => import('./pages/DayBookPage').then(m => ({ default: m.DayBookPage })));
+const FollowUpsPage = lazy(() => import('./pages/FollowUpsPage').then(m => ({ default: m.FollowUpsPage })));
 
 function PageSkeleton() {
   return (
@@ -163,6 +165,26 @@ function AppRoutes() {
           <ProtectedRoute adminOnly>
             <Suspense fallback={<PageSkeleton />}>
               <PaymentReceivedPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/day-book"
+        element={
+          <ProtectedRoute adminOnly>
+            <Suspense fallback={<PageSkeleton />}>
+              <DayBookPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/follow-ups"
+        element={
+          <ProtectedRoute adminOnly>
+            <Suspense fallback={<PageSkeleton />}>
+              <FollowUpsPage />
             </Suspense>
           </ProtectedRoute>
         }

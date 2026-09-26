@@ -177,9 +177,9 @@ export default function ReportEntriesPage() {
         <ReportError error={error} onRetry={() => refetch()} />
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-900/50">
+          <div className="overflow-x-auto max-h-[70vh]">
+            <table className="min-w-full text-sm table-sticky-header">
+              <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr className="text-xs font-semibold text-gray-500 dark:text-gray-400">
                   <SortableHeader label="Date & Time" column="created_at" {...header} />
                   <SortableHeader label="Entry Code" column="entry_code" {...header} />

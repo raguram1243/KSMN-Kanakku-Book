@@ -126,3 +126,12 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Sticky table headers for reports and data-heavy views */
+.table-sticky-header thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: inherit;
+}
+

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, PlusCircle, Users, UserCog, CreditCard, Settings, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Users, UserCog, CreditCard, Settings, BarChart3, Clock, BookOpen } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useState } from 'react';
 import { AppLogo } from '../common/AppLogo';
@@ -19,6 +19,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
     { path: '/add-credit', label: 'Add Credit Entry', icon: PlusCircle, adminOnly: false },
     { path: '/payment-received', label: 'Payment Received', icon: CreditCard, adminOnly: true },
+    { path: '/day-book', label: 'Day-book', icon: BookOpen, adminOnly: true },
+    { path: '/follow-ups', label: 'Follow-ups', icon: Clock, adminOnly: true },
     { path: '/customers', label: 'Customers', icon: Users, adminOnly: false },
     { path: '/reports', label: 'Reports', icon: BarChart3, adminOnly: true },
     { path: '/staff', label: 'Staff', icon: UserCog, adminOnly: true },

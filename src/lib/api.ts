@@ -98,12 +98,13 @@ export const api = {
     }),
 
   // Customers
-  listCustomers: (search?: string, page?: number, pageSize?: number, filter?: string) => {
+  listCustomers: (search?: string, page?: number, pageSize?: number, filter?: string, sort?: string) => {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
     if (page && page > 1) params.set('page', String(page))
     if (pageSize) params.set('pageSize', String(pageSize))
     if (filter && filter !== 'all') params.set('filter', filter)
+    if (sort && sort !== 'name_asc') params.set('sort', sort)
     return apiCall(`/list-customers?${params.toString()}`)
   },
 
@@ -124,6 +125,7 @@ export const api = {
 
     updateCustomer: (id: string, data: {
     custom_overdue_days?: number | null
+    credit_limit?: number | null
     name?: string
     phone?: string
     address?: string | null
@@ -235,6 +237,9 @@ export const api = {
       body: JSON.stringify(data),
     });
   },
+
+  getDayBook: (day?: string) =>
+    apiCall(`/get-day-book${day ? `?day=${day}` : ''}`),
 
   getStatement: (customerId: string, fromDate?: string, toDate?: string) => {
     const params = new URLSearchParams()

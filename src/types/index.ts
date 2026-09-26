@@ -19,6 +19,7 @@ export interface Customer {
   created_at: string;
   balance?: number;
   advance_balance?: number;
+  credit_limit?: number | null;
   custom_overdue_days?: number | null;
   oldest_unpaid_date?: string | null;
 }

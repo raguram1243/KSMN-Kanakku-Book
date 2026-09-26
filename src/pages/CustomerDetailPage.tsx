@@ -12,11 +12,12 @@ import { EntryDetailModal } from '../components/modals/EntryDetailModal';
 import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
 import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
 import { buildLedgerTransactions } from '../lib/ledger';
-import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Clock } from 'lucide-react';
 import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
 import { DownloadStatementButton } from '../components/customer/DownloadStatementButton';
 import { EditCustomerModal } from '../components/customer/EditCustomerModal';
 import { DeleteCustomerModal } from '../components/customer/DeleteCustomerModal';
+import { FollowUpCreateModal } from '../components/followups/FollowUpEditModal';
 import { useCustomer, useUpdateCustomer } from '../hooks/useApi';
 import { useToastStore } from '../store/toastStore';
 import { PaginationControls } from '../components/ui/PaginationControls';
@@ -44,6 +45,7 @@ export default function CustomerDetailPage() {
   const [overdueSaveMessage, setOverdueSaveMessage] = useState<string | null>(null);
     const [showEditCustomer, setShowEditCustomer] = useState(false);
   const [showDeleteCustomer, setShowDeleteCustomer] = useState(false);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [applyingAdvance, setApplyingAdvance] = useState(false);
 
   // Ledger filter states
@@ -321,6 +323,9 @@ export default function CustomerDetailPage() {
             <Link to={`/payment-received/${customer.id}`}>
               <Button>Payment Received</Button>
             </Link>
+            <Button variant="secondary" size="sm" onClick={() => setShowFollowUpModal(true)}>
+              <Clock size={14} className="mr-1 inline" /> Follow-up
+            </Button>
             <Button variant="secondary" size="sm" onClick={() => setShowEditCustomer(true)}>Edit</Button>
             <Button variant="danger" size="sm" onClick={() => setShowDeleteCustomer(true)}>Delete Customer</Button>
           </div>
@@ -350,6 +355,12 @@ export default function CustomerDetailPage() {
             <Badge variant={customer.customer_type === 'regular' ? 'info' : 'default'}>
               {customer.customer_type}
             </Badge>
+          </div>
+          <div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Credit Limit</div>
+            <div className="font-medium text-gray-900 dark:text-white">
+              {customer.credit_limit ? formatCurrency(customer.credit_limit) : <span className="text-gray-400">No limit</span>}
+            </div>
           </div>
           <div>
             <div className="text-sm text-gray-600 dark:text-gray-400">Created</div>
@@ -981,6 +992,21 @@ export default function CustomerDetailPage() {
               });
             }
           }}
+        />
+      )}
+
+      {/* Follow-up modal */}
+      {showFollowUpModal && customer && (
+        <FollowUpCreateModal
+          customer={{
+            id: customer.id,
+            name: customer.name,
+            phone: customer.phone,
+            code: customer.customer_code,
+          }}
+          amount={totalOutstanding}
+          onClose={() => setShowFollowUpModal(false)}
+          onSaved={() => setShowFollowUpModal(false)}
         />
       )}
     </div>

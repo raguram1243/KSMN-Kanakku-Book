@@ -454,7 +454,32 @@ export default function QuickAddPage() {
               {customerBalance !== null && (
                 <div className="text-sm font-medium text-red-600 dark:text-red-400 mt-1">
                   Currently owes: {formatCurrency(customerBalance)}
+                  {selectedCustomer.credit_limit ? (
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      (Limit: {formatCurrency(selectedCustomer.credit_limit)})
+                    </span>
+                  ) : null}
                 </div>
+              )}
+              {selectedCustomer.credit_limit && customerBalance !== null && (
+                (() => {
+                  const currentAmt = entryMode === 'quick' ? Number(quickAmount || 0) : getTotalAmount();
+                  const projected = customerBalance + currentAmt;
+                  const limit = Number(selectedCustomer.credit_limit);
+                  const over = projected - limit;
+                  if (over > 0) {
+                    return (
+                      <div className="mt-2 text-xs font-semibold px-2 py-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
+                        ⚠ Credit limit exceeded by {formatCurrency(over)} (new balance will be {formatCurrency(projected)})
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Remaining credit available: {formatCurrency(limit - customerBalance)}
+                    </div>
+                  );
+                })()
               )}
             </div>
             {!isEditMode && (

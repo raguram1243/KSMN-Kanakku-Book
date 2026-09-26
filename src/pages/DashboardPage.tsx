@@ -14,6 +14,7 @@ import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
 import { AgingReportWidget } from '../components/dashboard/AgingReportWidget';
 import { AIScanButton } from '../components/ai/AIScanButton';
 import { useDashboardStats, useDeleteEntry, useDeletePayment } from '../hooks/useApi';
+import { useToastStore } from '../store/toastStore';
 
 interface DashboardStats {
   totalOutstanding: number;
@@ -77,6 +78,7 @@ export function DashboardPage() {
   const deleteEntry = useDeleteEntry();
   const deletePayment = useDeletePayment();
   const { openWhatsAppOverdue } = useWhatsAppCustomer();
+  const addToast = useToastStore((s) => s.addToast);
   const [selectedEntry, setSelectedEntry] = useState<EntryDetail | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [selectedDebtorId, setSelectedDebtorId] = useState<string | null>(null);
@@ -93,7 +95,7 @@ export function DashboardPage() {
         setSelectedEntry(data);
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to load entry details');
+      addToast({ type: 'error', title: 'Entry details failed', description: err instanceof Error ? err.message : 'Failed to load entry details' });
     }
   };
 
@@ -115,7 +117,7 @@ export function DashboardPage() {
         }
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to load payment details');
+      addToast({ type: 'error', title: 'Payment details failed', description: err instanceof Error ? err.message : 'Failed to load payment details' });
     }
   };
 

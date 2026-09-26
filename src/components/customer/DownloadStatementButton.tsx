@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../ui/Button';
 import { api } from '../../lib/api';
-
+import { useToastStore } from '../../store/toastStore';
 interface DownloadStatementButtonProps {
   customerId: string;
 }
@@ -11,6 +11,7 @@ export function DownloadStatementButton({ customerId }: DownloadStatementButtonP
   const [toDate, setToDate] = useState('');
   const [showPanel, setShowPanel] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const addToast = useToastStore((s) => s.addToast);
 
   const getDefaultFromDate = () => {
     const now = new Date();
@@ -42,10 +43,10 @@ export function DownloadStatementButton({ customerId }: DownloadStatementButtonP
         setShowPanel(false);
       } else {
         const data = await response.json();
-        alert(data.error || 'Failed to download statement');
+        addToast({ type: 'error', title: 'Statement failed', description: data.error || 'Failed to download statement' });
       }
     } catch {
-      alert('Failed to download statement');
+      addToast({ type: 'error', title: 'Statement failed', description: 'Failed to download statement' });
     } finally {
       setDownloading(false);
     }

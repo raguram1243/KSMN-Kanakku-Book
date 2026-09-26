@@ -149,9 +149,9 @@ export default function ReportsPage() {
         <ReportError error={error} onRetry={() => refetch()} />
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-900/50">
+          <div className="overflow-x-auto max-h-[70vh]">
+            <table className="min-w-full text-sm table-sticky-header">
+              <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr className="text-xs font-semibold text-gray-500 dark:text-gray-400">
                   <SortableHeader label="Customer" column="name" {...header} />
                   <SortableHeader label="Code" column="customer_code" {...header} />
