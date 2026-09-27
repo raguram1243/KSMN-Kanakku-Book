@@ -29,7 +29,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Sync browser theme-color meta tag (status bar on mobile)
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute('content', theme === 'dark' ? '#0b0f19' : '#1d4ed8');
+      meta.setAttribute('content', theme === 'dark' ? '#0b0f19' : '#4338ca');
     }
   }, [theme]);
 
