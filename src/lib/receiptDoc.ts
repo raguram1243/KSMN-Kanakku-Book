@@ -30,7 +30,7 @@ export function buildPaymentReceiptPdf(data: ReceiptData): jsPDF {
       margin: { left: 40, right: 40 },
       theme: 'grid',
       styles: { font: 'helvetica', fontSize: 9, cellPadding: 5 },
-      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+      headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
       columnStyles: { 2: { halign: 'right' } },
     });
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;

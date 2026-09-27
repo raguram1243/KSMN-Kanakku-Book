@@ -15,6 +15,7 @@ import { AgingReportWidget } from '../components/dashboard/AgingReportWidget';
 import { AIScanButton } from '../components/ai/AIScanButton';
 import { useDashboardStats, useDeleteEntry, useDeletePayment } from '../hooks/useApi';
 import { useToastStore } from '../store/toastStore';
+import { IndianRupee, Users, AlertTriangle } from 'lucide-react';
 
 interface DashboardStats {
   totalOutstanding: number;
@@ -222,23 +223,44 @@ export function DashboardPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Outstanding</div>
-          <div className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(stats.totalOutstanding)}
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300">
+              <IndianRupee size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Outstanding</div>
+              <div className="mt-0.5 text-2xl font-bold tnum text-gray-900 dark:text-white">
+                {formatCurrency(stats.totalOutstanding)}
+              </div>
+            </div>
           </div>
         </Card>
 
         <Card>
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Customers</div>
-          <div className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-            {stats.totalCustomers}
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/50 dark:text-primary-300">
+              <Users size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Customers</div>
+              <div className="mt-0.5 text-2xl font-bold tnum text-gray-900 dark:text-white">
+                {stats.totalCustomers}
+              </div>
+            </div>
           </div>
         </Card>
 
         <Card>
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Overdue Entries</div>
-          <div className="mt-2 text-3xl font-bold text-red-600 dark:text-red-400">
-            {stats.overdueCount}
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-300">
+              <AlertTriangle size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Overdue Entries</div>
+              <div className="mt-0.5 text-2xl font-bold tnum text-red-600 dark:text-red-400">
+                {stats.overdueCount}
+              </div>
+            </div>
           </div>
         </Card>
       </div>
@@ -252,13 +274,13 @@ export function DashboardPage() {
       <Card>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Last 30 Days</h2>
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="text-sm text-blue-700 dark:text-blue-300">Total Credit Given</div>
-            <div className="text-2xl font-bold tnum text-blue-900 dark:text-blue-200">{formatCurrency(stats.totalCreditLast30 ?? 0)}</div>
+          <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-lg p-4">
+            <div className="text-sm text-indigo-700 dark:text-indigo-300">Total Credit Given</div>
+            <div className="text-2xl font-bold tnum text-indigo-900 dark:text-indigo-200">{formatCurrency(stats.totalCreditLast30 ?? 0)}</div>
           </div>
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-            <div className="text-sm text-green-700 dark:text-green-300">Total Collection</div>
-            <div className="text-2xl font-bold tnum text-green-900 dark:text-green-200">{formatCurrency(stats.totalCollectionLast30 ?? 0)}</div>
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-4">
+            <div className="text-sm text-emerald-700 dark:text-emerald-300">Total Collection</div>
+            <div className="text-2xl font-bold tnum text-emerald-900 dark:text-emerald-200">{formatCurrency(stats.totalCollectionLast30 ?? 0)}</div>
           </div>
         </div>
 
@@ -268,17 +290,17 @@ export function DashboardPage() {
             {(stats.last30Days ?? []).map(day => (
               <div key={day.date} className="flex-1 flex flex-col items-center justify-end">
                 <div className="relative w-full flex items-end space-x-0.5 h-32">
-                  {/* Credit Given (blue) */}
+                  {/* Credit Given (indigo) */}
                   <div
-                    className="flex-1 bg-blue-500 rounded-t hover:bg-blue-600 transition-colors cursor-pointer"
-                    style={{ height: `${(day.credit_given / maxChartValue) * 100}%` }}
-                    title={`Credit: ${formatCurrency(day.credit_given)}`}
+                    className="flex-1 bg-indigo-500 dark:bg-indigo-400 rounded-t hover:bg-indigo-600 dark:hover:bg-indigo-300 transition-colors cursor-pointer"
+                    style={{ height: `${(day.credit_given / maxChartValue) * 100}%`, minHeight: '2px' }}
+                    title={`${new Date(day.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} — Credit: ${formatCurrency(day.credit_given)}`}
                   />
-                  {/* Collection (green) */}
+                  {/* Collection (emerald) */}
                   <div
-                    className="flex-1 bg-green-500 rounded-t hover:bg-green-600 transition-colors cursor-pointer"
-                    style={{ height: `${(day.collection / maxChartValue) * 100}%` }}
-                    title={`Collection: ${formatCurrency(day.collection)}`}
+                    className="flex-1 bg-emerald-500 dark:bg-emerald-400 rounded-t hover:bg-emerald-600 dark:hover:bg-emerald-300 transition-colors cursor-pointer"
+                    style={{ height: `${(day.collection / maxChartValue) * 100}%`, minHeight: '2px' }}
+                    title={`${new Date(day.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} — Collection: ${formatCurrency(day.collection)}`}
                   />
                 </div>
                 <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 whitespace-nowrap">
@@ -292,11 +314,11 @@ export function DashboardPage() {
         {/* Legend */}
         <div className="flex items-center justify-center space-x-6 mt-4 text-sm">
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-blue-500 rounded"></div>
+            <div className="w-4 h-4 bg-indigo-500 dark:bg-indigo-400 rounded"></div>
             <span className="text-gray-700 dark:text-gray-300">Credit Given</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-green-500 rounded"></div>
+            <div className="w-4 h-4 bg-emerald-500 dark:bg-emerald-400 rounded"></div>
             <span className="text-gray-700 dark:text-gray-300">Collection</span>
           </div>
         </div>
@@ -384,7 +406,7 @@ export function DashboardPage() {
                     )}
                   </div>
                   <div className="text-right ml-2">
-                    <div className="font-semibold text-sm text-green-600 dark:text-green-400">{formatCurrency(payment.amount)}</div>
+                    <div className="font-semibold text-sm text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</div>
                   </div>
                 </div>
               ))}

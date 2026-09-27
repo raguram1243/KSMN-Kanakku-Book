@@ -393,7 +393,7 @@ export default function CustomerDetailPage() {
               )}
               {(customer.advance_balance ?? 0) > 0 && (
                 <div className="mt-2 flex items-center space-x-2">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                     Advance Credit: {formatCurrency(customer.advance_balance ?? 0)}
                   </span>
                   {isAdmin && (
@@ -498,7 +498,7 @@ export default function CustomerDetailPage() {
                 </Button>
               )}
               {overdueSaveMessage && (
-                <span className="text-sm text-green-600 dark:text-green-400">{overdueSaveMessage}</span>
+                <span className="text-sm text-emerald-600 dark:text-emerald-400">{overdueSaveMessage}</span>
               )}
             </div>
           </div>
@@ -703,7 +703,7 @@ export default function CustomerDetailPage() {
                         )}
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(payment.amount)}</div>
+                        <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</div>
                       </div>
                     </div>
                   </div>
@@ -821,7 +821,7 @@ export default function CustomerDetailPage() {
                     <td className={`px-3 py-2 text-right font-medium ${transaction.debit > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>
                       {transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}
                     </td>
-                    <td className={`px-3 py-2 text-right font-medium ${transaction.credit > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+                    <td className={`px-3 py-2 text-right font-medium ${transaction.credit > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`}>
                       {transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}
                     </td>
                     <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(transaction.balance)}</td>
@@ -887,7 +887,7 @@ export default function CustomerDetailPage() {
                     {transaction.credit > 0 && (
                       <div>
                         <span className="text-xs text-gray-500 dark:text-gray-400">Credit: </span>
-                        <span className="text-sm font-medium text-green-600 dark:text-green-400">{formatCurrency(transaction.credit)}</span>
+                        <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(transaction.credit)}</span>
                       </div>
                     )}
                     <div>

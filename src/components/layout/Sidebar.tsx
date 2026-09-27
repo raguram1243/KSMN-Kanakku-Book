@@ -15,19 +15,36 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [isHovered, setIsHovered] = useState(false);
   const isExpanded = isHovered || isOpen;
 
-  const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
-    { path: '/add-credit', label: 'Add Credit Entry', icon: PlusCircle, adminOnly: false },
-    { path: '/payment-received', label: 'Payment Received', icon: CreditCard, adminOnly: true },
-    { path: '/day-book', label: 'Day-book', icon: BookOpen, adminOnly: true },
-    { path: '/follow-ups', label: 'Follow-ups', icon: Clock, adminOnly: true },
-    { path: '/customers', label: 'Customers', icon: Users, adminOnly: false },
-    { path: '/reports', label: 'Reports', icon: BarChart3, adminOnly: true },
-    { path: '/staff', label: 'Staff', icon: UserCog, adminOnly: true },
-    { path: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
+  const navGroups = [
+    {
+      label: '',
+      items: [
+        { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
+      ],
+    },
+    {
+      label: 'Daily',
+      items: [
+        { path: '/add-credit', label: 'Add Credit Entry', icon: PlusCircle, adminOnly: false },
+        { path: '/payment-received', label: 'Payment Received', icon: CreditCard, adminOnly: true },
+        { path: '/day-book', label: 'Day-book', icon: BookOpen, adminOnly: true },
+        { path: '/follow-ups', label: 'Follow-ups', icon: Clock, adminOnly: true },
+      ],
+    },
+    {
+      label: 'Manage',
+      items: [
+        { path: '/customers', label: 'Customers', icon: Users, adminOnly: false },
+        { path: '/reports', label: 'Reports', icon: BarChart3, adminOnly: true },
+        { path: '/staff', label: 'Staff', icon: UserCog, adminOnly: true },
+        { path: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
+      ],
+    },
   ];
 
-  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  const filteredNavGroups = navGroups
+    .map(group => ({ ...group, items: group.items.filter(item => !item.adminOnly || isAdmin) }))
+    .filter(group => group.items.length > 0);
 
   const handleNavClick = () => {
     onClose();
@@ -73,7 +90,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-4">
             <div className="space-y-1 px-3">
-              {filteredNavItems.map(item => {
+              {filteredNavGroups.map(group => (
+                <div key={group.label || 'main'} className={group.label ? 'mt-4 first:mt-0' : ''}>
+                  {group.label && (
+                    <div
+                      className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 ${
+                        isExpanded ? 'block' : 'hidden'
+                      } lg:block`}
+                    >
+                      {group.label}
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                {group.items.map(item => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
 
@@ -106,7 +135,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     </span>
                   </Link>
                 );
-              })}
+                })}
+                  </div>
+                </div>
+              ))}
             </div>
           </nav>
 

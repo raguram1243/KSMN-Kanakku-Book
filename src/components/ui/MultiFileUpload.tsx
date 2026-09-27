@@ -258,7 +258,7 @@ export function MultiFileUpload({ maxFiles, onFilesChange, files, label, accept 
                 </div>
               )}
               {item.uploadedUrl && !item.error && (
-                <div className="absolute bottom-0 left-0 right-0 bg-green-500 text-white text-[10px] px-1 py-0.5 text-center">
+                <div className="absolute bottom-0 left-0 right-0 bg-emerald-500 text-white text-[10px] px-1 py-0.5 text-center">
                   ✓ Uploaded
                 </div>
               )}

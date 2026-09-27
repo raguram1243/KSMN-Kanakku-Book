@@ -43,7 +43,7 @@ export function ProcessingDialog({ step }: ProcessingDialogProps) {
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                   isComplete
-                    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
                     : isActive
                     ? 'bg-primary-100 text-primary-700 dark:text-primary-300'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-400'

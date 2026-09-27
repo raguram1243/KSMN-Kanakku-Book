@@ -590,7 +590,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
               <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div>
                   <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Collected Today</div>
-                  <div className="text-xl font-bold text-green-700 dark:text-green-300 mt-1">
+                  <div className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">
                     {formatCurrency(todayStats.todayPaymentsTotalSum)}
                   </div>
                 </div>
@@ -618,7 +618,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
                         <div className="font-medium text-gray-900 dark:text-white truncate">{p.customer_name}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">{formatDate(p.payment_date)}</div>
                       </div>
-                      <div className="mt-1 text-sm font-bold text-green-600 dark:text-green-400">
+                      <div className="mt-1 text-sm font-bold text-emerald-600 dark:text-emerald-400">
                         {formatCurrency(p.amount)}
                       </div>
                     </div>
@@ -812,7 +812,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
                 <div className="text-sm font-medium text-blue-900 dark:text-blue-200">Total Outstanding</div>
                 <div className="text-2xl font-bold tnum text-blue-900 dark:text-blue-200">{formatCurrency(totalOutstanding)}</div>
                 {(customer?.advance_balance ?? 0) > 0 && (
-                  <div className="text-sm text-green-700 dark:text-green-300 mt-1">
+                  <div className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">
                     Advance Credit: {formatCurrency(customer.advance_balance ?? 0)}
                   </div>
                 )}
@@ -913,7 +913,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           <div className="mt-4 pt-4 border-t">
             <div className="flex items-center justify-between text-lg font-semibold">
               <span>Total Allocated:</span>
-              <span className={selectedTotal === (parseFloat(paymentAmount) || 0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+              <span className={selectedTotal === (parseFloat(paymentAmount) || 0) ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
                 {formatCurrency(selectedTotal)}
               </span>
             </div>
@@ -1028,8 +1028,8 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
               if (amount > effectiveSelectedTotal + 0.01) {
                 return (
                   <div className="flex justify-between pt-2 border-t border-blue-200 dark:border-blue-800">
-                    <span className="text-sm text-green-800 dark:text-green-300">Advance credit added</span>
-                    <span className="font-semibold text-green-800 dark:text-green-300">{formatCurrency(amount - effectiveSelectedTotal)}</span>
+                    <span className="text-sm text-emerald-800 dark:text-emerald-300">Advance credit added</span>
+                    <span className="font-semibold text-emerald-800 dark:text-emerald-300">{formatCurrency(amount - effectiveSelectedTotal)}</span>
                   </div>
                 );
               }

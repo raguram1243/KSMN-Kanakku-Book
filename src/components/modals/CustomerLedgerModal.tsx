@@ -179,7 +179,7 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
                           <td className={`px-3 py-2 text-right font-medium ${transaction.debit > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400'}`}>
                             {transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}
                           </td>
-                          <td className={`px-3 py-2 text-right font-medium ${transaction.credit > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+                          <td className={`px-3 py-2 text-right font-medium ${transaction.credit > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`}>
                             {transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}
                           </td>
                           <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(transaction.balance)}</td>
@@ -235,7 +235,7 @@ export function CustomerLedgerModal({ customerId, onClose }: CustomerLedgerModal
                           {transaction.credit > 0 && (
                             <div>
                               <span className="text-xs text-gray-500 dark:text-gray-400">Credit: </span>
-                              <span className="text-sm font-medium text-green-600 dark:text-green-400">{formatCurrency(transaction.credit)}</span>
+                              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(transaction.credit)}</span>
                             </div>
                           )}
                           <div>

@@ -9,7 +9,9 @@ export function rs(amount: number): string {
 export function firmHeader(doc: jsPDF, title: string, subtitle?: string): number {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
+  doc.setTextColor(67, 56, 202); // indigo-700 brand accent
   doc.text('KSM Nataraja Nadar Firm', 40, 48);
+  doc.setTextColor(0);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.text(title, 40, 66);
@@ -20,8 +22,10 @@ export function firmHeader(doc: jsPDF, title: string, subtitle?: string): number
     doc.setTextColor(0);
     y += 14;
   }
-  doc.setDrawColor(226, 232, 240);
+  doc.setDrawColor(79, 70, 229); // indigo-600 rule
+  doc.setLineWidth(0.8);
   doc.line(40, y, doc.internal.pageSize.getWidth() - 40, y);
+  doc.setLineWidth(0.2);
   return y + 14;
 }
 

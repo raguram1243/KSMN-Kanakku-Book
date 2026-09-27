@@ -62,9 +62,9 @@ export function PaymentDetailModal({ payment, onClose, onModify, onDelete }: Pay
           </div>
 
           {/* Amount */}
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-            <div className="text-sm text-green-700 dark:text-green-300">Amount Paid</div>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-200">{formatCurrency(payment.amount)}</div>
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+            <div className="text-sm text-emerald-700 dark:text-emerald-300">Amount Paid</div>
+            <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-200">{formatCurrency(payment.amount)}</div>
           </div>
 
           {/* Payment Method */}

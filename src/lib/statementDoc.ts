@@ -25,7 +25,7 @@ export function buildStatementPdf(data: StatementPdfData): jsPDF {
     margin: { left: 40, right: 40 },
     theme: 'grid',
     styles: { font: 'helvetica', fontSize: 8, cellPadding: 4 },
-    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
     columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
   });
   firmFooter(doc);

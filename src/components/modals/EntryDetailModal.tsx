@@ -112,7 +112,7 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Balance:</span>
-                <span className={`font-bold ${Number(entry.balance) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                <span className={`font-bold ${Number(entry.balance) > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                   {formatCurrency(entry.balance)}
                 </span>
               </div>
@@ -130,7 +130,7 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
                   <div className="pt-1">
                     <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-green-500 transition-all duration-300"
+                        className="h-full rounded-full bg-emerald-500 transition-all duration-300"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
