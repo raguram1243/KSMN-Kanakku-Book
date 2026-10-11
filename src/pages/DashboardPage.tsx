@@ -500,7 +500,7 @@ export function DashboardPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openWhatsAppOverdue(entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'en');
+                                openWhatsAppOverdue(entry.customer_id, entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'en');
                               }}
                               className="px-2 py-0.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold rounded text-xs transition-colors shadow-xs focus-ring"
                               title="Send WhatsApp reminder (English)"
@@ -510,7 +510,7 @@ export function DashboardPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openWhatsAppOverdue(entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'ta');
+                                openWhatsAppOverdue(entry.customer_id, entry.customer_phone, entry.customer_name, entry.balance, entry.created_at, 'ta');
                               }}
                               className="px-2 py-0.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold rounded text-xs transition-colors shadow-xs focus-ring"
                               title="Send WhatsApp reminder (Tamil)"

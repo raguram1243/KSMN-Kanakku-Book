@@ -62,7 +62,7 @@ export default function CustomerDetailPage() {
 
         const customerQuery = useCustomer(id);
   const updateCustomer = useUpdateCustomer();
-  const { openWhatsAppEntry } = useWhatsAppCustomer();
+  const { openWhatsAppEntry, markReminderSent } = useWhatsAppCustomer();
 
     const handleApplyAdvance = async () => {
     if (!customer || !id) return;
@@ -439,6 +439,11 @@ export default function CustomerDetailPage() {
                     <MessageCircle size={15} />
                     <span>தமிழ்</span>
                   </button>
+                </div>
+              )}
+              {totalOutstanding > 0 && customer.last_reminder_at && (
+                <div className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                  Last reminded: {formatDate(customer.last_reminder_at)}
                 </div>
               )}
             </div>
@@ -965,6 +970,7 @@ export default function CustomerDetailPage() {
           rows={unpaidRowsFromEntries(entries)}
           totalDue={totalOutstanding - (customer.advance_balance ?? 0)}
           advanceAdjusted={customer.advance_balance ?? 0}
+          onSent={() => markReminderSent(customer.id)}
         />
       )}
 

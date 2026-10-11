@@ -5,9 +5,10 @@ import { Button } from '../ui/Button'
 import { Alert } from '../ui/Alert'
 import { formatPhoneForWhatsApp, openWhatsAppReminder } from '../../lib/whatsapp'
 import {
-  buildLedgerImage,
+  buildLedgerAttachment,
+  PDF_THRESHOLD_ROWS,
+  type LedgerAttachment,
   type LedgerImageInput,
-  type LedgerImageResult,
   type LedgerImageRow,
 } from '../../lib/ledgerImage'
 import { useToastStore } from '../../store/toastStore'
@@ -23,6 +24,8 @@ interface WhatsAppReminderDialogProps {
   rows: LedgerImageRow[]
   totalDue: number
   advanceAdjusted?: number
+  /** Called right before `onClose()` after a successful send, so the page can record the reminder. */
+  onSent?: () => void
 }
 
 type SendRoute = 'auto' | 'share' | 'download'
@@ -72,6 +75,7 @@ export function WhatsAppReminderDialog({
   rows,
   totalDue,
   advanceAdjusted,
+  onSent,
 }: WhatsAppReminderDialogProps) {
   const addToast = useToastStore((s) => s.addToast)
 
@@ -79,10 +83,10 @@ export function WhatsAppReminderDialog({
   const [building, setBuilding] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
-  const [built, setBuilt] = useState<{ key: string; result: LedgerImageResult } | null>(null)
+  const [built, setBuilt] = useState<{ key: string; result: LedgerAttachment } | null>(null)
 
   // Mirrors `built` so the build effect can check the cache without depending on it.
-  const builtRef = useRef<{ key: string; result: LedgerImageResult } | null>(null)
+  const builtRef = useRef<{ key: string; result: LedgerAttachment } | null>(null)
   const latestInput = useRef<LedgerImageInput | null>(null)
 
   const formattedPhone = formatPhoneForWhatsApp(phone)
@@ -143,7 +147,7 @@ export function WhatsAppReminderDialog({
     let cancelled = false
     setBuilding(true)
     setImageError(null)
-    buildLedgerImage(input)
+    buildLedgerAttachment(input)
       .then((result) => {
         if (cancelled) return
         const entry = { key, result }
@@ -154,7 +158,7 @@ export function WhatsAppReminderDialog({
       .catch((err: unknown) => {
         if (cancelled) return
         const detail = err instanceof Error && err.message ? ` (${err.message})` : ''
-        setImageError(`Could not create the ledger image${detail}. The message can still be sent without it.`)
+        setImageError(`Could not create the ledger attachment${detail}. The message can still be sent without it.`)
         setAttach(false)
         setBuilding(false)
       })
@@ -165,8 +169,18 @@ export function WhatsAppReminderDialog({
 
   const image = built && built.key === key ? built.result : null
 
+  // Known before the build runs, from the row count; the built attachment's own kind wins once it exists.
+  const expectedKind: LedgerAttachment['kind'] = rows.length > PDF_THRESHOLD_ROWS ? 'pdf' : 'png'
+  const kind = image?.kind ?? expectedKind
+  const noun = kind === 'pdf' ? 'PDF' : 'image'
+
   const file = useMemo(
-    () => (image ? new File([image.blob], image.fileName, { type: 'image/png' }) : null),
+    () =>
+      image
+        ? new File([image.blob], image.fileName, {
+            type: image.kind === 'pdf' ? 'application/pdf' : 'image/png',
+          })
+        : null,
     [image]
   )
 
@@ -177,11 +191,21 @@ export function WhatsAppReminderDialog({
   const busy = building || sending
   const sendDisabled = !formattedPhone || busy || (attach && !imageReady)
 
+  // Best-effort: a failing callback must never turn a sent reminder into an error.
+  const notifySent = () => {
+    try {
+      onSent?.()
+    } catch {
+      // Ignore.
+    }
+  }
+
   const handleSend = async (route: SendRoute = 'auto') => {
     if (!formattedPhone || busy) return
 
     if (!attach) {
       openWhatsAppReminder(phone, message)
+      notifySent()
       onClose()
       return
     }
@@ -193,6 +217,7 @@ export function WhatsAppReminderDialog({
       setSending(true)
       try {
         await navigator.share({ files: [file], text: message })
+        notifySent()
         onClose()
         return
       } catch (err) {
@@ -210,9 +235,10 @@ export function WhatsAppReminderDialog({
     openWhatsAppReminder(phone, message)
     addToast({
       type: 'info',
-      title: 'Ledger image downloaded',
-      description: 'In the WhatsApp chat, tap the paperclip and attach the image.',
+      title: `Ledger ${noun} downloaded`,
+      description: `In the WhatsApp chat, tap the paperclip and attach the ${noun}.`,
     })
+    notifySent()
     onClose()
   }
 
@@ -253,9 +279,11 @@ export function WhatsAppReminderDialog({
               className="mt-0.5 h-4 w-4 text-primary-600 dark:text-primary-400 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded"
             />
             <span>
-              <span className="block text-sm font-medium text-gray-900 dark:text-white">Attach ledger image</span>
+              <span className="block text-sm font-medium text-gray-900 dark:text-white">Attach ledger {noun}</span>
               <span className="block text-xs text-gray-500 dark:text-gray-400">
-                Sends a picture of the unpaid bills along with the message.
+                {kind === 'pdf'
+                  ? 'Sends a PDF of the unpaid bills along with the message.'
+                  : 'Sends a picture of the unpaid bills along with the message.'}
               </span>
             </span>
           </label>
@@ -269,18 +297,26 @@ export function WhatsAppReminderDialog({
           {attach && building && (
             <div className="mt-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400" role="status">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Preparing ledger image...
+              Preparing ledger {noun}...
             </div>
           )}
 
           {attach && image && !building && (
-            <div className="mt-3 max-h-60 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50">
-              <img
-                src={image.dataUrl}
-                alt={`Ledger image preview for ${customerName}`}
-                className="block mx-auto max-h-60 w-auto max-w-full object-contain"
-              />
-            </div>
+            <>
+              <div className="mt-3 max-h-60 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50">
+                <img
+                  src={image.previewUrl}
+                  alt={`Ledger ${noun} preview for ${customerName}`}
+                  className="block mx-auto max-h-60 w-auto max-w-full object-contain"
+                />
+              </div>
+              {image.kind === 'pdf' && (
+                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  PDF, {image.pageCount} {image.pageCount === 1 ? 'page' : 'pages'} — too many bills for a single
+                  image.
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -307,7 +343,7 @@ export function WhatsAppReminderDialog({
                 disabled={busy}
                 className={subtleLinkClass}
               >
-                Download image instead
+                Download {noun} instead
               </button>
             </div>
           )}

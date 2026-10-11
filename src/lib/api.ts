@@ -143,6 +143,12 @@ export const api = {
       body: JSON.stringify({ customer_id: id }),
     }),
 
+  recordReminder: (customer_id: string) =>
+    apiCall('/record-reminder', {
+      method: 'POST',
+      body: JSON.stringify({ customer_id }),
+    }),
+
     getEntry: (id: string) =>
     apiCall(`/get-entry?id=${id}`),
 

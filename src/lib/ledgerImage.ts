@@ -1,12 +1,16 @@
 /**
- * Renders a customer's unpaid bills as a PNG, for attaching to a WhatsApp
- * reminder.
+ * Renders a customer's unpaid bills as a WhatsApp attachment: a PNG for a
+ * short ledger, a multi-page PDF once there are too many bills to read as a
+ * single picture.
  *
- * Why a canvas and not the statement PDF: WhatsApp shows an image inline in
- * the chat, so the customer sees the amount without opening anything, and
- * canvas draws with the device's own fonts — which means Tamil and the rupee
- * sign render properly. The statement PDF cannot do either: pdf-lib's built-in
- * fonts are WinAnsi only, which is why that file says "Rs." instead of "₹".
+ * Why a canvas and not the server's statement PDF: WhatsApp shows an image
+ * inline in the chat, so the customer sees the amount without opening
+ * anything, and canvas draws with the device's own fonts — which means Tamil
+ * and the rupee sign come out right. The statement PDF can do neither:
+ * pdf-lib's built-in fonts are WinAnsi only, which is why that file says
+ * "Rs." instead of "₹", and pdf-lib maps characters to glyphs without the
+ * reordering Tamil needs. The PDF here is built from these same canvas pages,
+ * so Tamil survives into the document too.
  *
  * Nothing here touches the network. It draws from data the customer page has
  * already loaded.
@@ -39,14 +43,27 @@ export interface LedgerImageInput {
   language: 'en' | 'ta'
 }
 
-export interface LedgerImageResult {
+export type LedgerAttachmentKind = 'png' | 'pdf'
+
+export interface LedgerAttachment {
   blob: Blob
-  dataUrl: string
+  /** PNG data URL of the first page, for previewing before sending. */
+  previewUrl: string
   fileName: string
+  kind: LedgerAttachmentKind
+  pageCount: number
 }
 
-/** Beyond this the image is too tall to read in a chat; the rest is summarised. */
-const MAX_ROWS = 20
+/**
+ * More unpaid bills than this and a single image becomes an unreadable strip
+ * in a chat, so the attachment switches to a paginated PDF instead.
+ */
+export const PDF_THRESHOLD_ROWS = 20
+
+/** Rows per PDF page, and the smaller limit for a page that also carries the
+ *  totals block. Both keep a page within A4 proportions. */
+const ROWS_PER_PDF_PAGE = 20
+const ROWS_ON_TOTALS_PAGE = 17
 
 const FIRM_NAME = 'KSM Nataraja Nadar Firm'
 
@@ -66,6 +83,7 @@ const LABELS = {
     total: 'Total outstanding',
     asOn: (d: string) => `As on ${d}`,
     nothing: 'No unpaid bills',
+    page: (i: number, n: number) => `Page ${i} of ${n}`,
   },
   ta: {
     subtitle: 'செலுத்தப்படாத பில் விவரம்',
@@ -79,10 +97,21 @@ const LABELS = {
     total: 'மொத்த நிலுவை',
     asOn: (d: string) => `${d} நிலவரப்படி`,
     nothing: 'நிலுவை இல்லை',
+    page: (i: number, n: number) => `பக்கம் ${i} / ${n}`,
   },
 } as const
 
-/** ₹ with Indian digit grouping. The canvas can draw this; the PDF cannot. */
+// Logical layout units. The canvas is drawn at SCALE so the result stays sharp
+// after WhatsApp re-compresses it.
+const SCALE = 2
+const W = 900
+const PAD = 40
+const ROW_H = 46
+const HEAD_H = 188
+const TABLE_HEAD_H = 44
+const FOOT_H = 54
+
+/** ₹ with Indian digit grouping. The canvas can draw this; the PDF font cannot. */
 function money(amount: number): string {
   return `₹${Number(amount || 0).toLocaleString('en-IN', {
     minimumFractionDigits: 2,
@@ -123,36 +152,40 @@ export function unpaidRowsFromEntries(
     }))
 }
 
-export function buildLedgerImage(input: LedgerImageInput): Promise<LedgerImageResult> {
+interface PageOptions {
+  /** Bills left off a single-image ledger, summarised as "+N more". */
+  hiddenCount?: number
+  /** Totals block; on a PDF it belongs on the last page only. */
+  showTotals: boolean
+  pageIndex?: number
+  pageCount?: number
+}
+
+/** Draws one page and returns its canvas. */
+function drawLedgerPage(
+  input: LedgerImageInput,
+  pageRows: LedgerImageRow[],
+  opts: PageOptions,
+): HTMLCanvasElement {
   const t = LABELS[input.language] ?? LABELS.en
-  const shown = input.rows.slice(0, MAX_ROWS)
-  const hidden = input.rows.length - shown.length
+  const hidden = opts.hiddenCount ?? 0
   const hasAdvance = (input.advanceAdjusted ?? 0) > 0.01
 
-  // Logical layout units; the canvas is scaled up at the end so the PNG stays
-  // sharp when WhatsApp re-compresses it.
-  const SCALE = 2
-  const W = 900
-  const PAD = 40
-  const ROW_H = 46
-  const HEAD_H = 188
-  const TABLE_HEAD_H = 44
   const MORE_H = hidden > 0 ? 38 : 0
   // With an advance there are two lines above the total band, so that the
   // arithmetic on the page adds up: bills total, less advance, then the net.
-  const TOTAL_H = hasAdvance ? 172 : 92
-  const FOOT_H = 54
-  const H = HEAD_H + TABLE_HEAD_H + shown.length * ROW_H + MORE_H + TOTAL_H + FOOT_H
+  const TOTAL_H = opts.showTotals ? (hasAdvance ? 172 : 92) : 0
+  const bodyRows = Math.max(pageRows.length, pageRows.length === 0 ? 1 : 0)
+  const H = HEAD_H + TABLE_HEAD_H + bodyRows * ROW_H + MORE_H + TOTAL_H + FOOT_H
 
   const canvas = document.createElement('canvas')
   canvas.width = W * SCALE
   canvas.height = H * SCALE
   const ctx = canvas.getContext('2d')
-  if (!ctx) return Promise.reject(new Error('Could not create the ledger image on this device'))
+  if (!ctx) throw new Error('Could not create the ledger image on this device')
   ctx.scale(SCALE, SCALE)
   ctx.textBaseline = 'middle'
 
-  // Page
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, W, H)
 
@@ -201,8 +234,7 @@ export function buildLedgerImage(input: LedgerImageInput): Promise<LedgerImageRe
   ctx.textAlign = 'left'
   y += TABLE_HEAD_H
 
-  // Rows
-  shown.forEach((row, index) => {
+  pageRows.forEach((row, index) => {
     if (index % 2 === 1) {
       ctx.fillStyle = '#f8fafc'
       ctx.fillRect(PAD, y, W - PAD * 2, ROW_H)
@@ -236,7 +268,7 @@ export function buildLedgerImage(input: LedgerImageInput): Promise<LedgerImageRe
     y += ROW_H
   })
 
-  if (shown.length === 0) {
+  if (pageRows.length === 0) {
     ctx.fillStyle = '#94a3b8'
     ctx.font = `400 15px ${FONT_STACK}`
     ctx.fillText(t.nothing, xDate + 12, y + ROW_H / 2)
@@ -250,42 +282,43 @@ export function buildLedgerImage(input: LedgerImageInput): Promise<LedgerImageRe
     y += MORE_H
   }
 
-  // Totals
-  y += 12
-  if (hasAdvance) {
-    // Gross first, then the deduction, so the reader can follow how the
-    // outstanding figure was reached instead of seeing the bills add up to
-    // one number and the total claim another.
-    const billsTotal = input.rows.reduce((sum, row) => sum + row.amountDue, 0)
+  if (opts.showTotals) {
+    y += 12
+    if (hasAdvance) {
+      // Gross first, then the deduction, so the reader can follow how the
+      // outstanding figure was reached instead of seeing the bills add up to
+      // one number and the total claim another.
+      const billsTotal = input.rows.reduce((sum, row) => sum + row.amountDue, 0)
 
-    ctx.font = `400 16px ${FONT_STACK}`
-    ctx.fillStyle = '#475569'
-    ctx.fillText(t.billsTotal, PAD + 12, y + 18)
-    ctx.textAlign = 'right'
-    ctx.fillText(money(billsTotal), xDueRight - 12, y + 18)
-    ctx.textAlign = 'left'
-    y += 40
+      ctx.font = `400 16px ${FONT_STACK}`
+      ctx.fillStyle = '#475569'
+      ctx.fillText(t.billsTotal, PAD + 12, y + 18)
+      ctx.textAlign = 'right'
+      ctx.fillText(money(billsTotal), xDueRight - 12, y + 18)
+      ctx.textAlign = 'left'
+      y += 40
 
-    ctx.fillStyle = '#047857'
-    ctx.fillText(t.advance, PAD + 12, y + 18)
+      ctx.fillStyle = '#047857'
+      ctx.fillText(t.advance, PAD + 12, y + 18)
+      ctx.textAlign = 'right'
+      ctx.fillText(`- ${money(input.advanceAdjusted ?? 0)}`, xDueRight - 12, y + 18)
+      ctx.textAlign = 'left'
+      y += 40
+    }
+
+    ctx.fillStyle = '#eef2ff'
+    ctx.fillRect(PAD, y, W - PAD * 2, 64)
+    ctx.fillStyle = '#312e81'
+    ctx.font = `600 19px ${FONT_STACK}`
+    ctx.fillText(t.total, PAD + 16, y + 32)
+    ctx.font = `700 26px ${FONT_STACK}`
     ctx.textAlign = 'right'
-    ctx.fillText(`- ${money(input.advanceAdjusted ?? 0)}`, xDueRight - 12, y + 18)
+    ctx.fillText(money(input.totalDue), xDueRight - 16, y + 32)
     ctx.textAlign = 'left'
-    y += 40
+    y += 64
   }
 
-  ctx.fillStyle = '#eef2ff'
-  ctx.fillRect(PAD, y, W - PAD * 2, 64)
-  ctx.fillStyle = '#312e81'
-  ctx.font = `600 19px ${FONT_STACK}`
-  ctx.fillText(t.total, PAD + 16, y + 32)
-  ctx.font = `700 26px ${FONT_STACK}`
-  ctx.textAlign = 'right'
-  ctx.fillText(money(input.totalDue), xDueRight - 16, y + 32)
-  ctx.textAlign = 'left'
-  y += 64
-
-  // Footer
+  // Footer: the date on the left, the page number on the right when paginated.
   const asOn = new Date().toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
@@ -294,22 +327,113 @@ export function buildLedgerImage(input: LedgerImageInput): Promise<LedgerImageRe
   ctx.fillStyle = '#94a3b8'
   ctx.font = `400 13px ${FONT_STACK}`
   ctx.fillText(t.asOn(asOn), PAD, y + 28)
+  if (opts.pageCount && opts.pageCount > 1 && opts.pageIndex) {
+    ctx.textAlign = 'right'
+    ctx.fillText(t.page(opts.pageIndex, opts.pageCount), W - PAD, y + 28)
+    ctx.textAlign = 'left'
+  }
 
-  const safeName = (input.customerCode || input.customerName)
-    .replace(/[^A-Za-z0-9-]+/g, '_')
-    .replace(/^_+|_+$/g, '') || 'customer'
+  return canvas
+}
+
+function attachmentFileName(input: LedgerImageInput, extension: 'png' | 'pdf'): string {
+  const safeName =
+    (input.customerCode || input.customerName)
+      .replace(/[^A-Za-z0-9-]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'customer'
   const stamp = new Date().toISOString().slice(0, 10)
-  const fileName = `ledger_${safeName}_${stamp}.png`
+  return `ledger_${safeName}_${stamp}.${extension}`
+}
 
-  const dataUrl = canvas.toDataURL('image/png')
-
-  return new Promise<LedgerImageResult>((resolve, reject) => {
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
     canvas.toBlob(blob => {
-      if (!blob) {
-        reject(new Error('Could not create the ledger image on this device'))
-        return
-      }
-      resolve({ blob, dataUrl, fileName })
+      if (blob) resolve(blob)
+      else reject(new Error('Could not create the ledger image on this device'))
     }, 'image/png')
   })
+}
+
+/** Splits the bills across pages, keeping the totals page short enough to fit. */
+function paginate(rows: LedgerImageRow[]): LedgerImageRow[][] {
+  const pages: LedgerImageRow[][] = []
+  for (let i = 0; i < rows.length; i += ROWS_PER_PDF_PAGE) {
+    pages.push(rows.slice(i, i + ROWS_PER_PDF_PAGE))
+  }
+  if (pages.length === 0) return [[]]
+
+  // The last page also carries the totals block, so it holds fewer rows.
+  const last = pages[pages.length - 1]
+  if (last.length > ROWS_ON_TOTALS_PAGE) {
+    pages[pages.length - 1] = last.slice(0, ROWS_ON_TOTALS_PAGE)
+    pages.push(last.slice(ROWS_ON_TOTALS_PAGE))
+  }
+  return pages
+}
+
+/** Single-page PNG. Bills beyond the threshold are summarised, not dropped silently. */
+export async function buildLedgerImage(input: LedgerImageInput): Promise<LedgerAttachment> {
+  const shown = input.rows.slice(0, PDF_THRESHOLD_ROWS)
+  const canvas = drawLedgerPage(input, shown, {
+    hiddenCount: input.rows.length - shown.length,
+    showTotals: true,
+  })
+  const blob = await canvasToBlob(canvas)
+  return {
+    blob,
+    previewUrl: canvas.toDataURL('image/png'),
+    fileName: attachmentFileName(input, 'png'),
+    kind: 'png',
+    pageCount: 1,
+  }
+}
+
+/** Multi-page PDF built from the same canvas pages, so Tamil still renders. */
+export async function buildLedgerPdf(input: LedgerImageInput): Promise<LedgerAttachment> {
+  // Loaded on demand: jsPDF is large, and most reminders never need a PDF.
+  const { jsPDF } = await import('jspdf')
+
+  const pages = paginate(input.rows)
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  let previewUrl = ''
+
+  pages.forEach((pageRows, index) => {
+    const canvas = drawLedgerPage(input, pageRows, {
+      showTotals: index === pages.length - 1,
+      pageIndex: index + 1,
+      pageCount: pages.length,
+    })
+    if (index === 0) previewUrl = canvas.toDataURL('image/png')
+    if (index > 0) doc.addPage()
+    // JPEG, not PNG: jsPDF embeds a PNG as raw pixel data unless asked to
+    // deflate it, which turned a two-page ledger into a 17 MB file nobody on
+    // mobile data would download. The quality is high enough that the figures
+    // stay crisp. Scaled to the page width; the page canvases are kept within
+    // A4 proportions so the height always fits.
+    doc.addImage(
+      canvas.toDataURL('image/jpeg', 0.92),
+      'JPEG',
+      0,
+      0,
+      pageWidth,
+      pageWidth * (canvas.height / canvas.width),
+    )
+  })
+
+  return {
+    blob: doc.output('blob'),
+    previewUrl,
+    fileName: attachmentFileName(input, 'pdf'),
+    kind: 'pdf',
+    pageCount: pages.length,
+  }
+}
+
+/**
+ * The attachment for a WhatsApp reminder: an image while it still reads well
+ * in a chat, a PDF once there are too many bills. Only ever one file.
+ */
+export function buildLedgerAttachment(input: LedgerImageInput): Promise<LedgerAttachment> {
+  return input.rows.length > PDF_THRESHOLD_ROWS ? buildLedgerPdf(input) : buildLedgerImage(input)
 }
