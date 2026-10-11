@@ -467,6 +467,9 @@ verify_jwt = false
 [functions.get-today-stats]
 verify_jwt = false
 
+[functions.get-day-book]
+verify_jwt = false
+
 [functions.get-recent-payments]
 verify_jwt = false
 

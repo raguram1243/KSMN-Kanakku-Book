@@ -69,7 +69,15 @@ serve(async (req) => {
   try {
     // 1. Verify JWT
     const authHeader = req.headers.get('Authorization');
-    const token = await verifyToken(authHeader);
+    let token
+    try {
+      token = await verifyToken(authHeader);
+    } catch (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Rate limiting check
     const now = Date.now();

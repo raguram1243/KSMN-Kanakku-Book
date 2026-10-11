@@ -32,7 +32,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    const token = await verifyToken(authHeader)
+    let token
+    try {
+      token = await verifyToken(authHeader)
+    } catch (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (token.role !== 'admin') {
       return new Response(

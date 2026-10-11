@@ -15,7 +15,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    const token = await verifyToken(authHeader)
+    let token
+    try {
+      token = await verifyToken(authHeader)
+    } catch (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (token.role !== 'admin') {
       return new Response(
@@ -28,7 +36,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { payment_id, amount, payment_date, payment_method, receipt_number, notes, allocations } = await req.json()
+    const { payment_id, amount, payment_date, payment_method, receipt_number, notes, allocations, attachments } = await req.json()
 
     if (!payment_id || !amount || !payment_date) {
       return new Response(
@@ -128,6 +136,27 @@ serve(async (req) => {
           .insert(allocationsToInsert)
 
         if (insertAllocError) throw insertAllocError
+      }
+    }
+
+    // Attachments added during the edit are appended to the payment. They have
+    // already been uploaded to storage by this point, so dropping them here
+    // would leave orphan files and lose the receipt the user just attached.
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      const attachmentRows = attachments
+        .filter((a: any) => a && a.file_url && a.file_type)
+        .map((a: any) => ({
+          payment_id,
+          file_url: a.file_url,
+          file_type: a.file_type,
+        }))
+
+      if (attachmentRows.length > 0) {
+        const { error: attachError } = await supabase
+          .from('payment_attachments')
+          .insert(attachmentRows)
+
+        if (attachError) throw attachError
       }
     }
 
