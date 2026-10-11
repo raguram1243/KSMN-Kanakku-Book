@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -19,7 +20,7 @@ import { DownloadStatementButton } from '../components/customer/DownloadStatemen
 import { EditCustomerModal } from '../components/customer/EditCustomerModal';
 import { DeleteCustomerModal } from '../components/customer/DeleteCustomerModal';
 import { FollowUpCreateModal } from '../components/followups/FollowUpEditModal';
-import { useCustomer, useUpdateCustomer } from '../hooks/useApi';
+import { useCustomer, useUpdateCustomer, invalidateEntryQueries, invalidatePaymentQueries } from '../hooks/useApi';
 import { useToastStore } from '../store/toastStore';
 import { PaginationControls } from '../components/ui/PaginationControls';
 import { useClientPagination } from '../hooks/useClientPagination';
@@ -62,6 +63,7 @@ export default function CustomerDetailPage() {
 
         const customerQuery = useCustomer(id);
   const updateCustomer = useUpdateCustomer();
+  const queryClient = useQueryClient();
   const { openWhatsAppEntry, markReminderSent } = useWhatsAppCustomer();
 
     const handleApplyAdvance = async () => {
@@ -982,21 +984,21 @@ export default function CustomerDetailPage() {
           onClose={() => setSelectedEntry(null)}
           onModify={() => navigate(`/add-credit?entry_id=${selectedEntry.id}`)}
                     onDelete={async () => {
-            const res = await api.deleteEntry(selectedEntry.id);
-            if (res.ok) {
+            try {
+              await api.deleteEntry(selectedEntry.id);
               setSelectedEntry(null);
+              invalidateEntryQueries(queryClient, id);
               customerQuery.refetch();
               useToastStore.getState().addToast({
                 type: 'success',
                 title: 'Entry deleted',
                 description: selectedEntry.entry_code,
               });
-            } else {
-              const data = await res.json();
+            } catch (err) {
               useToastStore.getState().addToast({
                 type: 'error',
                 title: 'Could not delete entry',
-                description: data.error || 'Please try again',
+                description: err instanceof Error && err.message ? err.message : 'Please try again',
               });
             }
           }}
@@ -1010,21 +1012,21 @@ export default function CustomerDetailPage() {
           onClose={() => setSelectedPayment(null)}
           onModify={() => navigate(`/payment-received/${customer.id}/edit/${selectedPayment.id}`)}
                     onDelete={async () => {
-            const res = await api.deletePayment(selectedPayment.id);
-            if (res.ok) {
+            try {
+              await api.deletePayment(selectedPayment.id);
               setSelectedPayment(null);
+              invalidatePaymentQueries(queryClient, id);
               customerQuery.refetch();
               useToastStore.getState().addToast({
                 type: 'success',
                 title: 'Payment deleted',
                 description: `₹${Number(selectedPayment.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
               });
-            } else {
-              const data = await res.json();
+            } catch (err) {
               useToastStore.getState().addToast({
                 type: 'error',
                 title: 'Could not delete payment',
-                description: data.error || 'Please try again',
+                description: err instanceof Error && err.message ? err.message : 'Please try again',
               });
             }
           }}

@@ -548,8 +548,16 @@ export function DashboardPage() {
           onClose={() => setSelectedEntry(null)}
           onModify={() => navigate(`/add-credit?entry_id=${selectedEntry.entry.id}`)}
           onDelete={async () => {
-            await deleteEntry.mutateAsync(selectedEntry.entry.id as any);
-            setSelectedEntry(null);
+            try {
+              await deleteEntry.mutateAsync(selectedEntry.entry.id as any);
+              setSelectedEntry(null);
+            } catch (err) {
+              useToastStore.getState().addToast({
+                type: 'error',
+                title: 'Could not delete entry',
+                description: err instanceof Error && err.message ? err.message : 'Please try again',
+              });
+            }
           }}
         />
       )}
@@ -561,8 +569,16 @@ export function DashboardPage() {
           onClose={() => setSelectedPayment(null)}
           onModify={() => navigate(`/payment-received/${selectedPayment.customer_id}/edit/${selectedPayment.id}`)}
           onDelete={async () => {
-            await deletePayment.mutateAsync(selectedPayment.id as any);
-            setSelectedPayment(null);
+            try {
+              await deletePayment.mutateAsync(selectedPayment.id as any);
+              setSelectedPayment(null);
+            } catch (err) {
+              useToastStore.getState().addToast({
+                type: 'error',
+                title: 'Could not delete payment',
+                description: err instanceof Error && err.message ? err.message : 'Please try again',
+              });
+            }
           }}
         />
       )}

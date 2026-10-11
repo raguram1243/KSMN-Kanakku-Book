@@ -4,6 +4,8 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
 import { api } from '../../lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateCustomerQueries } from '../../hooks/useApi';
 import { Customer } from '../../types';
 
 export type CustomerType = 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate';
@@ -26,6 +28,7 @@ const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
 ];
 
 export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, initialPhone }: CreateCustomerModalProps) {
+  const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -73,6 +76,7 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
       }
 
       const data = await response.json();
+      invalidateCustomerQueries(queryClient);
       onCreated(data.customer);
       onClose();
     } catch (err) {

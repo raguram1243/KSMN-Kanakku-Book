@@ -106,26 +106,48 @@ serve(async (req) => {
     const entryAppliedMap = new Map<string, number>()
     const entryBalanceBefore = new Map<string, number>()
 
+    // Live capacity left on each side of the allocation. The fetched rows are a
+    // snapshot: entry.balance and payment.unallocated_amount never change while we
+    // loop, so reading them directly let one bill be filled by several payments and
+    // one payment be spent on several bills. Two 1000 advances against a single 1000
+    // bill applied 2000 and drove the balance to -1000; two 500 advances against two
+    // 500 bills spent 1000 out of a single 500 payment. usedSet only blocks the same
+    // (payment, entry) pair twice, so it cannot catch either case. These two maps
+    // carry the running totals so Math.min below sees what is actually left.
+    const entryRemaining = new Map<string, number>()
+    const paymentRemaining = new Map<string, number>()
+
     for (const e of entries || []) {
       entryBalanceBefore.set(e.id, Number(e.balance))
+      entryRemaining.set(e.id, Number(e.balance))
+    }
+
+    for (const p of unallocatedPayments || []) {
+      paymentRemaining.set(p.payment_id, Number(p.unallocated_amount))
     }
 
     for (const payment of unallocatedPayments || []) {
       if (remaining <= 0.01) break
+      if ((paymentRemaining.get(payment.payment_id) || 0) <= 0.01) continue
 
       for (const entry of entries || []) {
         if (remaining <= 0.01) break
+        if ((paymentRemaining.get(payment.payment_id) || 0) <= 0.01) break
 
         const key = `${payment.payment_id}::${entry.id}`
         if (usedSet.has(key)) continue
 
-        const entryBalance = Number(entry.balance)
-        const available = Number(payment.unallocated_amount)
+        const entryBalance = entryRemaining.get(entry.id) || 0
+        if (entryBalance <= 0.01) continue
+
+        const available = paymentRemaining.get(payment.payment_id) || 0
         const allocation = Math.min(available, entryBalance, remaining)
 
         if (allocation <= 0.01) continue
 
         remaining -= allocation
+        entryRemaining.set(entry.id, entryBalance - allocation)
+        paymentRemaining.set(payment.payment_id, available - allocation)
         usedSet.add(key)
 
         allocationsToInsert.push({
@@ -135,6 +157,50 @@ serve(async (req) => {
         })
 
         entryAppliedMap.set(entry.id, (entryAppliedMap.get(entry.id) || 0) + allocation)
+      }
+    }
+
+    // Guard rail, not a working check: after the running totals above this cannot
+    // trip. It is here so a future regression fails loudly instead of writing
+    // over-allocations into the ledger.
+    const paymentTotals = new Map<string, number>()
+    for (const a of allocationsToInsert) {
+      const paymentOriginal = Number(
+        (unallocatedPayments || []).find(p => p.payment_id === a.payment_id)?.unallocated_amount ?? 0
+      )
+      const entryOriginal = entryBalanceBefore.get(a.credit_entry_id) || 0
+
+      if (a.allocated_amount > paymentOriginal + 0.01) {
+        throw new Error(
+          `Allocation ${a.allocated_amount} exceeds unallocated amount ${paymentOriginal} on payment ${a.payment_id}`
+        )
+      }
+      if (a.allocated_amount > entryOriginal + 0.01) {
+        throw new Error(
+          `Allocation ${a.allocated_amount} exceeds balance ${entryOriginal} on entry ${a.credit_entry_id}`
+        )
+      }
+
+      paymentTotals.set(a.payment_id, (paymentTotals.get(a.payment_id) || 0) + a.allocated_amount)
+    }
+
+    for (const [paymentId, total] of paymentTotals) {
+      const paymentOriginal = Number(
+        (unallocatedPayments || []).find(p => p.payment_id === paymentId)?.unallocated_amount ?? 0
+      )
+      if (total > paymentOriginal + 0.01) {
+        throw new Error(
+          `Allocations total ${total} exceed unallocated amount ${paymentOriginal} on payment ${paymentId}`
+        )
+      }
+    }
+
+    for (const [entryId, total] of entryAppliedMap) {
+      const entryOriginal = entryBalanceBefore.get(entryId) || 0
+      if (total > entryOriginal + 0.01) {
+        throw new Error(
+          `Allocations total ${total} exceed balance ${entryOriginal} on entry ${entryId}`
+        )
       }
     }
 

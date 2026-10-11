@@ -9,6 +9,13 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
 }
 
+// Wait before answering, given the consecutive failures BEFORE this attempt:
+// 0 and 1 -> no wait, then 250ms doubling, capped at 8s. Never a block.
+function loginDelayMs(previousFailures: number): number {
+  if (previousFailures <= 1) return 0
+  return Math.min(8000, 250 * 2 ** (previousFailures - 2))
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -29,6 +36,24 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+    // Progressive delay: every attempt for a name (real or not) is counted up
+    // front and the wait grows with the consecutive failures before it. Delay
+    // only, never a block. Any throttle error is ignored so a throttle outage
+    // cannot become a login outage.
+    const throttleKey = String(name).trim().toLowerCase().slice(0, 100)
+    try {
+      const { data: previousFailures, error: throttleError } = await supabase
+        .rpc('bump_login_throttle', { p_key: throttleKey })
+      if (!throttleError && typeof previousFailures === 'number') {
+        const delayMs = loginDelayMs(previousFailures)
+        if (delayMs > 0) {
+          await new Promise((r) => setTimeout(r, delayMs))
+        }
+      }
+    } catch (_throttleError) {
+      // proceed with the login
+    }
+
     // Look up staff by name
     const { data: staff, error: staffError } = await supabase
       .from('staff')
@@ -46,6 +71,14 @@ serve(async (req) => {
 
     // Verify PIN using bcrypt (sync to avoid Worker usage in Edge Functions)
     const pinMatch = bcrypt.compareSync(pin, staff.pin_hash)
+    if (pinMatch) {
+      // Correct PIN: clear the failure count (best effort)
+      try {
+        await supabase.from('login_throttle').delete().eq('name_key', throttleKey)
+      } catch (_resetError) {
+        // ignore
+      }
+    }
     if (!pinMatch) {
       return new Response(
         JSON.stringify({ error: 'Invalid credentials' }),

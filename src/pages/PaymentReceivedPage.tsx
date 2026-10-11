@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidatePaymentQueries } from '../hooks/useApi';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -42,6 +44,7 @@ function generateIdempotencyKey(): string {
 export default function PaymentReceivedPage() {
   const { customerId: rawCustomerId, paymentId: rawPaymentId } = useParams<{ customerId: string; paymentId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   const isEditMode = !!rawPaymentId;
 
@@ -217,6 +220,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
   const loadCustomerData = async () => {
     if (!customerId) return;
     setLoading(true);
+    let loadedAmount = '';
     try {
       const response = await api.getCustomer(customerId);
       if (response.ok) {
@@ -228,7 +232,10 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           const payment = (data.payments || []).find((p: any) => p.id === rawPaymentId);
           if (payment) {
             // Prefill payment fields
-            setPaymentAmount(payment.amount?.toString() || '');
+            loadedAmount = payment.amount?.toString() || '';
+            setPaymentAmount(loadedAmount);
+            // A payment with no allocations was recorded as advance-only
+            setAdvanceOnly((payment.allocations || []).length === 0);
             setPaymentDate(payment.payment_date?.split('T')[0] || new Date().toISOString().split('T')[0]);
             setPaymentMethod(payment.payment_method || '');
             setReceiptNumber(payment.receipt_number || '');
@@ -284,7 +291,8 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
       setLoading(false);
       setHydrated(true);
       if (isEditMode && rawPaymentId) {
-        initialAmountRef.current = parseFloat(paymentAmount) || 0;
+        // Use the loaded payment's amount: `paymentAmount` here is the stale pre-load value ('')
+        initialAmountRef.current = parseFloat(loadedAmount) || 0;
       } else {
         initialAmountRef.current = null;
       }
@@ -474,6 +482,8 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           throw new Error(data.error || 'Failed to update payment');
         }
 
+        invalidatePaymentQueries(queryClient, customerId ?? undefined);
+
                 setShowConfirmDialog(false);
         const toast = useToastStore.getState();
         toast.addToast({
@@ -507,6 +517,8 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           const data = await paymentResponse.json();
           throw new Error(data.error || 'Failed to create payment');
         }
+
+        invalidatePaymentQueries(queryClient, customerId ?? undefined);
 
         const data = await paymentResponse.json();
         void data.payment; // Payment created successfully
