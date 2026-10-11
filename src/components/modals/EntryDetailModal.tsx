@@ -90,6 +90,15 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
             </div>
           )}
 
+          {/* Detailed entries saved before the line items were sent to the
+              server kept only their total — the rows never reached the
+              database, so say so instead of showing nothing. */}
+          {entry.entry_mode === 'detailed' && (!entry.items || entry.items.length === 0) && (
+            <Alert variant="info">
+              Item details were not recorded for this entry. Use Modify to add them.
+            </Alert>
+          )}
+
           {/* Description (for quick mode) */}
           {entry.entry_mode === 'quick' && entry.description && (
             <div>

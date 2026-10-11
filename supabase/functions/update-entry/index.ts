@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyToken } from '../_shared/jwt-utils.ts'
+import { normalizeLineItems, summarizeLineItems, toItemRows } from '../_shared/entry-items.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,7 +29,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { entry_id, description, total_amount, items, notes } = await req.json()
+    const { entry_id, description, total_amount, items, notes, attachments } = await req.json()
 
     if (!entry_id || total_amount === undefined) {
       return new Response(
@@ -54,44 +55,86 @@ serve(async (req) => {
       )
     }
 
+    const isDetailed = existingEntry.entry_mode === 'detailed'
+    // `items` absent means "leave the items alone"; an empty or unusable list
+    // means the edit would wipe the breakdown, which is never intended.
+    const itemsProvided = isDetailed && Array.isArray(items)
+    const lineItems = itemsProvided ? normalizeLineItems(items) : []
+
+    if (itemsProvided && lineItems.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'A detailed entry needs at least one item with a name and a quantity above zero' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // The description of a detailed entry is derived from its items, so it is
+    // regenerated here; sending the old one back would let it go stale.
+    const entryUpdate: Record<string, unknown> = {
+      total_amount,
+      notes: notes || null,
+    }
+    if (itemsProvided) {
+      entryUpdate.description = summarizeLineItems(lineItems) || null
+    } else if (!isDetailed) {
+      entryUpdate.description = description || null
+    }
+
     // Update the credit entry
     const { error: updateError } = await supabase
       .from('credit_entries')
-      .update({
-        description: description || null,
-        total_amount,
-        notes: notes || null,
-      })
+      .update(entryUpdate)
       .eq('id', entry_id)
 
     if (updateError) throw updateError
 
-    // If detailed mode and items provided, replace items
-    if (existingEntry.entry_mode === 'detailed' && items && Array.isArray(items)) {
-      // Delete existing items
-      const { error: deleteItemsError } = await supabase
+    // Replace the line items, re-numbered in the order they were submitted.
+    // The new rows go in before the old ones come out: there is no
+    // transaction around the two calls, and a failed insert after a
+    // successful delete would wipe the breakdown for good.
+    if (itemsProvided) {
+      const { data: previousItems, error: previousItemsError } = await supabase
         .from('credit_entry_items')
-        .delete()
+        .select('id')
         .eq('credit_entry_id', entry_id)
 
-      if (deleteItemsError) throw deleteItemsError
+      if (previousItemsError) throw previousItemsError
 
-      // Insert new items
-      const itemsToInsert = items
-        .filter((item: any) => item.item_name && item.qty > 0)
-        .map((item: any) => ({
+      const { error: itemsError } = await supabase
+        .from('credit_entry_items')
+        .insert(toItemRows(entry_id, lineItems))
+
+      if (itemsError) throw itemsError
+
+      const previousIds = (previousItems || []).map((row: any) => row.id)
+      if (previousIds.length > 0) {
+        const { error: deleteItemsError } = await supabase
+          .from('credit_entry_items')
+          .delete()
+          .in('id', previousIds)
+
+        if (deleteItemsError) throw deleteItemsError
+      }
+    }
+
+    // Attachments added during the edit are appended to the entry. They have
+    // already been uploaded to storage by this point, so dropping them here
+    // would leave orphan files and lose the photo the user just attached.
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      const attachmentRows = attachments
+        .filter((a: any) => a && a.file_url && a.file_type)
+        .map((a: any) => ({
           credit_entry_id: entry_id,
-          item_name: item.item_name,
-          qty: item.qty,
-          rate: item.rate,
+          file_url: a.file_url,
+          file_type: a.file_type,
         }))
 
-      if (itemsToInsert.length > 0) {
-        const { error: itemsError } = await supabase
-          .from('credit_entry_items')
-          .insert(itemsToInsert)
+      if (attachmentRows.length > 0) {
+        const { error: attachError } = await supabase
+          .from('credit_entry_attachments')
+          .insert(attachmentRows)
 
-        if (itemsError) throw itemsError
+        if (attachError) throw attachError
       }
     }
 

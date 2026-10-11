@@ -88,7 +88,7 @@ serve(async (req) => {
 
     if (entryIds.length > 0) {
       const [itemsResult, attachmentsResult] = await Promise.all([
-        supabase.from('credit_entry_items').select('*').in('credit_entry_id', entryIds),
+        supabase.from('credit_entry_items').select('*').in('credit_entry_id', entryIds).order('sort_order', { ascending: true }),
         supabase.from('credit_entry_attachments').select('*').in('credit_entry_id', entryIds).order('uploaded_at', { ascending: true }),
       ])
 
