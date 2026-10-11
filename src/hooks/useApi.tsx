@@ -114,6 +114,66 @@ export function useTodayStats() {
   });
 }
 
+/**
+ * Day-book for one date.
+ *
+ * Cached like every other query here, so returning to the page or flicking
+ * back to a date already looked at renders from cache instead of showing
+ * skeletons for another round trip. `keepPreviousData` keeps yesterday's
+ * numbers on screen while the next date loads, rather than blanking the page.
+ *
+ * The client-side fallback is kept for the case where get-day-book is
+ * unavailable: it costs three calls instead of one, so it stays a fallback.
+ */
+export function useDayBook(day: string) {
+  return useQuery<any, Error, any, any>({
+    queryKey: ['day-book', day],
+    queryFn: async () => {
+      try {
+        const res = await api.getDayBook(day);
+        if (res.ok) return { book: await res.json(), source: 'server' as const };
+      } catch {
+        // fall through to the on-device computation
+      }
+
+      const [statsRes, entriesRes, payRes] = await Promise.all([
+        api.getTodayStats(),
+        api.getEntriesReport(day, day),
+        api.getPaymentsReport(day, day),
+      ]);
+      const stats = statsRes.ok ? await statsRes.json() : {};
+      const entries = entriesRes.ok ? await entriesRes.json() : {};
+      const pays = payRes.ok ? await payRes.json() : {};
+      const entryList: any[] = entries.entries ?? [];
+      const payList: any[] = pays.payments ?? [];
+      const credit = entryList.reduce((sum, e) => sum + Number(e.total_amount || 0), 0);
+      const coll = payList.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const byMethod = new Map<string, { count: number; total: number }>();
+      for (const p of payList) {
+        const method = p.payment_method || 'unknown';
+        const cur = byMethod.get(method) || { count: 0, total: 0 };
+        cur.count += 1;
+        cur.total += Number(p.amount || 0);
+        byMethod.set(method, cur);
+      }
+      return {
+        book: {
+          day,
+          credit_total: credit || Number(stats.todayEntriesTotalSum || 0),
+          credit_count: entryList.length || Number(stats.todayEntriesCount || 0),
+          collection_total: coll,
+          collection_count: payList.length,
+          net: credit - coll,
+          by_method: [...byMethod.entries()].map(([method, v]) => ({ method, ...v })),
+          by_staff: [],
+        },
+        source: 'local' as const,
+      };
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useCustomerBalance(id?: string) {
   return useQuery<any, Error, any, any>({
     queryKey: ['customer-balance', id],

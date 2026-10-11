@@ -518,3 +518,5 @@ verify_jwt = false
 [functions.get-payments-report]
 verify_jwt = false
 
+[functions.record-reminder]
+verify_jwt = false

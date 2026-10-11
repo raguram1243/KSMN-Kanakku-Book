@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Skeleton } from '../components/ui/Skeleton';
-import { api } from '../lib/api';
+import { useDayBook } from '../hooks/useApi';
 import { formatCurrency } from '../lib/utils';
 import { DayBookByMethod, DayBookByStaff, DayBookStat } from '../components/daybook/DayBookCards';
 
@@ -12,65 +12,18 @@ function todayKey(d = new Date()): string {
 }
 
 /**
- * A5 — Daily close. Tries the get-day-book edge function (migration 021);
- * falls back to get-today-stats + entries/payments reports client-side so
- * the page works before the backend is deployed.
+ * A5 — Daily close. Reads the get-day-book edge function through a cached
+ * query; useDayBook falls back to computing the figures on the device from
+ * three other endpoints if that function is ever unavailable.
  */
 export function DayBookPage() {
   const [day, setDay] = useState(todayKey());
-  const [data, setData] = useState<DayBook | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState<'server' | 'local'>('server');
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await api.getDayBook(day);
-        if (res.ok) {
-          const json = await res.json();
-          if (!cancelled) { setData(json); setSource('server'); }
-          return;
-        }
-      } catch { /* fall through to local */ }
-      try {
-        const [statsRes, entriesRes, payRes] = await Promise.all([
-          api.getTodayStats(), api.getEntriesReport(day, day), api.getPaymentsReport(day, day),
-        ]);
-        const stats = statsRes.ok ? await statsRes.json() : {};
-        const entries = entriesRes.ok ? await entriesRes.json() : {};
-        const pays = payRes.ok ? await payRes.json() : {};
-        const entryList: any[] = entries.entries ?? [];
-        const payList: any[] = pays.payments ?? [];
-        const credit = entryList.reduce((s, e) => s + Number(e.total_amount || 0), 0);
-        const coll = payList.reduce((s, p) => s + Number(p.amount || 0), 0);
-        const byMethod = new Map<string, { count: number; total: number }>();
-        for (const p of payList) {
-          const m = p.payment_method || 'unknown';
-          const cur = byMethod.get(m) || { count: 0, total: 0 };
-          cur.count += 1; cur.total += Number(p.amount || 0);
-          byMethod.set(m, cur);
-        }
-        if (!cancelled) {
-          setData({
-            day,
-            credit_total: credit || Number(stats.todayEntriesTotalSum || 0),
-            credit_count: entryList.length || Number(stats.todayEntriesCount || 0),
-            collection_total: coll,
-            collection_count: payList.length,
-            net: credit - coll,
-            by_method: [...byMethod.entries()].map(([method, v]) => ({ method, ...v })),
-            by_staff: [],
-          });
-          setSource('local');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [day]);
+  const query = useDayBook(day);
+  const data = (query.data?.book ?? null) as DayBook | null;
+  const source: 'server' | 'local' = query.data?.source ?? 'server';
+  // Only skeleton when there is nothing to show. A refetch, or moving to a
+  // date already in the cache, keeps the previous figures on screen.
+  const loading = !data && query.isPending;
 
   return (
     <div className="space-y-6">

@@ -22,6 +22,7 @@ export interface Customer {
   credit_limit?: number | null;
   custom_overdue_days?: number | null;
   oldest_unpaid_date?: string | null;
+  last_reminder_at?: string | null;
 }
 
 export interface CreditEntry {

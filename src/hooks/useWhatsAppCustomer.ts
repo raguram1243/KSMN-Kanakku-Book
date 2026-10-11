@@ -1,4 +1,5 @@
 import { useToastStore } from '../store/toastStore';
+import { api } from '../lib/api';
 import {
   buildAggregateReminderMessage,
   buildEntryReminderMessage,
@@ -8,6 +9,8 @@ import {
 } from '../lib/whatsapp';
 
 export interface WhatsAppableCustomer {
+  /** Needed to record the reminder; callers without an id simply skip recording. */
+  id?: string;
   phone: string;
   balance?: number;
   advance_balance?: number;
@@ -25,6 +28,20 @@ export interface WhatsAppableCustomer {
  */
 export function useWhatsAppCustomer() {
   const addToast = useToastStore((s) => s.addToast);
+
+  /**
+   * Records that a reminder went out ("Last reminded" on the customer page).
+   * Fire-and-forget: never awaited, never throws, never toasts. The reminder
+   * itself has already been sent, so a failure here is silently ignored.
+   */
+  function markReminderSent(customerId: string | null | undefined): void {
+    if (!customerId) return;
+    try {
+      void Promise.resolve(api.recordReminder(customerId)).catch(() => {});
+    } catch {
+      // Ignore: recording is best-effort.
+    }
+  }
 
   function openCustomer(phone: string | null | undefined, message: string): boolean {
     if (!openWhatsAppReminder(phone, message)) {
@@ -52,7 +69,9 @@ export function useWhatsAppCustomer() {
       return false;
     }
     const message = buildAggregateReminderMessage(customer.name, total, language);
-    return openCustomer(customer.phone, message);
+    const opened = openCustomer(customer.phone, message);
+    if (opened) markReminderSent(customer.id);
+    return opened;
   }
 
   function openCustomerEntry(
@@ -65,10 +84,13 @@ export function useWhatsAppCustomer() {
     // Preserves the exact per-entry message generation previously inlined in CustomerDetailPage
     // (which passed `entry.balance` as the amount, not `entry.total_amount`).
     const message = buildEntryReminderMessage(customer.name, amount, description, billDate, language);
-    return openCustomer(customer.phone, message);
+    const opened = openCustomer(customer.phone, message);
+    if (opened) markReminderSent(customer.id);
+    return opened;
   }
 
   function openWhatsappOverdue(
+    customerId: string,
     phone: string | null | undefined,
     customerName: string,
     amount: number,
@@ -76,7 +98,9 @@ export function useWhatsAppCustomer() {
     language: ReminderLanguage,
   ): boolean {
     const message = buildOverdueReminderMessage(customerName, amount, overdueSinceDate, language);
-    return openCustomer(phone, message);
+    const opened = openCustomer(phone, message);
+    if (opened) markReminderSent(customerId);
+    return opened;
   }
 
   return {
@@ -84,6 +108,7 @@ export function useWhatsAppCustomer() {
     openWhatsAppAggregate: openCustomerAggregate,
     openWhatsAppEntry: openCustomerEntry,
     openWhatsAppOverdue: openWhatsappOverdue,
+    markReminderSent,
   };
 }
 
