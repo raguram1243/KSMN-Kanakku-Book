@@ -197,6 +197,7 @@ export const api = {
     total_amount: number
     items?: any[]
     notes?: string
+    attachments?: { file_url: string; file_type: string }[]
   }) =>
     apiCall('/update-entry', {
       method: 'POST',
@@ -217,6 +218,7 @@ export const api = {
     receipt_number?: string
     notes?: string
     allocations: any[]
+    attachments?: { file_url: string; file_type: string }[]
   }) =>
     apiCall('/update-payment', {
       method: 'POST',

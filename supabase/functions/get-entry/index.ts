@@ -15,7 +15,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    const token = await verifyToken(authHeader)
+    let token
+    try {
+      token = await verifyToken(authHeader)
+    } catch (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -31,10 +39,11 @@ serve(async (req) => {
       )
     }
 
-    // Get the entry
+    // Get the entry (with the staff member who created it, so the detail
+    // dialog can show a name instead of a bare id)
     const { data: entry, error: entryError } = await supabase
       .from('credit_entries')
-      .select('*')
+      .select('*, staff:staff!credit_entries_created_by_fkey(name, role)')
       .eq('id', entryId)
       .single()
 
@@ -47,24 +56,36 @@ serve(async (req) => {
       .eq('id', entry.customer_id)
       .single()
 
-    // Get line items for detailed-mode entries
+    // Get line items for detailed-mode entries, in the order they were entered
     let items: any[] = []
     if (entry.entry_mode === 'detailed') {
       const { data: entryItems, error: itemsError } = await supabase
         .from('credit_entry_items')
         .select('*')
         .eq('credit_entry_id', entryId)
+        .order('sort_order', { ascending: true })
 
       if (!itemsError) {
         items = entryItems || []
       }
     }
 
+    // Attachments, so an entry opened from the dashboard shows the same
+    // photos and bills as one opened from the customer page
+    const { data: entryAttachments } = await supabase
+      .from('credit_entry_attachments')
+      .select('*')
+      .eq('credit_entry_id', entryId)
+      .order('uploaded_at', { ascending: true })
+
     return new Response(
       JSON.stringify({
         entry: {
           ...entry,
           items,
+          attachments: entryAttachments || [],
+          staff_name: entry.staff?.name || null,
+          staff_role: entry.staff?.role || null,
           customer_name: customer?.name || 'Unknown',
           customer_code: customer?.customer_code || '',
           customer_phone: customer?.phone || '',

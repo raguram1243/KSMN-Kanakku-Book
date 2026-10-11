@@ -464,6 +464,9 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
                   credit_entry_id: e.id,
                   allocated_amount: e.allocated_amount,
                 })),
+          // Files picked while editing were uploaded above but never sent, so
+          // they were dropped silently; send them so they get appended.
+          ...(uploadedAttachments.length > 0 ? { attachments: uploadedAttachments } : {}),
         });
 
         if (!updateResponse.ok) {

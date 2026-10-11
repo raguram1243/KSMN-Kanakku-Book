@@ -216,6 +216,11 @@ export default function QuickAddPage() {
     setLineItems(lineItems.filter((_, i) => i !== index));
   };
 
+  // The rows the server will actually store: a name and a quantity above
+  // zero. Mirrors normalizeLineItems() in supabase/functions/_shared.
+  const getValidLineItems = () =>
+    lineItems.filter(item => item.item_name.trim() && Number(item.qty) > 0);
+
   const getTotalAmount = () => {
     if (entryMode === 'quick') {
       return parseFloat(quickAmount) || 0;
@@ -261,6 +266,11 @@ export default function QuickAddPage() {
         throw new Error('Total amount must be greater than 0');
       }
 
+      const validLineItems = entryMode === 'detailed' ? getValidLineItems() : [];
+      if (entryMode === 'detailed' && validLineItems.length === 0) {
+        throw new Error('Add at least one item with a name and a quantity above zero');
+      }
+
       // Upload attachments if present
       const uploadedAttachments = await Promise.all(
         attachments.map(async (item) => {
@@ -277,6 +287,13 @@ export default function QuickAddPage() {
         })
       );
 
+      // Freshly uploaded files plus the AI Scan photo, which is already in
+      // storage and is carried over by URL.
+      const entryAttachments = [
+        ...uploadedAttachments,
+        ...(scannedAttachment ? [scannedAttachment] : []),
+      ];
+
       // Create or update credit entry
       if (isEditMode && entryId) {
         // Edit mode: update existing entry
@@ -288,11 +305,17 @@ export default function QuickAddPage() {
         if (entryMode === 'quick') {
           updateData.description = quickDescription;
         } else {
-          updateData.items = lineItems.filter(item => item.item_name && item.qty > 0);
+          updateData.items = validLineItems;
         }
 
         if (entryNotes) {
           updateData.notes = entryNotes;
+        }
+
+        // Files picked during the edit are already in storage by now; without
+        // sending them here they would be uploaded and then silently dropped.
+        if (entryAttachments.length > 0) {
+          updateData.attachments = entryAttachments;
         }
 
         const updateResponse = await api.updateEntry(updateData);
@@ -314,11 +337,15 @@ export default function QuickAddPage() {
           customer_id: selectedCustomer.id,
           entry_mode: entryMode,
           total_amount: totalAmount,
-          attachments: [...uploadedAttachments, ...(scannedAttachment ? [scannedAttachment] : [])],
+          attachments: entryAttachments,
         };
 
         if (entryMode === 'quick') {
           entryData.description = quickDescription;
+        } else {
+          // Without this the line items never reach the server and the
+          // breakdown of a detailed entry is lost at save time.
+          entryData.items = validLineItems;
         }
 
         if (entryNotes) {

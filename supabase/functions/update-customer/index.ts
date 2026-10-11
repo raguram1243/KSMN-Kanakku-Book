@@ -15,7 +15,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    const token = await verifyToken(authHeader)
+    let token
+    try {
+      token = await verifyToken(authHeader)
+    } catch (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (token.role !== 'admin') {
       return new Response(
@@ -28,11 +36,20 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-        const { id, custom_overdue_days, name, phone, address, notes, customer_type } = await req.json()
+        const { id, custom_overdue_days, name, phone, address, notes, customer_type, credit_limit } = await req.json()
 
     if (!id) {
       return new Response(
         JSON.stringify({ error: 'Customer ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // The client sends null to clear the credit limit (no limit)
+    if (credit_limit !== undefined && credit_limit !== null &&
+        (typeof credit_limit !== 'number' || !Number.isFinite(credit_limit) || credit_limit < 0)) {
+      return new Response(
+        JSON.stringify({ error: 'Credit limit must be a positive number or empty' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -45,6 +62,7 @@ serve(async (req) => {
     if (address !== undefined) updateData.address = address
     if (notes !== undefined) updateData.notes = notes
     if (customer_type !== undefined) updateData.customer_type = customer_type
+    if (credit_limit !== undefined) updateData.credit_limit = credit_limit
 
     if (Object.keys(updateData).length === 0) {
       return new Response(

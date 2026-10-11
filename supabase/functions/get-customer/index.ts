@@ -16,7 +16,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    const token = await verifyToken(authHeader)
+    let token
+    try {
+      token = await verifyToken(authHeader)
+    } catch (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -88,7 +96,7 @@ serve(async (req) => {
 
     if (entryIds.length > 0) {
       const [itemsResult, attachmentsResult] = await Promise.all([
-        supabase.from('credit_entry_items').select('*').in('credit_entry_id', entryIds),
+        supabase.from('credit_entry_items').select('*').in('credit_entry_id', entryIds).order('sort_order', { ascending: true }),
         supabase.from('credit_entry_attachments').select('*').in('credit_entry_id', entryIds).order('uploaded_at', { ascending: true }),
       ])
 
@@ -111,15 +119,34 @@ serve(async (req) => {
 
     const paymentIds = payments.map((p: any) => p.id)
     let allocationsMap: Record<string, any[]> = {}
+    let paymentAttachmentsMap: Record<string, any[]> = {}
 
     if (paymentIds.length > 0) {
-      const { data: allocations, error: allocError } = await supabase
-        .from('payment_allocations')
-        .select('id, payment_id, credit_entry_id, allocated_amount')
-        .in('payment_id', paymentIds)
+      // Payment attachments are loaded the same way the entry ones are above.
+      // The payment detail dialog has always rendered them, but nothing ever
+      // sent them, so receipt photos were invisible once saved.
+      const [allocationsResult, paymentAttachmentsResult] = await Promise.all([
+        supabase
+          .from('payment_allocations')
+          .select('id, payment_id, credit_entry_id, allocated_amount')
+          .in('payment_id', paymentIds),
+        supabase
+          .from('payment_attachments')
+          .select('*')
+          .in('payment_id', paymentIds)
+          .order('uploaded_at', { ascending: true }),
+      ])
 
-      if (!allocError) {
-        allocationsMap = (allocations || []).reduce((acc: Record<string, any[]>, a: any) => {
+      if (!allocationsResult.error) {
+        allocationsMap = (allocationsResult.data || []).reduce((acc: Record<string, any[]>, a: any) => {
+          if (!acc[a.payment_id]) acc[a.payment_id] = []
+          acc[a.payment_id].push(a)
+          return acc
+        }, {})
+      }
+
+      if (!paymentAttachmentsResult.error) {
+        paymentAttachmentsMap = (paymentAttachmentsResult.data || []).reduce((acc: Record<string, any[]>, a: any) => {
           if (!acc[a.payment_id]) acc[a.payment_id] = []
           acc[a.payment_id].push(a)
           return acc
@@ -131,6 +158,7 @@ serve(async (req) => {
       ...payment,
       staff_name: payment.staff?.name || null,
       allocations: allocationsMap[payment.id] || [],
+      attachments: paymentAttachmentsMap[payment.id] || [],
     }))
 
     const totalBalance = (entries || []).reduce((sum: number, entry: any) => {

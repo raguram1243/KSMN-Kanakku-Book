@@ -67,8 +67,13 @@ interface EntryDetail {
     balance: number;
     status: string;
     photo_url: string | null;
+    notes: string | null;
+    created_by: string;
     created_at: string;
+    staff_name: string | null;
+    staff_role: string | null;
     items: any[];
+    attachments: any[];
   };
 }
 
@@ -528,20 +533,16 @@ export function DashboardPage() {
       {selectedEntry && (
         <EntryDetailModal
           entry={{
-            id: selectedEntry.entry.id,
-            entry_code: selectedEntry.entry.entry_code,
-            customer_id: selectedEntry.entry.customer_id,
+            ...selectedEntry.entry,
             entry_mode: selectedEntry.entry.entry_mode as 'detailed' | 'quick',
             description: selectedEntry.entry.description || undefined,
-            total_amount: selectedEntry.entry.total_amount,
-            paid_amount: selectedEntry.entry.paid_amount,
-            balance: selectedEntry.entry.balance,
             status: selectedEntry.entry.status as 'unpaid' | 'partial' | 'paid',
             photo_url: selectedEntry.entry.photo_url || undefined,
-            notes: undefined,
-            created_by: '',
-            created_at: selectedEntry.entry.created_at,
+            notes: selectedEntry.entry.notes || undefined,
+            staff_name: selectedEntry.entry.staff_name || undefined,
+            staff_role: selectedEntry.entry.staff_role || undefined,
             items: selectedEntry.entry.items || [],
+            attachments: selectedEntry.entry.attachments || [],
           }}
           customerName={selectedEntry.entry.customer_name}
           onClose={() => setSelectedEntry(null)}

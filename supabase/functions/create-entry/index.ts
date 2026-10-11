@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyToken } from '../_shared/jwt-utils.ts'
+import { normalizeLineItems, summarizeLineItems, toItemRows } from '../_shared/entry-items.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,7 +16,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    const token = await verifyToken(authHeader)
+    let token
+    try {
+      token = await verifyToken(authHeader)
+    } catch (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -30,6 +39,23 @@ serve(async (req) => {
       )
     }
 
+    // A detailed entry is its line items. Saving one without them loses the
+    // breakdown for good — the totals survive but the items cannot be
+    // recovered — so refuse it here rather than storing a hollow entry.
+    const lineItems = normalizeLineItems(items)
+    if (entry_mode === 'detailed' && lineItems.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'A detailed entry needs at least one item with a name and a quantity above zero' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Detailed entries have no description of their own, so lists, reports,
+    // statements and reminders get a summary built from the items instead.
+    const entryDescription = entry_mode === 'detailed'
+      ? summarizeLineItems(lineItems)
+      : (description || null)
+
     // Generate entry code using the database function
     const { data: entryCode, error: codeError } = await supabase
       .rpc('generate_entry_code', { p_customer_id: customer_id })
@@ -43,7 +69,7 @@ serve(async (req) => {
         entry_code: entryCode,
         customer_id,
         entry_mode,
-        description: description || null,
+        description: entryDescription || null,
         total_amount,
         photo_url: photo_url || null,
         notes: notes || null,
@@ -73,23 +99,19 @@ serve(async (req) => {
       }
     }
 
-    // Create line items for detailed mode
-    if (entry_mode === 'detailed' && items && Array.isArray(items)) {
-      const itemsToInsert = items
-        .filter((item: any) => item.item_name && item.qty > 0)
-        .map((item: any) => ({
-          credit_entry_id: entry.id,
-          item_name: item.item_name,
-          qty: item.qty,
-          rate: item.rate,
-        }))
+    // Create line items for detailed mode, numbered so the order the shop
+    // keyed them in survives a later edit.
+    if (entry_mode === 'detailed' && lineItems.length > 0) {
+      const { error: itemsError } = await supabase
+        .from('credit_entry_items')
+        .insert(toItemRows(entry.id, lineItems))
 
-      if (itemsToInsert.length > 0) {
-        const { error: itemsError } = await supabase
-          .from('credit_entry_items')
-          .insert(itemsToInsert)
-
-        if (itemsError) throw itemsError
+      // There is no transaction around these two inserts, so undo the entry
+      // rather than leave a detailed entry with no breakdown behind. Nothing
+      // can reference it yet; the cascade clears its attachment rows too.
+      if (itemsError) {
+        await supabase.from('credit_entries').delete().eq('id', entry.id)
+        throw itemsError
       }
     }
 

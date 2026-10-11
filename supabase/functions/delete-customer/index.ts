@@ -1,15 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyToken } from '../_shared/jwt-utils.ts'
+import { parseStorageUrl } from '../_shared/storage.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
 }
-
-// Buckets used by upload-attachment for customer-linked files
-const STORAGE_BUCKETS = ['entry-photos', 'entry-docs'] as const
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,7 +16,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    const token = await verifyToken(authHeader)
+    let token
+    try {
+      token = await verifyToken(authHeader)
+    } catch (authError) {
+      return new Response(
+        JSON.stringify({ error: authError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (token.role !== 'admin') {
       return new Response(
@@ -133,31 +139,3 @@ serve(async (req) => {
     )
   }
 })
-
-// Extract the storage bucket + object path from a public file URL produced by
-// supabase.storage.getPublicUrl(). Expected shape:
-//   https://<project>.supabase.co/storage/v1/object/public/<bucket>/<object-path>
-function parseStorageUrl(fileUrl: string): { bucket: string | null; path: string | null } {
-  try {
-    const url = new URL(fileUrl)
-    // pathname looks like /storage/v1/object/public/entry-photos/<file>
-    const marker = '/storage/v1/object/public/'
-    const markerIndex = url.pathname.indexOf(marker)
-    if (markerIndex === -1) return { bucket: null, path: null }
-
-    const rest = url.pathname.slice(markerIndex + marker.length) // entry-photos/<file>
-    const slashIndex = rest.indexOf('/')
-    if (slashIndex === -1) return { bucket: null, path: null }
-
-    const bucket = rest.slice(0, slashIndex)
-    const path = rest.slice(slashIndex + 1)
-
-    if (!(STORAGE_BUCKETS as readonly string[]).includes(bucket)) {
-      return { bucket: null, path: null }
-    }
-
-    return { bucket, path }
-  } catch {
-    return { bucket: null, path: null }
-  }
-}
