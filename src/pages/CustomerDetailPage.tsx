@@ -14,7 +14,7 @@ import { EntryDetailModal } from '../components/modals/EntryDetailModal';
 import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
 import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
 import { buildLedgerTransactions } from '../lib/ledger';
-import { ArrowLeft, MessageCircle, Clock, Coins } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Clock, Coins, Save } from 'lucide-react';
 import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
 import { DownloadStatementButton } from '../components/customer/DownloadStatementButton';
 import { EditCustomerModal } from '../components/customer/EditCustomerModal';
@@ -55,6 +55,10 @@ export default function CustomerDetailPage() {
   const [applyingAdvance, setApplyingAdvance] = useState(false);
   // Drives the progress bar inside the Apply Advance button.
   const applyAdvance = useActionProgress();
+  // The two hold-to-delete confirmations report their outcome through these.
+  const deleteEntry = useActionProgress();
+  const deletePayment = useActionProgress();
+  const saveOverdue = useActionProgress();
   // Which language's reminder is being confirmed; null while the dialog is shut.
   const [reminderLanguage, setReminderLanguage] = useState<'en' | 'ta' | null>(null);
 
@@ -159,14 +163,17 @@ export default function CustomerDetailPage() {
     if (!customer) return
     setSavingOverdue(true);
     setOverdueSaveMessage(null);
+    saveOverdue.start();
     try {
       await updateCustomer.mutateAsync({
         id: customer.id,
         custom_overdue_days: pendingOverdueDays,
       });
+      saveOverdue.succeed();
       setOverdueSaveMessage('Saved successfully');
       setTimeout(() => setOverdueSaveMessage(null), 3000);
     } catch (error) {
+      saveOverdue.fail();
       debugError('Failed to update overdue days:', error);
     } finally {
       setSavingOverdue(false);
@@ -505,8 +512,12 @@ export default function CustomerDetailPage() {
                 size="sm"
                 onClick={handleSaveOverdueDays}
                 disabled={savingOverdue}
+                loading={savingOverdue}
+                progress={saveOverdue.status}
+                progressLabel="Saving"
+                progressIcon={<Save size={14} />}
               >
-                {savingOverdue ? 'Saving...' : 'Save'}
+                Save
               </Button>
               {customer.custom_overdue_days != null && (
                 <Button
@@ -996,9 +1007,12 @@ export default function CustomerDetailPage() {
           customerName={customer.name}
           onClose={() => setSelectedEntry(null)}
           onModify={() => navigate(`/add-credit?entry_id=${selectedEntry.id}`)}
+          deleteStatus={deleteEntry.status}
                     onDelete={async () => {
+            deleteEntry.start();
             try {
               await api.deleteEntry(selectedEntry.id);
+              deleteEntry.succeed();
               setSelectedEntry(null);
               invalidateEntryQueries(queryClient, id);
               customerQuery.refetch();
@@ -1008,6 +1022,7 @@ export default function CustomerDetailPage() {
                 description: selectedEntry.entry_code,
               });
             } catch (err) {
+              deleteEntry.fail();
               useToastStore.getState().addToast({
                 type: 'error',
                 title: 'Could not delete entry',
@@ -1024,9 +1039,12 @@ export default function CustomerDetailPage() {
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
           onModify={() => navigate(`/payment-received/${customer.id}/edit/${selectedPayment.id}`)}
+          deleteStatus={deletePayment.status}
                     onDelete={async () => {
+            deletePayment.start();
             try {
               await api.deletePayment(selectedPayment.id);
+              deletePayment.succeed();
               setSelectedPayment(null);
               invalidatePaymentQueries(queryClient, id);
               customerQuery.refetch();
@@ -1036,6 +1054,7 @@ export default function CustomerDetailPage() {
                 description: `₹${Number(selectedPayment.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
               });
             } catch (err) {
+              deletePayment.fail();
               useToastStore.getState().addToast({
                 type: 'error',
                 title: 'Could not delete payment',

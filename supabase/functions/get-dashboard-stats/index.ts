@@ -45,7 +45,18 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         totalOutstanding: Number(stats.totalOutstanding) || 0,
+        // Still sent: the dashboard's headline count reads totalCustomers, and
+        // dropping it here rendered that card blank.
         totalCustomers: Number(stats.totalCustomers) || 0,
+        // customerSplit comes from migration 022_customer_balance_split.sql.
+        // When that migration has not been applied yet the RPC omits the key,
+        // so fall back to the plain customer count with a 0/0 split rather
+        // than emitting NaN into the UI.
+        customerSplit: {
+          total: Number((stats.customerSplit || {}).total) || Number(stats.totalCustomers) || 0,
+          withDues: Number((stats.customerSplit || {}).withDues) || 0,
+          withoutDues: Number((stats.customerSplit || {}).withoutDues) || 0,
+        },
         overdueCount: Number(stats.overdueCount) || 0,
         topDebtors: Array.isArray(stats.topDebtors) ? stats.topDebtors : [],
         recentEntries: Array.isArray(stats.recentEntries) ? stats.recentEntries : [],

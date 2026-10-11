@@ -6,7 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { debugError } from '../lib/utils';
 import { Skeleton, SkeletonCard } from '../components/ui/Skeleton';
-import { Download } from 'lucide-react';
+import { Download, Save } from 'lucide-react';
+import { useActionProgress } from '../hooks/useActionProgress';
 import { BackupStatusCard } from '../components/settings/BackupStatusCard';
 import { useToastStore } from '../store/toastStore';
 import { Alert } from '../components/ui/Alert';
@@ -41,6 +42,8 @@ export function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
   const [exportDataset, setExportDataset] = useState('customers');
+  const saveProgress = useActionProgress();
+  const exportProgress = useActionProgress();
 
   useEffect(() => {
     if (isAdmin) {
@@ -66,18 +69,22 @@ export function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
+    saveProgress.start();
 
     try {
       const updates = settings.map(s => ({ key: s.key, value: s.value }));
       const response = await api.updateSettings(updates);
-      
+
       if (response.ok) {
+        saveProgress.succeed();
         setMessage({ type: 'success', text: 'Settings saved successfully!' });
       } else {
+        saveProgress.fail();
         const data = await response.json();
         setMessage({ type: 'error', text: data.error || 'Failed to save settings' });
       }
     } catch (error) {
+      saveProgress.fail();
       debugError('Failed to save settings:', error);
       setMessage({ type: 'error', text: 'Failed to save settings' });
     } finally {
@@ -162,8 +169,14 @@ export function SettingsPage() {
         </div>
 
         <div className="mt-6 pt-6 border-t">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Settings'}
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            progress={saveProgress.status}
+            progressLabel="Saving"
+            progressIcon={<Save size={16} />}
+          >
+            Save Settings
           </Button>
         </div>
       </Card>
@@ -212,6 +225,7 @@ export function SettingsPage() {
           <Button
             onClick={async () => {
               setExporting(true);
+              exportProgress.start();
               try {
                 const response = await api.exportData(exportFormat, exportDataset);
                 if (response.ok) {
@@ -222,12 +236,15 @@ export function SettingsPage() {
                   a.download = `ksmn-export-${exportDataset}.${exportFormat}`;
                   a.click();
                   URL.revokeObjectURL(url);
+                  exportProgress.succeed();
                   addToast({ type: 'success', title: 'Export downloaded' });
                 } else {
+                  exportProgress.fail();
                   const data = await response.json();
                   addToast({ type: 'error', title: 'Export failed', description: data.error || 'Failed to export data' });
                 }
               } catch {
+                exportProgress.fail();
                 addToast({ type: 'error', title: 'Export failed', description: 'Failed to export data' });
               } finally {
                 setExporting(false);
@@ -236,6 +253,10 @@ export function SettingsPage() {
             className="w-full"
             disabled={exporting}
             loading={exporting}
+            progress={exportProgress.status}
+            progressLabel="Exporting"
+            progressExpectedMs={6000}
+            progressIcon={<Download size={16} />}
           >
             <Download size={18} className="mr-2" />
             Download Export

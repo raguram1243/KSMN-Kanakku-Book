@@ -15,11 +15,17 @@ import { AgingReportWidget } from '../components/dashboard/AgingReportWidget';
 import { AIScanButton } from '../components/ai/AIScanButton';
 import { useDashboardStats, useDeleteEntry, useDeletePayment } from '../hooks/useApi';
 import { useToastStore } from '../store/toastStore';
+import { useActionProgress } from '../hooks/useActionProgress';
 import { IndianRupee, Users, AlertTriangle } from 'lucide-react';
 
 interface DashboardStats {
   totalOutstanding: number;
   totalCustomers: number;
+  customerSplit?: {
+    total: number;
+    withDues: number;
+    withoutDues: number;
+  };
   overdueCount: number;
   recentEntries: any[];
   topDebtors: any[];
@@ -83,6 +89,10 @@ export function DashboardPage() {
   const statsQuery = useDashboardStats();
   const deleteEntry = useDeleteEntry();
   const deletePayment = useDeletePayment();
+  // The hold-to-delete confirmations in the two detail modals report their
+  // outcome through these.
+  const entryDeleteProgress = useActionProgress();
+  const paymentDeleteProgress = useActionProgress();
   const { openWhatsAppOverdue } = useWhatsAppCustomer();
   const addToast = useToastStore((s) => s.addToast);
   const [selectedEntry, setSelectedEntry] = useState<EntryDetail | null>(null);
@@ -215,6 +225,17 @@ export function DashboardPage() {
     );
   }
 
+  // Total Customers balance split (get_dashboard_stats_v2 -> customerSplit).
+  // The RPC omits the key until migration 022 is applied, so fall back to a
+  // shape with no split data and let the card render just the headline count.
+  const split = stats?.customerSplit ?? { total: 0, withDues: 0, withoutDues: 0 };
+  const splitCounted = split.withDues + split.withoutDues;
+  // Percentages are relative to the customers the split actually covers, so a
+  // partially-populated split can never render a bar that overshoots 100%.
+  const splitBase = splitCounted > 0 ? splitCounted : split.total;
+  const withDuesPct = splitBase > 0 ? Math.round((split.withDues / splitBase) * 100) : 0;
+  const showSplit = splitCounted > 0;
+
   // Calculate max value for chart scaling
   const maxChartValue = Math.max(
     ...(stats.last30Days ?? []).map(d => Math.max(d.credit_given, d.collection)),
@@ -253,6 +274,45 @@ export function DashboardPage() {
               </div>
             </div>
           </div>
+          {/* Balance split of the customer book: who owes money vs who is clear.
+              Drill-down reuses the existing list_customers filters ('outstanding'
+              / 'paid'), so these numbers always match the Customers page. */}
+          {showSplit && (
+            <div className="mt-3">
+              <div
+                className="flex h-1.5 overflow-hidden rounded-full bg-gray-900/10 dark:bg-white/10"
+                aria-label={`${split.withDues} customers with dues, ${split.withoutDues} with no dues`}
+              >
+                <div className="h-full bg-emerald-500" style={{ width: `${withDuesPct}%` }} />
+                <div className="h-full bg-gray-300 dark:bg-gray-600" style={{ width: `${100 - withDuesPct}%` }} />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => navigate('/customers?filter=outstanding')}
+                  title="View customers with an outstanding balance"
+                  className="focus-ring -ml-1 flex items-center gap-1.5 rounded px-1 py-0.5 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                >
+                  <span className="h-2 w-2 flex-shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+                  <span className="font-medium">Has dues</span>
+                  <span className="font-bold tnum">{split.withDues}</span>
+                  <span className="tnum text-gray-500 dark:text-gray-400">{withDuesPct}%</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/customers?filter=paid')}
+                  title="View customers with no dues"
+                  className="focus-ring -mr-1 flex items-center gap-1.5 rounded px-1 py-0.5 text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700/60"
+                >
+                  <span className="h-2 w-2 flex-shrink-0 rounded-full bg-gray-300 dark:bg-gray-600" aria-hidden="true" />
+                  <span className="font-medium">No dues</span>
+                  <span className="font-bold tnum">{split.withoutDues}</span>
+                  <span className="tnum text-gray-500 dark:text-gray-400">{100 - withDuesPct}%</span>
+                </button>
+              </div>
+            </div>
+          )}
+
         </Card>
 
         <Card>
@@ -279,13 +339,13 @@ export function DashboardPage() {
       <Card>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Last 30 Days</h2>
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-lg p-4">
+          <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-lg p-4 min-w-0">
             <div className="text-sm text-indigo-700 dark:text-indigo-300">Total Credit Given</div>
-            <div className="text-2xl font-bold tnum text-indigo-900 dark:text-indigo-200">{formatCurrency(stats.totalCreditLast30 ?? 0)}</div>
+            <div className="text-2xl max-md:text-lg font-bold tnum break-words text-indigo-900 dark:text-indigo-200">{formatCurrency(stats.totalCreditLast30 ?? 0)}</div>
           </div>
-          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-4">
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-lg p-4 min-w-0">
             <div className="text-sm text-emerald-700 dark:text-emerald-300">Total Collection</div>
-            <div className="text-2xl font-bold tnum text-emerald-900 dark:text-emerald-200">{formatCurrency(stats.totalCollectionLast30 ?? 0)}</div>
+            <div className="text-2xl max-md:text-lg font-bold tnum break-words text-emerald-900 dark:text-emerald-200">{formatCurrency(stats.totalCollectionLast30 ?? 0)}</div>
           </div>
         </div>
 
@@ -547,11 +607,15 @@ export function DashboardPage() {
           customerName={selectedEntry.entry.customer_name}
           onClose={() => setSelectedEntry(null)}
           onModify={() => navigate(`/add-credit?entry_id=${selectedEntry.entry.id}`)}
+          deleteStatus={entryDeleteProgress.status}
           onDelete={async () => {
+            entryDeleteProgress.start();
             try {
               await deleteEntry.mutateAsync(selectedEntry.entry.id as any);
+              entryDeleteProgress.succeed();
               setSelectedEntry(null);
             } catch (err) {
+              entryDeleteProgress.fail();
               useToastStore.getState().addToast({
                 type: 'error',
                 title: 'Could not delete entry',
@@ -568,11 +632,15 @@ export function DashboardPage() {
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
           onModify={() => navigate(`/payment-received/${selectedPayment.customer_id}/edit/${selectedPayment.id}`)}
+          deleteStatus={paymentDeleteProgress.status}
           onDelete={async () => {
+            paymentDeleteProgress.start();
             try {
               await deletePayment.mutateAsync(selectedPayment.id as any);
+              paymentDeleteProgress.succeed();
               setSelectedPayment(null);
             } catch (err) {
+              paymentDeleteProgress.fail();
               useToastStore.getState().addToast({
                 type: 'error',
                 title: 'Could not delete payment',

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -15,6 +15,9 @@ import { PaginationControls, PaginationSkeleton } from '../components/ui/Paginat
 import { ThemedSelect } from '../components/ui/ThemedSelect';
 
 const PAGE_SIZE = 20;
+
+/** Values accepted by the list_customers RPC p_filter param. */
+const CUSTOMER_FILTERS = ['all', 'outstanding', 'paid', 'advance'];
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'All customers' },
@@ -60,10 +63,22 @@ function getOverdueStatus(customer: Customer): { isOverdue: boolean; label: stri
 export function CustomersPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const [filter, setFilter] = useState('all');
+  // The filter lives in the URL so the dashboard's "Has dues" / "No dues"
+  // breakdown can deep-link here (?filter=outstanding | paid) and so that the
+  // chosen filter survives a reload. Falls back to 'all' for missing or
+  // unknown values.
+  const filterParam = searchParams.get('filter');
+  const filter = filterParam && CUSTOMER_FILTERS.includes(filterParam) ? filterParam : 'all';
+  const setFilter = (next: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === 'all') params.delete('filter');
+    else params.set('filter', next);
+    setSearchParams(params, { replace: true });
+  };
   const [sortBy, setSortBy] = useState<'name_asc' | 'newest' | 'oldest' | 'balance_desc' | 'balance_asc'>('name_asc');
   const [page, setPage] = useState(1);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);

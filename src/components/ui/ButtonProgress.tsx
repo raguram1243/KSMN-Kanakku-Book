@@ -149,8 +149,12 @@ export function ButtonProgress({ status, label, variant, size, expectedMs, icon 
    */
   const [armed, setArmed] = useState(false)
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setArmed(true))
-    return () => cancelAnimationFrame(frame)
+    // A timer rather than requestAnimationFrame: rAF does not run at all in a
+    // hidden or backgrounded tab, which left the chip stuck idle — measured —
+    // when the page was not painting. A timeout always fires, so the worst
+    // case is a bar that starts already filled on a tab nobody is looking at.
+    const id = setTimeout(() => setArmed(true), 50)
+    return () => clearTimeout(id)
   }, [])
 
   return (

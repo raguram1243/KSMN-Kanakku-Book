@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Alert } from '../components/ui/Alert';
 import { HoldToDelete } from '../components/ui/HoldToDelete';
+import { useActionProgress } from '../hooks/useActionProgress';
 import { ThemedSelect } from '../components/ui/ThemedSelect';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -25,6 +26,8 @@ export function StaffManagementPage() {
   const [newStaff, setNewStaff] = useState({ name: '', pin: '', role: 'staff' as 'admin' | 'staff' });
   const [resetPin, setResetPin] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Reports what happened after the hold on the delete confirmation.
+  const removeStaff = useActionProgress();
   const [error, setError] = useState('');
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
 
@@ -131,11 +134,15 @@ export function StaffManagementPage() {
 
     setSubmitting(true);
     setError('');
+    removeStaff.start();
 
     try {
       const response = await api.deleteStaff(selectedStaff.id, force);
 
       if (response.status === 409) {
+        // Neither done nor failed: the delete is being offered again, with a
+        // warning and a second hold. Put the button back as it was.
+        removeStaff.reset();
         const data = await response.json();
         setDeleteWarning(data.details?.message || 'This staff member has associated records.');
         setSubmitting(false);
@@ -147,11 +154,13 @@ export function StaffManagementPage() {
         throw new Error(data.error || 'Failed to delete staff');
       }
 
+      removeStaff.succeed();
       setShowDeleteModal(false);
       setSelectedStaff(null);
       setDeleteWarning(null);
       loadStaff();
     } catch (err) {
+      removeStaff.fail();
       setError(err instanceof Error ? err.message : 'Failed to delete staff');
     } finally {
       setSubmitting(false);
@@ -339,6 +348,7 @@ export function StaffManagementPage() {
                   doneLabel="Deleted"
                   disabled={submitting}
                   onHold={() => handleDeleteConfirm(false)}
+                  progress={removeStaff.status}
                   className="w-full"
                 >
                   Hold to delete
@@ -351,6 +361,7 @@ export function StaffManagementPage() {
                     doneLabel="Deleted"
                     disabled={submitting}
                     onHold={() => handleDeleteConfirm(true)}
+                    progress={removeStaff.status}
                     className="w-full"
                   >
                     Hold to delete anyway

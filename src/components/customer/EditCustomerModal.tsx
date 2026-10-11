@@ -9,6 +9,8 @@ import { Customer } from '../../types';
 import { CustomerType } from './CreateCustomerModal';
 import { Alert } from '../ui/Alert';
 import { ThemedSelect } from '../ui/ThemedSelect';
+import { useActionProgress } from '../../hooks/useActionProgress';
+import { Save } from 'lucide-react';
 
 const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'walk-in', label: 'Walk-in' },
@@ -35,6 +37,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
   const [customerType, setCustomerType] = useState<CustomerType>(customer.customer_type);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const save = useActionProgress();
 
   // Pre-fill the form whenever the modal opens or the customer changes.
   useEffect(() => {
@@ -57,6 +60,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
     }
     setLoading(true);
     setError('');
+    save.start();
     try {
       const parsedLimit = creditLimit.trim() === '' ? null : Number(creditLimit);
       const response = await api.updateCustomer(customer.id, {
@@ -74,10 +78,12 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
       }
 
       const data = await response.json();
+      save.succeed();
       invalidateCustomerQueries(queryClient, customer.id);
       onSaved(data.customer);
       onClose();
     } catch (err) {
+      save.fail();
       setError(err instanceof Error ? err.message : 'Failed to update customer');
     } finally {
       setLoading(false);
@@ -149,8 +155,15 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
           />
         </div>
         <div className="flex space-x-2 pt-2">
-          <Button type="submit" size="sm" disabled={loading}>
-            {loading ? 'Saving...' : 'Save'}
+          <Button
+            type="submit"
+            size="sm"
+            disabled={loading}
+            progress={save.status}
+            progressLabel="Saving"
+            progressIcon={<Save size={14} />}
+          >
+            Save
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={loading}>
             Cancel

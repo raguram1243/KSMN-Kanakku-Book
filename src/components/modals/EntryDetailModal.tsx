@@ -3,6 +3,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
 import { HoldToDelete } from '../ui/HoldToDelete';
+import type { ActionStatus } from '../../hooks/useActionProgress';
 import { ImageLightbox } from '../common/ImageLightbox';
 import { formatCurrency, formatDateTime } from '../../lib/utils';
 import { CreditEntry, CreditEntryItem } from '../../types';
@@ -14,9 +15,14 @@ interface EntryDetailModalProps {
   onClose: () => void;
   onModify?: () => void;
   onDelete?: () => void;
+  /**
+   * State of the delete `onDelete` started, from `useActionProgress`. The
+   * hold button needs it to say whether the delete actually went through.
+   */
+  deleteStatus?: ActionStatus;
 }
 
-export function EntryDetailModal({ entry, customerName, onClose, onModify, onDelete }: EntryDetailModalProps) {
+export function EntryDetailModal({ entry, customerName, onClose, onModify, onDelete, deleteStatus }: EntryDetailModalProps) {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -243,7 +249,7 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
             {onDelete && (
               confirmDelete ? (
                 <div className="flex-1 flex">
-                  <HoldToDelete doneLabel="Deleted" onHold={onDelete} className="w-full">
+                  <HoldToDelete doneLabel="Deleted" onHold={onDelete} progress={deleteStatus} className="w-full">
                     Hold to delete
                   </HoldToDelete>
                 </div>
