@@ -38,6 +38,15 @@
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45);
 }
 
+/*
+ * On a phone a wide menu anchored to a trigger well right of centre runs off
+ * the screen — the Customers sort menu is 320px wide on a 375px screen.
+ * GlideSelect does no viewport clamping of its own, so cap the width here.
+ */
+.ksmn-select .glide-select__menu {
+  max-width: calc(100vw - 24px);
+}
+
 /* The menu is a floating surface, so it needs the same lift our modals have. */
 .ksmn-select .glide-select__menu {
   border: 1px solid #e5e7eb; /* gray-200 */

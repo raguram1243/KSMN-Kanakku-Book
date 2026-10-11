@@ -132,13 +132,13 @@ export function CustomersPage() {
         </Alert>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Input
           type="text"
           placeholder="Search by name, phone, or customer code..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-md flex-1"
+          className="max-w-md flex-1 min-w-[180px]"
         />
         <ThemedSelect
           value={filter}
