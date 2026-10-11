@@ -189,7 +189,7 @@ export function StaffManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between max-md:flex-wrap max-md:gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Staff Management</h1>
         <Button onClick={() => setShowAddModal(true)}>
           + Add Staff Member
@@ -206,8 +206,8 @@ export function StaffManagementPage() {
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">No staff members yet.</p>
           ) : (
             staffList.map(member => (
-              <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                <div className="flex-1">
+              <div key={member.id} className="flex items-center justify-between max-md:flex-col max-md:items-stretch max-md:gap-3 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                <div className="flex-1 max-md:min-w-0 max-md:break-words">
                   <div className="font-medium text-gray-900 dark:text-white">
                     {member.name}
                     {currentStaff?.id === member.id && (
@@ -218,7 +218,7 @@ export function StaffManagementPage() {
                     {member.role === 'admin' ? 'Administrator' : 'Staff'} • Created {formatDate(member.created_at)}
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 max-md:flex-wrap max-md:gap-2 max-md:space-x-0">
                   <Badge variant={member.active ? 'success' : 'default'}>
                     {member.active ? 'Active' : 'Inactive'}
                   </Badge>

@@ -14,7 +14,7 @@ import { EntryDetailModal } from '../components/modals/EntryDetailModal';
 import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
 import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
 import { buildLedgerTransactions } from '../lib/ledger';
-import { ArrowLeft, MessageCircle, Clock } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Clock, Coins } from 'lucide-react';
 import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
 import { DownloadStatementButton } from '../components/customer/DownloadStatementButton';
 import { EditCustomerModal } from '../components/customer/EditCustomerModal';
@@ -22,6 +22,7 @@ import { DeleteCustomerModal } from '../components/customer/DeleteCustomerModal'
 import { FollowUpCreateModal } from '../components/followups/FollowUpEditModal';
 import { useCustomer, useUpdateCustomer, invalidateEntryQueries, invalidatePaymentQueries } from '../hooks/useApi';
 import { useToastStore } from '../store/toastStore';
+import { useActionProgress } from '../hooks/useActionProgress';
 import { PaginationControls } from '../components/ui/PaginationControls';
 import { useClientPagination } from '../hooks/useClientPagination';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -52,6 +53,8 @@ export default function CustomerDetailPage() {
   const [showDeleteCustomer, setShowDeleteCustomer] = useState(false);
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [applyingAdvance, setApplyingAdvance] = useState(false);
+  // Drives the progress bar inside the Apply Advance button.
+  const applyAdvance = useActionProgress();
   // Which language's reminder is being confirmed; null while the dialog is shut.
   const [reminderLanguage, setReminderLanguage] = useState<'en' | 'ta' | null>(null);
 
@@ -69,6 +72,7 @@ export default function CustomerDetailPage() {
     const handleApplyAdvance = async () => {
     if (!customer || !id) return;
     setApplyingAdvance(true);
+    applyAdvance.start();
     try {
       const res = await api.applyAdvance({ customer_id: id });
       if (!res.ok) {
@@ -77,6 +81,9 @@ export default function CustomerDetailPage() {
       }
       const data = await res.json();
       await customerQuery.refetch();
+      // Complete the bar once the screen actually shows the new balance,
+      // not merely when the request returned.
+      applyAdvance.succeed();
       if (data.applied > 0.01) {
         const codes = (data.entries || [])
           .map((e: any) => e.entry_code)
@@ -97,6 +104,7 @@ export default function CustomerDetailPage() {
         });
       }
     } catch (err) {
+      applyAdvance.fail();
       const message = err instanceof Error ? err.message : 'Failed to apply advance';
       useToastStore.getState().addToast({
         type: 'error',
@@ -409,8 +417,13 @@ export default function CustomerDetailPage() {
                       size="sm"
                       onClick={handleApplyAdvance}
                       disabled={applyingAdvance}
+                      loading={applyingAdvance}
+                      progress={applyAdvance.status}
+                      progressLabel="Applying"
+                      progressExpectedMs={1500}
+                      progressIcon={<Coins size={14} />}
                     >
-                      {applyingAdvance ? 'Applying...' : 'Apply Advance'}
+                      Apply Advance
                     </Button>
                   )}
                 </div>

@@ -42,7 +42,7 @@ export function DayBookPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 [&>*]:min-w-0">
             <DayBookStat label="Credit given" value={formatCurrency(data.credit_total)} sub={`${data.credit_count} entries`} tone="blue" />
             <DayBookStat label="Collection" value={formatCurrency(data.collection_total)} sub={`${data.collection_count} payments`} tone="green" />
             <DayBookStat label="Net (credit − collection)" value={formatCurrency(data.net)} sub={data.day} />

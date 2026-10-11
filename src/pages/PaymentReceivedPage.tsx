@@ -16,11 +16,12 @@ import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../com
 import { Modal } from '../components/ui/Modal';
 import { Alert } from '../components/ui/Alert';
 import { AIScanButton } from '../components/ai/AIScanButton';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Wallet } from 'lucide-react';
 import { PaginationControls } from '../components/ui/PaginationControls';
 import { useClientPagination } from '../hooks/useClientPagination';
 import { useAIScanStore } from '../store/aiScanStore';
 import { useToastStore } from '../store/toastStore';
+import { useActionProgress } from '../hooks/useActionProgress';
 import { ThemedSelect } from '../components/ui/ThemedSelect';
 import { PaymentExtractor } from '../services/ai/PaymentExtractor';
 import { DocumentClassifier } from '../services/ai/DocumentClassifier';
@@ -66,6 +67,9 @@ export default function PaymentReceivedPage() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Drives the progress bar inside the confirm button; `submitting` still
+  // owns disabling and the guard against a double submit.
+  const savePayment = useActionProgress();
   const [error, setError] = useState('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [advanceOnly, setAdvanceOnly] = useState(false);
@@ -447,6 +451,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
 
     setSubmitting(true);
     setError('');
+    savePayment.start();
 
     try {
       // Upload attachments if present
@@ -492,6 +497,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           throw new Error(data.error || 'Failed to update payment');
         }
 
+        savePayment.succeed();
         invalidatePaymentQueries(queryClient, customerId ?? undefined);
 
                 setShowConfirmDialog(false);
@@ -528,6 +534,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           throw new Error(data.error || 'Failed to create payment');
         }
 
+        savePayment.succeed();
         invalidatePaymentQueries(queryClient, customerId ?? undefined);
 
         const data = await paymentResponse.json();
@@ -543,6 +550,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
         navigate(`/customers/${customerId}`);
       }
         } catch (err) {
+      savePayment.fail();
       const message = err instanceof Error ? err.message : 'Failed to receive payment';
       setError(message);
       useToastStore.getState().addToast({
@@ -1065,6 +1073,9 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
               disabled={submitting}
               className="flex-1"
               loading={submitting}
+              progress={savePayment.status}
+              progressLabel={isEditMode ? 'Updating' : 'Recording'}
+              progressIcon={<Wallet size={16} />}
               size="lg"
             >
                             {isEditMode ? 'Confirm & Update Payment' : 'Confirm & Payment Received'}

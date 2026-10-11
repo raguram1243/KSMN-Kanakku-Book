@@ -103,13 +103,13 @@ export function AgingReportWidget({ aging }: AgingReportWidgetProps) {
               <div
                 key={bucket.key}
                 onClick={() => setSelectedBucket({ label: bucket.label, total: bucket.data.total, customers: bucket.data.customers })}
-                className={`${colors.bg} border ${colors.border} rounded-lg p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all`}
+                className={`${colors.bg} border ${colors.border} rounded-lg p-4 min-w-0 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all`}
               >
                 <div className={`flex items-center justify-between text-xs font-medium ${colors.text} mb-1`}>
                   <span>{bucket.label}</span>
                   <ChevronRight size={14} className={colors.subtext} aria-hidden="true" />
                 </div>
-                <div className={`text-xl font-bold tnum ${colors.text}`}>
+                <div className={`text-xl max-md:text-base font-bold tnum break-words ${colors.text}`}>
                   {formatCurrency(bucket.data.total)}
                 </div>
                 <div className={`text-xs ${colors.subtext} mt-1`}>

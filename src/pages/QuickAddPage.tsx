@@ -18,6 +18,8 @@ import { InvoiceExtractor } from '../services/ai/InvoiceExtractor';
 import { DocumentClassifier } from '../services/ai/DocumentClassifier';
 import { useToastStore } from '../store/toastStore';
 import { ThemedSelect } from '../components/ui/ThemedSelect';
+import { useActionProgress } from '../hooks/useActionProgress';
+import { UserPlus, IndianRupee } from 'lucide-react';
 
 const CUSTOMER_TYPE_OPTIONS = [
   { value: 'walk-in', label: 'Walk-in' },
@@ -64,6 +66,10 @@ export default function QuickAddPage() {
   // analysed), so it is carried over by URL rather than uploaded a second time.
   const [scannedAttachment, setScannedAttachment] = useState<{ file_url: string; file_type: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  // Drives the progress bar inside the two submit buttons; the `loading` flag
+  // above still owns disabling and validation.
+  const createCustomer = useActionProgress();
+  const saveEntry = useActionProgress();
   const [error, setError] = useState('');
   const [editPaidAmount, setEditPaidAmount] = useState<number | null>(null);
   // Check for pre-selected customer from URL params
@@ -187,6 +193,7 @@ export default function QuickAddPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    createCustomer.start();
 
     try {
       const response = await api.createCustomer(newCustomer);
@@ -197,12 +204,14 @@ export default function QuickAddPage() {
       }
 
       const data = await response.json();
+      createCustomer.succeed();
       invalidateCustomerQueries(queryClient);
       setSelectedCustomer(data.customer);
       setShowCreateCustomer(false);
       setSearchQuery('');
       setSearchResults([]);
     } catch (err) {
+      createCustomer.fail();
       setError(err instanceof Error ? err.message : 'Failed to create customer');
     } finally {
       setLoading(false);
@@ -272,6 +281,7 @@ export default function QuickAddPage() {
 
     setLoading(true);
     setError('');
+    saveEntry.start();
 
     try {
       const totalAmount = getTotalAmount();
@@ -338,6 +348,7 @@ export default function QuickAddPage() {
           throw new Error(data.error || 'Failed to update entry');
         }
 
+        saveEntry.succeed();
         invalidateEntryQueries(queryClient, selectedCustomer.id);
 
                         useToastStore.getState().addToast({
@@ -378,6 +389,7 @@ export default function QuickAddPage() {
 
         const createdEntryData = await entryResponse.json();
         const newEntry = createdEntryData.entry;
+        saveEntry.succeed();
 
         // Reset form
         setSelectedCustomer(null);
@@ -403,6 +415,7 @@ export default function QuickAddPage() {
         }
       }
     } catch (err) {
+      saveEntry.fail();
       setError(err instanceof Error ? err.message : 'Failed to create entry');
     } finally {
       setLoading(false);
@@ -670,8 +683,16 @@ export default function QuickAddPage() {
                   />
                 </div>
                 <div className="flex space-x-2">
-                  <Button type="submit" size="sm" disabled={loading}>
-                    {loading ? 'Creating...' : 'Create Customer'}
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={loading}
+                    loading={loading}
+                    progress={createCustomer.status}
+                    progressLabel="Creating"
+                    progressIcon={<UserPlus size={14} />}
+                  >
+                    Create Customer
                   </Button>
                   <Button type="button" variant="secondary" size="sm" onClick={() => setShowCreateCustomer(false)}>
                     Cancel
@@ -744,19 +765,19 @@ export default function QuickAddPage() {
             ) : (
               <div className="space-y-4">
                 {lineItems.map((item, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-4">
+                  <div key={index} className={`grid grid-cols-2 gap-3 items-end rounded-lg border border-gray-200 dark:border-gray-700 p-3 md:grid-cols-12 md:gap-2 md:rounded-none md:border-0 md:p-0 ${index > 0 ? 'md:[&_label]:hidden' : ''}`}>
+                    <div className="col-span-2 md:col-span-4">
                       <Input
-                        label={index === 0 ? 'Item Name' : ''}
+                        label="Item Name"
                         value={item.item_name}
                         onChange={(e) => updateLineItem(index, 'item_name', e.target.value)}
                         placeholder="Item name"
                         required
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 md:col-span-2">
                       <Input
-                        label={index === 0 ? 'Qty' : ''}
+                        label="Qty"
                         type="number"
                         step="0.01"
                         value={item.qty || ''}
@@ -764,9 +785,9 @@ export default function QuickAddPage() {
                         required
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 md:col-span-2">
                       <Input
-                        label={index === 0 ? 'Rate (₹)' : ''}
+                        label="Rate (₹)"
                         type="number"
                         step="0.01"
                         value={item.rate || ''}
@@ -774,18 +795,19 @@ export default function QuickAddPage() {
                         required
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 md:col-span-2">
                       <Input
-                        label={index === 0 ? 'Amount (₹)' : ''}
+                        label="Amount (₹)"
                         type="number"
                         value={item.amount.toFixed(2)}
                         readOnly
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 md:col-span-2">
                       <Button
                         variant="danger"
                         size="sm"
+                        className="max-md:min-h-[44px] max-md:w-full"
                         onClick={() => removeLineItem(index)}
                         disabled={lineItems.length === 1}
                       >
@@ -866,6 +888,9 @@ export default function QuickAddPage() {
                 disabled={loading || !selectedCustomer}
                 className="w-full"
                 loading={loading}
+                progress={saveEntry.status}
+                progressLabel={isEditMode ? 'Updating' : 'Saving'}
+                progressIcon={<IndianRupee size={16} />}
                 size="lg"
               >
                 {isEditMode ? 'Update Credit Entry' : 'Save Credit Entry'}
