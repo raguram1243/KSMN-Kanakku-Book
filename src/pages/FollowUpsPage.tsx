@@ -95,7 +95,7 @@ export function FollowUpsPage() {
                     addToast({ type: 'warning', title: 'No phone number for this customer' });
                     return;
                   }
-                  openWhatsAppAggregate({ name: f.customer_name, phone: f.customer_phone, balance: f.amount }, 'en');
+                  openWhatsAppAggregate({ id: f.customer_id, name: f.customer_name, phone: f.customer_phone, balance: f.amount }, 'en');
                 }}
                 onDone={(id) => { updateFollowUp(id, { status: 'done' }); refresh(); addToast({ type: 'success', title: 'Marked collected' }); }}
                 onRemove={(id) => { if (window.confirm(`Remove follow-up for ${f.customer_name}?`)) { deleteFollowUp(id); refresh(); } }}
