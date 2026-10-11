@@ -49,16 +49,25 @@ serve(async (req) => {
       idempotency_key,
     } = body || {}
 
-    if (!customer_id || !amount || !payment_date) {
+    if (!customer_id || !payment_date) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    // `!amount` let a negative amount through, because !(-500) is false
+    const parsedAmount = Number(amount)
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'Payment amount must be a number greater than 0' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const { data: result, error: rpcError } = await supabase.rpc('record_payment', {
       p_customer_id: customer_id,
-      p_amount: amount,
+      p_amount: parsedAmount,
       p_payment_date: payment_date,
       p_payment_method: payment_method || null,
       p_receipt_number: receipt_number || null,

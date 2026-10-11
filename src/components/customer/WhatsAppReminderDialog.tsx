@@ -8,6 +8,7 @@ import {
   buildLedgerAttachment,
   PDF_THRESHOLD_ROWS,
   type LedgerAttachment,
+  type LedgerAttachmentKind,
   type LedgerImageInput,
   type LedgerImageRow,
 } from '../../lib/ledgerImage'
@@ -28,7 +29,7 @@ interface WhatsAppReminderDialogProps {
   onSent?: () => void
 }
 
-type SendRoute = 'auto' | 'share' | 'download'
+type SendRoute = 'auto' | 'share' | 'download' | 'copy'
 
 /** True when the browser says it can share this file through the native share sheet. */
 function canShareFile(file: File | null): boolean {
@@ -38,6 +39,17 @@ function canShareFile(file: File | null): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * Can an image go on the clipboard? That is the quickest desktop route:
+ * WhatsApp Web and the Windows app both accept a pasted image, so there is
+ * no file to find. A PDF cannot go on a clipboard, so it still downloads.
+ */
+function canCopyImage(kind: LedgerAttachmentKind): boolean {
+  if (kind !== 'png') return false
+  if (typeof ClipboardItem === 'undefined') return false
+  return typeof navigator !== 'undefined' && !!navigator.clipboard?.write
 }
 
 /** Phones and tablets: touch input plus a mobile-ish user agent (iPadOS reports as a Mac). */
@@ -84,6 +96,10 @@ export function WhatsAppReminderDialog({
   const [imageError, setImageError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [built, setBuilt] = useState<{ key: string; result: LedgerAttachment } | null>(null)
+  // Set once the desktop share sheet has been opened: Windows resolves the
+  // share even when it had no app to offer, so the dialog stays put and
+  // offers the download rather than closing onto an error it cannot see.
+  const [sharedOnDesktop, setSharedOnDesktop] = useState(false)
 
   // Mirrors `built` so the build effect can check the cache without depending on it.
   const builtRef = useRef<{ key: string; result: LedgerAttachment } | null>(null)
@@ -125,6 +141,7 @@ export function WhatsAppReminderDialog({
       setBuilding(false)
       setImageError(null)
       setSending(false)
+      setSharedOnDesktop(false)
     } else {
       builtRef.current = null
       setBuilt(null)
@@ -186,6 +203,11 @@ export function WhatsAppReminderDialog({
 
   const shareSupported = canShareFile(file)
   const autoShare = shareSupported && looksLikePhoneOrTablet()
+  // On a desktop the share sheet depends on an installed app registering
+  // itself as a Windows share target, which WhatsApp does not do. Copying the
+  // image is the route that actually works there.
+  const copySupported = canCopyImage(kind)
+  const autoCopy = copySupported && !autoShare
 
   const imageReady = attach && !!image && !building
   const busy = building || sending
@@ -212,13 +234,61 @@ export function WhatsAppReminderDialog({
 
     if (!image || !file) return
 
+    const useCopy = route === 'copy' || (route === 'auto' && autoCopy)
+    if (useCopy) {
+      setSending(true)
+      let chatOpened = false
+      try {
+        // Start the clipboard write before opening the chat: the write needs
+        // this click's activation and a focused document, and opening a tab
+        // takes the focus away. Not awaited until after, deliberately.
+        const copied = navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': image.blob }),
+        ])
+        openWhatsAppReminder(phone, message)
+        chatOpened = true
+        await copied
+        addToast({
+          type: 'success',
+          title: 'Ledger image copied',
+          description: 'In the WhatsApp chat, press Ctrl+V to attach it.',
+        })
+        notifySent()
+        onClose()
+        return
+      } catch {
+        // Clipboard refused: hand over the file instead so the send is still
+        // possible. The chat may already be open, so do not open it twice.
+        downloadBlob(image.blob, image.fileName)
+        if (!chatOpened) openWhatsAppReminder(phone, message)
+        addToast({
+          type: 'info',
+          title: `Ledger ${noun} downloaded`,
+          description: `The clipboard was not available, so attach the ${noun} with the paperclip.`,
+        })
+        notifySent()
+        onClose()
+        return
+      } finally {
+        setSending(false)
+      }
+    }
+
     const useShare = route === 'share' || (route === 'auto' && autoShare)
     if (useShare) {
       setSending(true)
       try {
         await navigator.share({ files: [file], text: message })
         notifySent()
-        onClose()
+        if (autoShare) {
+          onClose()
+          return
+        }
+        // Desktop: the OS reports success as soon as it has shown (or failed
+        // to show) its share sheet, so there is no way to tell a real send
+        // from "Windows found nothing to share to". Keep the dialog open
+        // with the download fallback instead of leaving a dead end.
+        setSharedOnDesktop(true)
         return
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
@@ -283,7 +353,9 @@ export function WhatsAppReminderDialog({
               <span className="block text-xs text-gray-500 dark:text-gray-400">
                 {kind === 'pdf'
                   ? 'Sends a PDF of the unpaid bills along with the message.'
-                  : 'Sends a picture of the unpaid bills along with the message.'}
+                  : autoCopy
+                    ? 'Copies a picture of the unpaid bills — press Ctrl+V in the chat to attach it.'
+                    : 'Sends a picture of the unpaid bills along with the message.'}
               </span>
             </span>
           </label>
@@ -335,7 +407,14 @@ export function WhatsAppReminderDialog({
             </Button>
           </div>
 
-          {imageReady && formattedPhone && autoShare && (
+          {sharedOnDesktop && (
+            <Alert variant="info">
+              The share sheet was opened. If WhatsApp was not offered there it is not installed on this computer —
+              download the {noun} below and attach it in the chat with the paperclip.
+            </Alert>
+          )}
+
+          {imageReady && formattedPhone && (autoShare || autoCopy || sharedOnDesktop) && (
             <div className="text-center">
               <button
                 type="button"

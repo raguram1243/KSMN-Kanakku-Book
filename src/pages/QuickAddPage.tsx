@@ -4,6 +4,8 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateCustomerQueries, invalidateEntryQueries } from '../hooks/useApi';
 import { api } from '../lib/api';
 import { formatCurrency, debugError } from '../lib/utils';
 import { Customer } from '../types';
@@ -26,6 +28,7 @@ interface LineItem {
 export default function QuickAddPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const entryId = searchParams.get('entry_id');
   const isEditMode = !!entryId;
   const [entryMode, setEntryMode] = useState<'detailed' | 'quick'>('quick');
@@ -185,6 +188,7 @@ export default function QuickAddPage() {
       }
 
       const data = await response.json();
+      invalidateCustomerQueries(queryClient);
       setSelectedCustomer(data.customer);
       setShowCreateCustomer(false);
       setSearchQuery('');
@@ -325,6 +329,8 @@ export default function QuickAddPage() {
           throw new Error(data.error || 'Failed to update entry');
         }
 
+        invalidateEntryQueries(queryClient, selectedCustomer.id);
+
                         useToastStore.getState().addToast({
           type: 'success',
           title: 'Credit entry updated',
@@ -358,6 +364,8 @@ export default function QuickAddPage() {
           const data = await entryResponse.json();
           throw new Error(data.error || 'Failed to create entry');
         }
+
+        invalidateEntryQueries(queryClient, selectedCustomer.id);
 
         const createdEntryData = await entryResponse.json();
         const newEntry = createdEntryData.entry;

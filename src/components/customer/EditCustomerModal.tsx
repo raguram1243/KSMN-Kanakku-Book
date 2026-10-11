@@ -3,6 +3,8 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { api } from '../../lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateCustomerQueries } from '../../hooks/useApi';
 import { Customer } from '../../types';
 import { CustomerType } from './CreateCustomerModal';
 import { Alert } from '../ui/Alert';
@@ -23,6 +25,7 @@ interface EditCustomerModalProps {
 }
 
 export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCustomerModalProps) {
+  const queryClient = useQueryClient();
   const [name, setName] = useState(customer.name);
   const [phone, setPhone] = useState(customer.phone);
   const [address, setAddress] = useState(customer.address || '');
@@ -70,6 +73,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
       }
 
       const data = await response.json();
+      invalidateCustomerQueries(queryClient, customer.id);
       onSaved(data.customer);
       onClose();
     } catch (err) {

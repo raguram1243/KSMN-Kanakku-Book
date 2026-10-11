@@ -20,6 +20,32 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Invalidation sets for saves made through direct `api.*` calls (which bypass
+// the mutation hooks below). Keys are the ones declared in this file; the
+// prefix forms ['customer'], ['day-book'] etc. cover every id/date/range.
+export function invalidateCustomerQueries(qc: QueryClient, customerId?: string) {
+  qc.invalidateQueries({ queryKey: ['customers'] });
+  qc.invalidateQueries({ queryKey: customerId ? ['customer', customerId] : ['customer'] });
+  qc.invalidateQueries({ queryKey: ['dashboard'] });
+}
+
+export function invalidateEntryQueries(qc: QueryClient, customerId?: string) {
+  qc.invalidateQueries({ queryKey: ['customers'] });
+  qc.invalidateQueries({ queryKey: customerId ? ['customer', customerId] : ['customer'] });
+  qc.invalidateQueries({ queryKey: customerId ? ['customer-balance', customerId] : ['customer-balance'] });
+  qc.invalidateQueries({ queryKey: ['dashboard'] });
+  qc.invalidateQueries({ queryKey: ['day-book'] });
+  qc.invalidateQueries({ queryKey: ['entries-report'] });
+  qc.invalidateQueries({ queryKey: ['ledger-report'] });
+  qc.invalidateQueries({ queryKey: ['today-stats'] });
+}
+
+export function invalidatePaymentQueries(qc: QueryClient, customerId?: string) {
+  invalidateEntryQueries(qc, customerId);
+  qc.invalidateQueries({ queryKey: ['payments-report'] });
+  qc.invalidateQueries({ queryKey: ['recent-payments'] });
+}
+
 export function useDashboardStats() {
   return useQuery<any, Error, any, any>({
     queryKey: ['dashboard'],

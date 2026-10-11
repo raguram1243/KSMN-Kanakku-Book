@@ -52,7 +52,13 @@ serve(async (req) => {
 
     const updateData: any = {}
     if (typeof active === 'boolean') updateData.active = active
-    if (pin) {
+    if (pin !== undefined && pin !== null) {
+      if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
+        return new Response(
+          JSON.stringify({ error: 'PIN must be 4 to 6 digits (numbers only)' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       // Hash PIN using bcrypt (genSaltSync first, then hashSync)
       const salt = bcrypt.genSaltSync(10)
       updateData.pin_hash = bcrypt.hashSync(pin, salt)

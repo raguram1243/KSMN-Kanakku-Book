@@ -3,6 +3,8 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
 import { api } from '../../lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateCustomerQueries } from '../../hooks/useApi';
 import { Customer } from '../../types';
 
 interface DeleteCustomerModalProps {
@@ -19,6 +21,7 @@ type ConfirmStep = 1 | 2;
 const CONFIRM_PHRASES = ['delete'];
 
 export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: DeleteCustomerModalProps) {
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<ConfirmStep>(1);
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -49,6 +52,7 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to delete customer');
       }
+      invalidateCustomerQueries(queryClient, customer.id);
       onDeleted();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete customer');
