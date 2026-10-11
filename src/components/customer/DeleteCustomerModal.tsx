@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
+import { HoldToDelete } from '../ui/HoldToDelete';
+import { useActionProgress } from '../../hooks/useActionProgress';
 import { api } from '../../lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateCustomerQueries } from '../../hooks/useApi';
@@ -25,6 +27,8 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
   const [step, setStep] = useState<ConfirmStep>(1);
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  // Reports what happened after the hold; `deleting` still gates the button.
+  const remove = useActionProgress();
   const [error, setError] = useState('');
 
   // Reset state each time the modal is opened.
@@ -46,15 +50,18 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
     if (!canDelete || deleting) return;
     setDeleting(true);
     setError('');
+    remove.start();
     try {
       const response = await api.deleteCustomer(customer.id);
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to delete customer');
       }
+      remove.succeed();
       invalidateCustomerQueries(queryClient, customer.id);
       onDeleted();
     } catch (err) {
+      remove.fail();
       setError(err instanceof Error ? err.message : 'Failed to delete customer');
     } finally {
       setDeleting(false);
@@ -155,15 +162,17 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
             >
               Back
             </Button>
-            <Button
-              type="button"
-              variant="danger"
+            <HoldToDelete
               size="sm"
-              onClick={handleDelete}
+              doneLabel="Deleted"
+              onHold={handleDelete}
+              progress={remove.status}
+              progressLabel="Deleting"
+              progressExpectedMs={1500}
               disabled={!canDelete || deleting}
             >
-              {deleting ? 'Deleting...' : 'Delete Customer Forever'}
-            </Button>
+              Hold to delete forever
+            </HoldToDelete>
           </div>
         </div>
       )}

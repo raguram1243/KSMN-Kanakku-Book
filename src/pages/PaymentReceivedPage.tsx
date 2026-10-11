@@ -16,13 +16,24 @@ import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../com
 import { Modal } from '../components/ui/Modal';
 import { Alert } from '../components/ui/Alert';
 import { AIScanButton } from '../components/ai/AIScanButton';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Wallet } from 'lucide-react';
 import { PaginationControls } from '../components/ui/PaginationControls';
 import { useClientPagination } from '../hooks/useClientPagination';
 import { useAIScanStore } from '../store/aiScanStore';
 import { useToastStore } from '../store/toastStore';
+import { useActionProgress } from '../hooks/useActionProgress';
+import { ThemedSelect } from '../components/ui/ThemedSelect';
 import { PaymentExtractor } from '../services/ai/PaymentExtractor';
 import { DocumentClassifier } from '../services/ai/DocumentClassifier';
+
+const PAYMENT_METHOD_OPTIONS = [
+  { value: '', label: 'Select method' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'upi', label: 'UPI' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'card', label: 'Card' },
+  { value: 'others', label: 'Others' },
+];
 
 interface EntryWithAllocation extends CreditEntry {
   allocated_amount?: number;
@@ -56,6 +67,9 @@ export default function PaymentReceivedPage() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Drives the progress bar inside the confirm button; `submitting` still
+  // owns disabling and the guard against a double submit.
+  const savePayment = useActionProgress();
   const [error, setError] = useState('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [advanceOnly, setAdvanceOnly] = useState(false);
@@ -437,6 +451,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
 
     setSubmitting(true);
     setError('');
+    savePayment.start();
 
     try {
       // Upload attachments if present
@@ -482,6 +497,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           throw new Error(data.error || 'Failed to update payment');
         }
 
+        savePayment.succeed();
         invalidatePaymentQueries(queryClient, customerId ?? undefined);
 
                 setShowConfirmDialog(false);
@@ -518,6 +534,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           throw new Error(data.error || 'Failed to create payment');
         }
 
+        savePayment.succeed();
         invalidatePaymentQueries(queryClient, customerId ?? undefined);
 
         const data = await paymentResponse.json();
@@ -533,6 +550,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
         navigate(`/customers/${customerId}`);
       }
         } catch (err) {
+      savePayment.fail();
       const message = err instanceof Error ? err.message : 'Failed to receive payment';
       setError(message);
       useToastStore.getState().addToast({
@@ -793,18 +811,14 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Payment Method
                 </label>
-                <select
+                <ThemedSelect
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="">Select method</option>
-                  <option value="cash">Cash</option>
-                  <option value="upi">UPI</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="card">Card</option>
-                  <option value="others">Others</option>
-                </select>
+                  onChange={(value) => setPaymentMethod(value)}
+                  options={PAYMENT_METHOD_OPTIONS}
+                  ariaLabel="Payment method"
+                  size="md"
+                  menuWidth={170}
+                />
               </div>
               <Input
                 label="Receipt Number (optional)"
@@ -1059,6 +1073,9 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
               disabled={submitting}
               className="flex-1"
               loading={submitting}
+              progress={savePayment.status}
+              progressLabel={isEditMode ? 'Updating' : 'Recording'}
+              progressIcon={<Wallet size={16} />}
               size="lg"
             >
                             {isEditMode ? 'Confirm & Update Payment' : 'Confirm & Payment Received'}

@@ -7,6 +7,9 @@ import { api } from '../../lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateCustomerQueries } from '../../hooks/useApi';
 import { Customer } from '../../types';
+import { ThemedSelect } from '../ui/ThemedSelect';
+import { useActionProgress } from '../../hooks/useActionProgress';
+import { UserPlus } from 'lucide-react';
 
 export type CustomerType = 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate';
 
@@ -36,6 +39,7 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
   const [customerType, setCustomerType] = useState<CustomerType>('regular');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const create = useActionProgress();
 
   // Seed from the caller when opening, and clear everything when dismissed.
   useEffect(() => {
@@ -61,6 +65,7 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
     }
     setLoading(true);
     setError('');
+    create.start();
     try {
       const response = await api.createCustomer({
         name,
@@ -76,10 +81,12 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
       }
 
       const data = await response.json();
+      create.succeed();
       invalidateCustomerQueries(queryClient);
       onCreated(data.customer);
       onClose();
     } catch (err) {
+      create.fail();
       setError(err instanceof Error ? err.message : 'Failed to create customer');
     } finally {
       setLoading(false);
@@ -127,19 +134,26 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-          <select
+          <ThemedSelect
             value={customerType}
-            onChange={(e) => setCustomerType(e.target.value as CustomerType)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            {CUSTOMER_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            onChange={(value) => setCustomerType(value as CustomerType)}
+            options={CUSTOMER_TYPE_OPTIONS}
+            ariaLabel="Customer type"
+            size="md"
+            menuWidth={250}
+          />
         </div>
         <div className="flex space-x-2 pt-2">
-          <Button type="submit" size="sm" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Customer'}
+          <Button
+            type="submit"
+            size="sm"
+            disabled={loading}
+            loading={loading}
+            progress={create.status}
+            progressLabel="Creating"
+            progressIcon={<UserPlus size={14} />}
+          >
+            Create Customer
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={loading}>
             Cancel

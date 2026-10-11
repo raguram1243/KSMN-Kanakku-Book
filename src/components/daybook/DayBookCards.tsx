@@ -18,7 +18,9 @@ export function DayBookStat({ label, value, sub, tone }: { label: string; value:
   return (
     <Card>
       <div className="text-sm text-gray-500 dark:text-gray-400">{label}</div>
-      <div className={`mt-1 text-2xl font-bold tnum ${color}`}>{value}</div>
+      {/* A rupee figure at text-2xl runs past the edge of a half-width card
+          on a phone from about ₹10,000 up, so step it down there. */}
+      <div className={`mt-1 text-2xl max-md:text-lg font-bold tnum break-words ${color}`}>{value}</div>
       <div className="text-xs text-gray-500">{sub}</div>
     </Card>
   );

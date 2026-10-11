@@ -6,6 +6,9 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Alert } from '../components/ui/Alert';
+import { HoldToDelete } from '../components/ui/HoldToDelete';
+import { useActionProgress } from '../hooks/useActionProgress';
+import { ThemedSelect } from '../components/ui/ThemedSelect';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { formatDate, debugError } from '../lib/utils';
@@ -23,6 +26,8 @@ export function StaffManagementPage() {
   const [newStaff, setNewStaff] = useState({ name: '', pin: '', role: 'staff' as 'admin' | 'staff' });
   const [resetPin, setResetPin] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Reports what happened after the hold on the delete confirmation.
+  const removeStaff = useActionProgress();
   const [error, setError] = useState('');
   const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
 
@@ -129,11 +134,15 @@ export function StaffManagementPage() {
 
     setSubmitting(true);
     setError('');
+    removeStaff.start();
 
     try {
       const response = await api.deleteStaff(selectedStaff.id, force);
 
       if (response.status === 409) {
+        // Neither done nor failed: the delete is being offered again, with a
+        // warning and a second hold. Put the button back as it was.
+        removeStaff.reset();
         const data = await response.json();
         setDeleteWarning(data.details?.message || 'This staff member has associated records.');
         setSubmitting(false);
@@ -145,11 +154,13 @@ export function StaffManagementPage() {
         throw new Error(data.error || 'Failed to delete staff');
       }
 
+      removeStaff.succeed();
       setShowDeleteModal(false);
       setSelectedStaff(null);
       setDeleteWarning(null);
       loadStaff();
     } catch (err) {
+      removeStaff.fail();
       setError(err instanceof Error ? err.message : 'Failed to delete staff');
     } finally {
       setSubmitting(false);
@@ -187,7 +198,7 @@ export function StaffManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between max-md:flex-wrap max-md:gap-3">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Staff Management</h1>
         <Button onClick={() => setShowAddModal(true)}>
           + Add Staff Member
@@ -204,8 +215,8 @@ export function StaffManagementPage() {
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">No staff members yet.</p>
           ) : (
             staffList.map(member => (
-              <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                <div className="flex-1">
+              <div key={member.id} className="flex items-center justify-between max-md:flex-col max-md:items-stretch max-md:gap-3 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                <div className="flex-1 max-md:min-w-0 max-md:break-words">
                   <div className="font-medium text-gray-900 dark:text-white">
                     {member.name}
                     {currentStaff?.id === member.id && (
@@ -216,7 +227,7 @@ export function StaffManagementPage() {
                     {member.role === 'admin' ? 'Administrator' : 'Staff'} • Created {formatDate(member.created_at)}
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-3 max-md:flex-wrap max-md:gap-2 max-md:space-x-0">
                   <Badge variant={member.active ? 'success' : 'default'}>
                     {member.active ? 'Active' : 'Inactive'}
                   </Badge>
@@ -272,14 +283,15 @@ export function StaffManagementPage() {
           />
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
-            <select
+            <ThemedSelect
               value={newStaff.role}
-              onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value as 'admin' | 'staff' })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="staff">Staff</option>
-              <option value="admin">Admin</option>
-            </select>
+              onChange={(value) => setNewStaff({ ...newStaff, role: value as 'admin' | 'staff' })}
+              ariaLabel="Role"
+              options={[
+                { value: 'staff', label: 'Staff' },
+                { value: 'admin', label: 'Admin' },
+              ]}
+            />
           </div>
           <div className="flex space-x-3 pt-4">
             <Button type="submit" disabled={submitting} className="flex-1">
@@ -331,24 +343,30 @@ export function StaffManagementPage() {
           )}
           <div className="flex space-x-3 pt-4">
             {!deleteWarning ? (
-              <Button
-                variant="danger"
-                disabled={submitting}
-                className="flex-1"
-                onClick={() => handleDeleteConfirm(false)}
-              >
-                {submitting ? 'Checking...' : 'Delete'}
-              </Button>
+              <div className="flex-1 flex">
+                <HoldToDelete
+                  doneLabel="Deleted"
+                  disabled={submitting}
+                  onHold={() => handleDeleteConfirm(false)}
+                  progress={removeStaff.status}
+                  className="w-full"
+                >
+                  Hold to delete
+                </HoldToDelete>
+              </div>
             ) : (
               <>
-                <Button
-                  variant="danger"
-                  disabled={submitting}
-                  className="flex-1"
-                  onClick={() => handleDeleteConfirm(true)}
-                >
-                  {submitting ? 'Deleting...' : 'Delete Anyway'}
-                </Button>
+                <div className="flex-1 flex">
+                  <HoldToDelete
+                    doneLabel="Deleted"
+                    disabled={submitting}
+                    onHold={() => handleDeleteConfirm(true)}
+                    progress={removeStaff.status}
+                    className="w-full"
+                  >
+                    Hold to delete anyway
+                  </HoldToDelete>
+                </div>
                 <Button
                   variant="secondary"
                   onClick={() => { setShowDeleteModal(false); setDeleteWarning(null); }}

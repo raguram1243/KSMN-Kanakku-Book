@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -12,8 +12,27 @@ import { SkeletonCard } from '../components/ui/Skeleton';
 import { CreateCustomerModal } from '../components/customer/CreateCustomerModal';
 import { useCustomers } from '../hooks/useApi';
 import { PaginationControls, PaginationSkeleton } from '../components/ui/PaginationControls';
+import { ThemedSelect } from '../components/ui/ThemedSelect';
 
 const PAGE_SIZE = 20;
+
+/** Values accepted by the list_customers RPC p_filter param. */
+const CUSTOMER_FILTERS = ['all', 'outstanding', 'paid', 'advance'];
+
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'All customers' },
+  { value: 'outstanding', label: 'Outstanding' },
+  { value: 'paid', label: 'Fully Paid' },
+  { value: 'advance', label: 'Has Advance' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'name_asc', label: 'Name (A-Z)' },
+  { value: 'balance_desc', label: 'Outstanding Balance: High to Low' },
+  { value: 'balance_asc', label: 'Outstanding Balance: Low to High' },
+  { value: 'newest', label: 'Newest Customer First' },
+  { value: 'oldest', label: 'Oldest Customer First' },
+];
 
 const OVERDUE_DEFAULTS: Record<string, number> = {
   'walk-in': 30,
@@ -44,10 +63,22 @@ function getOverdueStatus(customer: Customer): { isOverdue: boolean; label: stri
 export function CustomersPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const [filter, setFilter] = useState('all');
+  // The filter lives in the URL so the dashboard's "Has dues" / "No dues"
+  // breakdown can deep-link here (?filter=outstanding | paid) and so that the
+  // chosen filter survives a reload. Falls back to 'all' for missing or
+  // unknown values.
+  const filterParam = searchParams.get('filter');
+  const filter = filterParam && CUSTOMER_FILTERS.includes(filterParam) ? filterParam : 'all';
+  const setFilter = (next: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === 'all') params.delete('filter');
+    else params.set('filter', next);
+    setSearchParams(params, { replace: true });
+  };
   const [sortBy, setSortBy] = useState<'name_asc' | 'newest' | 'oldest' | 'balance_desc' | 'balance_asc'>('name_asc');
   const [page, setPage] = useState(1);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
@@ -116,37 +147,30 @@ export function CustomersPage() {
         </Alert>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Input
           type="text"
           placeholder="Search by name, phone, or customer code..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-md flex-1"
+          className="max-w-md flex-1 min-w-[180px]"
         />
-        <select
+        <ThemedSelect
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-          aria-label="Filter customers"
-        >
-          <option value="all">All customers</option>
-          <option value="outstanding">Outstanding</option>
-          <option value="paid">Fully Paid</option>
-          <option value="advance">Has Advance</option>
-        </select>
-        <select
+          onChange={(value) => setFilter(value)}
+          options={FILTER_OPTIONS}
+          ariaLabel="Filter customers"
+          size="sm"
+          menuWidth={170}
+        />
+        <ThemedSelect
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-          aria-label="Sort customers"
-        >
-          <option value="name_asc">Name (A-Z)</option>
-          <option value="balance_desc">Outstanding Balance: High to Low</option>
-          <option value="balance_asc">Outstanding Balance: Low to High</option>
-          <option value="newest">Newest Customer First</option>
-          <option value="oldest">Oldest Customer First</option>
-        </select>
+          onChange={(value) => setSortBy(value as typeof sortBy)}
+          options={SORT_OPTIONS}
+          ariaLabel="Sort customers"
+          size="sm"
+          menuWidth={320}
+        />
         <Button variant="primary" size="sm" onClick={() => setShowCreateCustomer(true)}>
           + Add Customer
         </Button>

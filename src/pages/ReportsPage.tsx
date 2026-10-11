@@ -14,6 +14,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { exportPdf, reportDateRangeLabel } from '../lib/exportPdf';
 import { downloadCsv } from '../lib/exportCsv';
 import { SUMMARY_HEADERS, buildSummaryCsv } from '../lib/summaryReport';
+import { ThemedSelect } from '../components/ui/ThemedSelect';
 
 type CustomerType = 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate';
 
@@ -29,6 +30,10 @@ interface LedgerRow {
 }
 
 const CUSTOMER_TYPES: CustomerType[] = ['walk-in', 'regular', 'contractor', 'wholesale', 'corporate'];
+const CUSTOMER_TYPE_FILTER_OPTIONS = [
+  { value: 'all', label: 'All Types' },
+  ...CUSTOMER_TYPES.map(type => ({ value: type, label: type.charAt(0).toUpperCase() + type.slice(1) })),
+];
 const PAGE_SIZE = 25;
 const EMPTY: LedgerRow[] = [];
 
@@ -119,22 +124,19 @@ export default function ReportsPage() {
         </div>
         <DateRangeFilter from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
         <div>
-          <label htmlFor="summary-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {/* Not a <label htmlFor>: ThemedSelect renders a button, not a form
+              control with an id to point at. It carries its own aria-label. */}
+          <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Type
-          </label>
-          <select
-            id="summary-type"
+          </span>
+          <ThemedSelect
             value={customerType}
-            onChange={e => setCustomerType(e.target.value as CustomerType | 'all')}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="all">All Types</option>
-            {CUSTOMER_TYPES.map(type => (
-              <option key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </option>
-            ))}
-          </select>
+            onChange={value => setCustomerType(value as CustomerType | 'all')}
+            options={CUSTOMER_TYPE_FILTER_OPTIONS}
+            ariaLabel="Customer type"
+            size="md"
+            menuWidth={150}
+          />
         </div>
         <label className="flex items-center gap-2 pb-2 text-sm text-gray-700 dark:text-gray-300">
           <input type="checkbox" checked={outstandingOnly} onChange={e => setOutstandingOnly(e.target.checked)} />

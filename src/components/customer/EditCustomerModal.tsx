@@ -8,6 +8,9 @@ import { invalidateCustomerQueries } from '../../hooks/useApi';
 import { Customer } from '../../types';
 import { CustomerType } from './CreateCustomerModal';
 import { Alert } from '../ui/Alert';
+import { ThemedSelect } from '../ui/ThemedSelect';
+import { useActionProgress } from '../../hooks/useActionProgress';
+import { Save } from 'lucide-react';
 
 const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'walk-in', label: 'Walk-in' },
@@ -34,6 +37,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
   const [customerType, setCustomerType] = useState<CustomerType>(customer.customer_type);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const save = useActionProgress();
 
   // Pre-fill the form whenever the modal opens or the customer changes.
   useEffect(() => {
@@ -56,6 +60,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
     }
     setLoading(true);
     setError('');
+    save.start();
     try {
       const parsedLimit = creditLimit.trim() === '' ? null : Number(creditLimit);
       const response = await api.updateCustomer(customer.id, {
@@ -73,10 +78,12 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
       }
 
       const data = await response.json();
+      save.succeed();
       invalidateCustomerQueries(queryClient, customer.id);
       onSaved(data.customer);
       onClose();
     } catch (err) {
+      save.fail();
       setError(err instanceof Error ? err.message : 'Failed to update customer');
     } finally {
       setLoading(false);
@@ -138,19 +145,25 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-          <select
+          <ThemedSelect
             value={customerType}
-            onChange={(e) => setCustomerType(e.target.value as CustomerType)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            {CUSTOMER_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            onChange={(value) => setCustomerType(value as CustomerType)}
+            options={CUSTOMER_TYPE_OPTIONS}
+            ariaLabel="Customer type"
+            size="md"
+            menuWidth={250}
+          />
         </div>
         <div className="flex space-x-2 pt-2">
-          <Button type="submit" size="sm" disabled={loading}>
-            {loading ? 'Saving...' : 'Save'}
+          <Button
+            type="submit"
+            size="sm"
+            disabled={loading}
+            progress={save.status}
+            progressLabel="Saving"
+            progressIcon={<Save size={14} />}
+          >
+            Save
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={loading}>
             Cancel

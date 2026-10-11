@@ -1,6 +1,8 @@
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
+import { HoldToDelete } from '../ui/HoldToDelete';
+import type { ActionStatus } from '../../hooks/useActionProgress';
 import { ImageLightbox } from '../common/ImageLightbox';
 import { formatCurrency, formatDateTime } from '../../lib/utils';
 import { Payment } from '../../types';
@@ -11,9 +13,14 @@ interface PaymentDetailModalProps {
   onClose: () => void;
   onModify?: () => void;
   onDelete?: () => void;
+  /**
+   * State of the delete `onDelete` started, from `useActionProgress`. The
+   * hold button needs it to say whether the delete actually went through.
+   */
+  deleteStatus?: ActionStatus;
 }
 
-export function PaymentDetailModal({ payment, onClose, onModify, onDelete }: PaymentDetailModalProps) {
+export function PaymentDetailModal({ payment, onClose, onModify, onDelete, deleteStatus }: PaymentDetailModalProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -176,19 +183,21 @@ export function PaymentDetailModal({ payment, onClose, onModify, onDelete }: Pay
               </Button>
             )}
             {onDelete && (
-              <Button
-                variant="danger"
-                onClick={() => {
-                  if (confirmDelete) {
-                    onDelete();
-                  } else {
-                    setConfirmDelete(true);
-                  }
-                }}
-                className="flex-1"
-              >
-                {confirmDelete ? 'Confirm Delete' : 'Delete'}
-              </Button>
+              confirmDelete ? (
+                <div className="flex-1 flex">
+                  <HoldToDelete doneLabel="Deleted" onHold={onDelete} progress={deleteStatus} className="w-full">
+                    Hold to delete
+                  </HoldToDelete>
+                </div>
+              ) : (
+                <Button
+                  variant="danger"
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex-1"
+                >
+                  Delete
+                </Button>
+              )
             )}
           </div>
         )}

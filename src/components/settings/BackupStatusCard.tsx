@@ -3,6 +3,7 @@ import { CheckCircle2, AlertTriangle, DatabaseBackup } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { useToastStore } from '../../store/toastStore';
+import { useActionProgress } from '../../hooks/useActionProgress';
 import { BACKUP_EVENT, getLastBackupAt, localDateKey, runSummaryBackup } from '../../hooks/useDailyBackup';
 
 function formatBackupTime(at: Date): string {
@@ -27,6 +28,7 @@ export function BackupStatusCard() {
   const addToast = useToastStore(state => state.addToast);
   const [lastBackupAt, setLastBackupAt] = useState<Date | null>(() => getLastBackupAt());
   const [running, setRunning] = useState(false);
+  const backup = useActionProgress();
 
   // Pick up the automatic backup if it finishes while this page is open.
   useEffect(() => {
@@ -39,6 +41,7 @@ export function BackupStatusCard() {
 
   const handleBackupNow = async () => {
     setRunning(true);
+    backup.start();
     try {
       const count = await runSummaryBackup();
       addToast({
@@ -46,7 +49,9 @@ export function BackupStatusCard() {
         title: 'Backup downloaded',
         description: `${count} customer${count === 1 ? '' : 's'} saved to your downloads folder.`,
       });
+      backup.succeed();
     } catch (error) {
+      backup.fail();
       addToast({
         type: 'error',
         title: 'Backup failed',
@@ -89,9 +94,18 @@ export function BackupStatusCard() {
         </div>
       </div>
 
-      <Button onClick={handleBackupNow} loading={running} disabled={running} className="w-full">
+      <Button
+        onClick={handleBackupNow}
+        loading={running}
+        progress={backup.status}
+        progressLabel="Backing up"
+        progressExpectedMs={4000}
+        progressIcon={<DatabaseBackup size={14} />}
+        disabled={running}
+        className="w-full"
+      >
         <DatabaseBackup size={18} className="mr-2" />
-        {running ? 'Preparing backup...' : 'Download backup now'}
+        Download backup now
       </Button>
     </Card>
   );

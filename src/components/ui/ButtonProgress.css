@@ -1,0 +1,53 @@
+/*
+ * Stretches React Bits' CallChip across a Button.
+ *
+ * CallChip is published as a standalone inline chip: it draws its own surface,
+ * its own height and its own side padding. Here it is not a chip at all — it
+ * is the inside of a button, so the progress fill has to wipe across the whole
+ * control rather than across a pill sitting inside it. These rules strip the
+ * chip's own box and let it fill its positioned parent. Colours stay as props
+ * (see ButtonProgress.tsx) because the component writes them to CSS variables
+ * at render time.
+ */
+.ksmn-progress {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  padding: 0;
+  border-radius: inherit;
+  background: transparent;
+  justify-content: center;
+  /*
+   * The button underneath is disabled while this is on screen, but the chip
+   * also ships a full-bleed retry button in its error state. We never pass
+   * onRetry, and nothing in here should ever swallow a click meant for the
+   * button, so take the whole overlay out of hit testing.
+   */
+  pointer-events: none;
+}
+
+/*
+ * The percentage lives in the chip's `argument` slot, which is styled as a
+ * dimmed afterthought at 72% opacity. It is the number the user is watching,
+ * so lift it, and fix the digit width so it doesn't jitter as it counts up.
+ */
+.ksmn-progress .call-chip__arg {
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+  min-width: 4ch;
+  text-align: right;
+}
+
+/*
+ * `done` normally slides the fill up and out of view (clip-path from the top).
+ * Across a whole button that reads as the colour draining away at the moment
+ * the work succeeded, which is the wrong note. Hold the wash instead, and let
+ * the button's own unmount take it off screen.
+ */
+.ksmn-progress[data-status='done'] .call-chip__fill {
+  clip-path: inset(0 0 0 0);
+  transition:
+    transform 220ms var(--cc-ease-out),
+    background-color 140ms ease;
+}

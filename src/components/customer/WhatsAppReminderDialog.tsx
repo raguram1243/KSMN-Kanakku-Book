@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Send } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Alert } from '../ui/Alert'
@@ -12,6 +12,7 @@ import {
   type LedgerImageInput,
   type LedgerImageRow,
 } from '../../lib/ledgerImage'
+import { useActionProgress } from '../../hooks/useActionProgress'
 import { useToastStore } from '../../store/toastStore'
 
 interface WhatsAppReminderDialogProps {
@@ -95,6 +96,7 @@ export function WhatsAppReminderDialog({
   const [building, setBuilding] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const send = useActionProgress()
   const [built, setBuilt] = useState<{ key: string; result: LedgerAttachment } | null>(null)
   // Set once the desktop share sheet has been opened: Windows resolves the
   // share even when it had no app to offer, so the dialog stays put and
@@ -142,16 +144,18 @@ export function WhatsAppReminderDialog({
       setImageError(null)
       setSending(false)
       setSharedOnDesktop(false)
+      send.reset()
     } else {
       builtRef.current = null
       setBuilt(null)
     }
-  }, [isOpen])
+  }, [isOpen, send.reset])
 
   // Build the image once when the box is ticked; reuse the cache until the inputs change.
   useEffect(() => {
     if (!isOpen || !attach) {
       setBuilding(false)
+      send.reset()
       return
     }
     if (builtRef.current?.key === key) {
@@ -163,6 +167,7 @@ export function WhatsAppReminderDialog({
 
     let cancelled = false
     setBuilding(true)
+    send.start()
     setImageError(null)
     buildLedgerAttachment(input)
       .then((result) => {
@@ -171,6 +176,7 @@ export function WhatsAppReminderDialog({
         builtRef.current = entry
         setBuilt(entry)
         setBuilding(false)
+        send.succeed()
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -178,11 +184,12 @@ export function WhatsAppReminderDialog({
         setImageError(`Could not create the ledger attachment${detail}. The message can still be sent without it.`)
         setAttach(false)
         setBuilding(false)
+        send.fail()
       })
     return () => {
       cancelled = true
     }
-  }, [isOpen, attach, key])
+  }, [isOpen, attach, key, send.start, send.succeed, send.fail, send.reset])
 
   const image = built && built.key === key ? built.result : null
 
@@ -237,6 +244,7 @@ export function WhatsAppReminderDialog({
     const useCopy = route === 'copy' || (route === 'auto' && autoCopy)
     if (useCopy) {
       setSending(true)
+      send.start()
       let chatOpened = false
       try {
         // Start the clipboard write before opening the chat: the write needs
@@ -254,6 +262,7 @@ export function WhatsAppReminderDialog({
           description: 'In the WhatsApp chat, press Ctrl+V to attach it.',
         })
         notifySent()
+        send.succeed()
         onClose()
         return
       } catch {
@@ -267,6 +276,7 @@ export function WhatsAppReminderDialog({
           description: `The clipboard was not available, so attach the ${noun} with the paperclip.`,
         })
         notifySent()
+        send.succeed()
         onClose()
         return
       } finally {
@@ -277,9 +287,11 @@ export function WhatsAppReminderDialog({
     const useShare = route === 'share' || (route === 'auto' && autoShare)
     if (useShare) {
       setSending(true)
+      send.start()
       try {
         await navigator.share({ files: [file], text: message })
         notifySent()
+        send.succeed()
         if (autoShare) {
           onClose()
           return
@@ -293,6 +305,7 @@ export function WhatsAppReminderDialog({
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
           // User dismissed the share sheet: stay on the dialog.
+          send.reset()
           return
         }
         // Any other failure falls through to the download route.
@@ -309,6 +322,7 @@ export function WhatsAppReminderDialog({
       description: `In the WhatsApp chat, tap the paperclip and attach the ${noun}.`,
     })
     notifySent()
+    send.succeed()
     onClose()
   }
 
@@ -401,9 +415,13 @@ export function WhatsAppReminderDialog({
               onClick={() => void handleSend('auto')}
               disabled={sendDisabled}
               loading={busy}
+              progress={send.status}
+              progressLabel="Preparing"
+              progressExpectedMs={2500}
+              progressIcon={<Send size={14} />}
               className="flex-1"
             >
-              {sending ? 'Sending...' : building ? 'Preparing...' : 'Send on WhatsApp'}
+              Send on WhatsApp
             </Button>
           </div>
 

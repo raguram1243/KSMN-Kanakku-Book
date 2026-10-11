@@ -46,27 +46,35 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     .map(group => ({ ...group, items: group.items.filter(item => !item.adminOnly || isAdmin) }))
     .filter(group => group.items.length > 0);
 
+  // Position of each visible item across all groups, used to stagger the phone drawer entrance.
+  const itemOrder = new Map<string, number>();
+  filteredNavGroups.forEach(group => group.items.forEach(item => itemOrder.set(item.path, itemOrder.size)));
+
   const handleNavClick = () => {
     onClose();
   };
 
   return (
     <>
-      {/* Mobile backdrop */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={onClose}
-        />
-      )}
+      {/* Mobile backdrop. Always mounted so it can fade; it ignores taps while closed. */}
+      <div
+        aria-hidden="true"
+        className={`
+          fixed inset-0 bg-black/50 z-40 md:hidden
+          transition-opacity duration-300 ease-out motion-reduce:transition-none
+          ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+        `}
+        onClick={onClose}
+      />
 
       {/* Sidebar */}
       <aside
         className={`
           fixed left-0 top-0 h-screen bg-white border-r border-gray-200 dark:bg-gray-900 dark:border-gray-800 z-50
-          transform transition-all duration-200 ease-in-out
+          transform transition-all duration-300 ease-out md:duration-200 md:ease-in-out max-md:motion-reduce:transition-none
+          max-md:rounded-r-3xl max-md:overflow-hidden
           md:translate-x-0 md:z-30
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${isOpen ? 'translate-x-0 max-md:shadow-2xl' : '-translate-x-full'}
           ${isExpanded ? 'w-60' : 'w-16'}
           lg:w-60
         `}
@@ -106,23 +114,33 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
 
+                // Phones only: fade and slide in after the drawer starts opening, 25ms apart, 200ms at most.
+                const staggerDelay = Math.min(50 + (itemOrder.get(item.path) ?? 0) * 25, 200);
+
                 return (
-                  <Link
+                  <div
                     key={item.path}
+                    className={`
+                      transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none
+                      ${isOpen ? '' : 'max-md:opacity-0 max-md:-translate-x-2'}
+                    `}
+                    style={isOpen ? { transitionDelay: `${staggerDelay}ms` } : undefined}
+                  >
+                  <Link
                     to={item.path}
                     onClick={handleNavClick}
                     className={`
-                      relative flex items-center ${isExpanded ? 'justify-start' : 'justify-center'} lg:justify-start px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                      relative flex items-center ${isExpanded ? 'justify-start' : 'justify-center'} lg:justify-start px-3 py-2.5 max-md:min-h-[44px] rounded-lg max-md:rounded-full text-sm font-medium transition-all duration-200
                       ${isActive
-                        ? 'bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300'
+                        ? 'text-primary-700 dark:text-primary-300 max-md:bg-primary-50 max-md:dark:bg-primary-900/40 md:bg-primary-100 md:dark:bg-primary-900'
                         : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
                       }
                     `}
                     title={item.label}
                   >
-                    {/* Left accent bar for active indicator */}
+                    {/* Left accent bar for active indicator. Hidden on phones, where the filled pill marks it. */}
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-primary-600 rounded-r transition-all duration-200" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 max-md:hidden bg-primary-600 rounded-r transition-all duration-200" />
                     )}
                     <Icon size={20} className="flex-shrink-0" />
                     <span className={`
@@ -134,6 +152,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                       {item.label}
                     </span>
                   </Link>
+                  </div>
                 );
                 })}
                   </div>

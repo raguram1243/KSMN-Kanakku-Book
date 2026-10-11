@@ -1,0 +1,59 @@
+/*
+ * Sits GlideSelect alongside the app's own inputs.
+ *
+ * GlideSelect draws its trigger with no border, which looks unanchored next to
+ * our text inputs and buttons (`border border-gray-300 dark:border-gray-600`).
+ * These rules add the same border and focus ring so a dropdown reads as part
+ * of the same form, in both themes. Colours stay literal rather than Tailwind
+ * classes because the component renders its own markup.
+ */
+
+/*
+ * GlideSelect sets no white-space rule on its label. In React Bits' own demo
+ * the trigger has room to spare, but in our filter bars and form rows it sits
+ * in a flex container that squeezes it, and the label wrapped onto two lines
+ * inside a 28px chip. Keep it on one line and stop the control shrinking.
+ */
+.ksmn-select {
+  flex: 0 0 auto;
+}
+
+.ksmn-select .glide-select__trigger,
+.ksmn-select .glide-select__label {
+  white-space: nowrap;
+}
+
+.ksmn-select .glide-select__trigger {
+  border: 1px solid #d1d5db; /* gray-300, as on our inputs */
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+:root.dark .ksmn-select .glide-select__trigger {
+  border-color: #4b5563; /* gray-600 */
+}
+
+.ksmn-select .glide-select__trigger:focus-visible {
+  outline: none;
+  border-color: #6366f1; /* primary-500 */
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45);
+}
+
+/*
+ * On a phone a wide menu anchored to a trigger well right of centre runs off
+ * the screen — the Customers sort menu is 320px wide on a 375px screen.
+ * GlideSelect does no viewport clamping of its own, so cap the width here.
+ */
+.ksmn-select .glide-select__menu {
+  max-width: calc(100vw - 24px);
+}
+
+/* The menu is a floating surface, so it needs the same lift our modals have. */
+.ksmn-select .glide-select__menu {
+  border: 1px solid #e5e7eb; /* gray-200 */
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.12);
+}
+
+:root.dark .ksmn-select .glide-select__menu {
+  border-color: #374151; /* gray-700 */
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.55), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+}

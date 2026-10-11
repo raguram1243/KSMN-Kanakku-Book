@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { TopNav } from './TopNav';
 import { Sidebar } from './Sidebar';
+import { BottomNav } from './BottomNav';
 import { Toaster } from '../ui/Toaster';
 
 interface AppLayoutProps {
@@ -17,11 +18,13 @@ export function AppLayout({ children }: AppLayoutProps) {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       {/* Main content - shifted right on desktop to accommodate collapsed sidebar */}
-      <main className="md:ml-16 lg:ml-60 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="md:ml-16 lg:ml-60 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-6">
         <div key={location.pathname} className="page-enter">
           {children}
         </div>
       </main>
+
+      <BottomNav onMenuClick={() => setSidebarOpen(true)} />
 
       <Toaster />
     </div>
