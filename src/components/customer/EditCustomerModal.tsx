@@ -8,6 +8,7 @@ import { invalidateCustomerQueries } from '../../hooks/useApi';
 import { Customer } from '../../types';
 import { CustomerType } from './CreateCustomerModal';
 import { Alert } from '../ui/Alert';
+import { ThemedSelect } from '../ui/ThemedSelect';
 
 const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'walk-in', label: 'Walk-in' },
@@ -138,15 +139,14 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-          <select
+          <ThemedSelect
             value={customerType}
-            onChange={(e) => setCustomerType(e.target.value as CustomerType)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            {CUSTOMER_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            onChange={(value) => setCustomerType(value as CustomerType)}
+            options={CUSTOMER_TYPE_OPTIONS}
+            ariaLabel="Customer type"
+            size="md"
+            menuWidth={250}
+          />
         </div>
         <div className="flex space-x-2 pt-2">
           <Button type="submit" size="sm" disabled={loading}>

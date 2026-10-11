@@ -1,6 +1,7 @@
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
+import { HoldToDelete } from '../ui/HoldToDelete';
 import { ImageLightbox } from '../common/ImageLightbox';
 import { formatCurrency, formatDateTime } from '../../lib/utils';
 import { Payment } from '../../types';
@@ -176,19 +177,21 @@ export function PaymentDetailModal({ payment, onClose, onModify, onDelete }: Pay
               </Button>
             )}
             {onDelete && (
-              <Button
-                variant="danger"
-                onClick={() => {
-                  if (confirmDelete) {
-                    onDelete();
-                  } else {
-                    setConfirmDelete(true);
-                  }
-                }}
-                className="flex-1"
-              >
-                {confirmDelete ? 'Confirm Delete' : 'Delete'}
-              </Button>
+              confirmDelete ? (
+                <div className="flex-1 flex">
+                  <HoldToDelete doneLabel="Deleted" onHold={onDelete} className="w-full">
+                    Hold to delete
+                  </HoldToDelete>
+                </div>
+              ) : (
+                <Button
+                  variant="danger"
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex-1"
+                >
+                  Delete
+                </Button>
+              )
             )}
           </div>
         )}

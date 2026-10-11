@@ -10,6 +10,13 @@ import { Download } from 'lucide-react';
 import { BackupStatusCard } from '../components/settings/BackupStatusCard';
 import { useToastStore } from '../store/toastStore';
 import { Alert } from '../components/ui/Alert';
+import { ThemedSelect } from '../components/ui/ThemedSelect';
+
+const EXPORT_DATASET_OPTIONS = [
+  { value: 'customers', label: 'Customers' },
+  { value: 'entries', label: 'Credit Entries' },
+  { value: 'payments', label: 'Payments' },
+];
 
 interface Setting {
   key: string;
@@ -192,15 +199,14 @@ export function SettingsPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dataset</label>
-            <select
+            <ThemedSelect
               value={exportDataset}
-              onChange={(e) => setExportDataset(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="customers">Customers</option>
-              <option value="entries">Credit Entries</option>
-              <option value="payments">Payments</option>
-            </select>
+              onChange={(value) => setExportDataset(value)}
+              options={EXPORT_DATASET_OPTIONS}
+              ariaLabel="Export dataset"
+              size="md"
+              menuWidth={180}
+            />
           </div>
 
           <Button

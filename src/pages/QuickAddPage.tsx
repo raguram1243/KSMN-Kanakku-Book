@@ -17,6 +17,15 @@ import { useAIScanStore } from '../store/aiScanStore';
 import { InvoiceExtractor } from '../services/ai/InvoiceExtractor';
 import { DocumentClassifier } from '../services/ai/DocumentClassifier';
 import { useToastStore } from '../store/toastStore';
+import { ThemedSelect } from '../components/ui/ThemedSelect';
+
+const CUSTOMER_TYPE_OPTIONS = [
+  { value: 'walk-in', label: 'Walk-in' },
+  { value: 'regular', label: 'Regular' },
+  { value: 'contractor', label: 'Contractor' },
+  { value: 'wholesale', label: 'Wholesale/Dealer' },
+  { value: 'corporate', label: 'Corporate/Institutional' },
+];
 
 interface LineItem {
   item_name: string;
@@ -651,17 +660,14 @@ export default function QuickAddPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-                  <select
+                  <ThemedSelect
                     value={newCustomer.customer_type}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, customer_type: e.target.value as 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate' })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    <option value="walk-in">Walk-in</option>
-                    <option value="regular">Regular</option>
-                    <option value="contractor">Contractor</option>
-                    <option value="wholesale">Wholesale/Dealer</option>
-                    <option value="corporate">Corporate/Institutional</option>
-                  </select>
+                    onChange={(value) => setNewCustomer({ ...newCustomer, customer_type: value as 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate' })}
+                    options={CUSTOMER_TYPE_OPTIONS}
+                    ariaLabel="Customer type"
+                    size="md"
+                    menuWidth={250}
+                  />
                 </div>
                 <div className="flex space-x-2">
                   <Button type="submit" size="sm" disabled={loading}>

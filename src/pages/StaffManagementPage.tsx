@@ -6,6 +6,8 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Alert } from '../components/ui/Alert';
+import { HoldToDelete } from '../components/ui/HoldToDelete';
+import { ThemedSelect } from '../components/ui/ThemedSelect';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { formatDate, debugError } from '../lib/utils';
@@ -272,14 +274,15 @@ export function StaffManagementPage() {
           />
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
-            <select
+            <ThemedSelect
               value={newStaff.role}
-              onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value as 'admin' | 'staff' })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="staff">Staff</option>
-              <option value="admin">Admin</option>
-            </select>
+              onChange={(value) => setNewStaff({ ...newStaff, role: value as 'admin' | 'staff' })}
+              ariaLabel="Role"
+              options={[
+                { value: 'staff', label: 'Staff' },
+                { value: 'admin', label: 'Admin' },
+              ]}
+            />
           </div>
           <div className="flex space-x-3 pt-4">
             <Button type="submit" disabled={submitting} className="flex-1">
@@ -331,24 +334,28 @@ export function StaffManagementPage() {
           )}
           <div className="flex space-x-3 pt-4">
             {!deleteWarning ? (
-              <Button
-                variant="danger"
-                disabled={submitting}
-                className="flex-1"
-                onClick={() => handleDeleteConfirm(false)}
-              >
-                {submitting ? 'Checking...' : 'Delete'}
-              </Button>
+              <div className="flex-1 flex">
+                <HoldToDelete
+                  doneLabel="Deleted"
+                  disabled={submitting}
+                  onHold={() => handleDeleteConfirm(false)}
+                  className="w-full"
+                >
+                  Hold to delete
+                </HoldToDelete>
+              </div>
             ) : (
               <>
-                <Button
-                  variant="danger"
-                  disabled={submitting}
-                  className="flex-1"
-                  onClick={() => handleDeleteConfirm(true)}
-                >
-                  {submitting ? 'Deleting...' : 'Delete Anyway'}
-                </Button>
+                <div className="flex-1 flex">
+                  <HoldToDelete
+                    doneLabel="Deleted"
+                    disabled={submitting}
+                    onHold={() => handleDeleteConfirm(true)}
+                    className="w-full"
+                  >
+                    Hold to delete anyway
+                  </HoldToDelete>
+                </div>
                 <Button
                   variant="secondary"
                   onClick={() => { setShowDeleteModal(false); setDeleteWarning(null); }}

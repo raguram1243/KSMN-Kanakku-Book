@@ -21,8 +21,18 @@ import { PaginationControls } from '../components/ui/PaginationControls';
 import { useClientPagination } from '../hooks/useClientPagination';
 import { useAIScanStore } from '../store/aiScanStore';
 import { useToastStore } from '../store/toastStore';
+import { ThemedSelect } from '../components/ui/ThemedSelect';
 import { PaymentExtractor } from '../services/ai/PaymentExtractor';
 import { DocumentClassifier } from '../services/ai/DocumentClassifier';
+
+const PAYMENT_METHOD_OPTIONS = [
+  { value: '', label: 'Select method' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'upi', label: 'UPI' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'card', label: 'Card' },
+  { value: 'others', label: 'Others' },
+];
 
 interface EntryWithAllocation extends CreditEntry {
   allocated_amount?: number;
@@ -793,18 +803,14 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Payment Method
                 </label>
-                <select
+                <ThemedSelect
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="">Select method</option>
-                  <option value="cash">Cash</option>
-                  <option value="upi">UPI</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="card">Card</option>
-                  <option value="others">Others</option>
-                </select>
+                  onChange={(value) => setPaymentMethod(value)}
+                  options={PAYMENT_METHOD_OPTIONS}
+                  ariaLabel="Payment method"
+                  size="md"
+                  menuWidth={170}
+                />
               </div>
               <Input
                 label="Receipt Number (optional)"

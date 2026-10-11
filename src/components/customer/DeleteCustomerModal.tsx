@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
+import { HoldToDelete } from '../ui/HoldToDelete';
 import { api } from '../../lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateCustomerQueries } from '../../hooks/useApi';
@@ -155,15 +156,14 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
             >
               Back
             </Button>
-            <Button
-              type="button"
-              variant="danger"
+            <HoldToDelete
               size="sm"
-              onClick={handleDelete}
+              doneLabel="Deleted"
+              onHold={handleDelete}
               disabled={!canDelete || deleting}
             >
-              {deleting ? 'Deleting...' : 'Delete Customer Forever'}
-            </Button>
+              Hold to delete forever
+            </HoldToDelete>
           </div>
         </div>
       )}
