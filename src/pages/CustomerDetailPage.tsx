@@ -24,6 +24,9 @@ import { useToastStore } from '../store/toastStore';
 import { PaginationControls } from '../components/ui/PaginationControls';
 import { useClientPagination } from '../hooks/useClientPagination';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { WhatsAppReminderDialog } from '../components/customer/WhatsAppReminderDialog';
+import { unpaidRowsFromEntries } from '../lib/ledgerImage';
+import { buildAggregateReminderMessage } from '../lib/whatsapp';
 
 interface CreditEntryWithItems extends CreditEntry {
   items?: any[];
@@ -48,6 +51,8 @@ export default function CustomerDetailPage() {
   const [showDeleteCustomer, setShowDeleteCustomer] = useState(false);
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [applyingAdvance, setApplyingAdvance] = useState(false);
+  // Which language's reminder is being confirmed; null while the dialog is shut.
+  const [reminderLanguage, setReminderLanguage] = useState<'en' | 'ta' | null>(null);
 
   // Ledger filter states
   const [filterType, setFilterType] = useState<'all' | 'entries' | 'payments'>('all');
@@ -57,7 +62,7 @@ export default function CustomerDetailPage() {
 
         const customerQuery = useCustomer(id);
   const updateCustomer = useUpdateCustomer();
-  const { openWhatsAppAggregate, openWhatsAppEntry } = useWhatsAppCustomer();
+  const { openWhatsAppEntry } = useWhatsAppCustomer();
 
     const handleApplyAdvance = async () => {
     if (!customer || !id) return;
@@ -419,9 +424,7 @@ export default function CustomerDetailPage() {
                             {totalOutstanding > 0 && (
                 <div className="mt-2 inline-flex items-center space-x-2">
                   <button
-                    onClick={() => {
-                      openWhatsAppAggregate(customer, 'en');
-                    }}
+                    onClick={() => setReminderLanguage('en')}
                     className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold text-xs rounded-lg shadow-sm transition-colors focus-ring"
                     title="Send WhatsApp summary (English)"
                   >
@@ -429,9 +432,7 @@ export default function CustomerDetailPage() {
                     <span>EN</span>
                   </button>
                   <button
-                    onClick={() => {
-                      openWhatsAppAggregate(customer, 'ta');
-                    }}
+                    onClick={() => setReminderLanguage('ta')}
                     className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-900 font-semibold text-xs rounded-lg shadow-sm transition-colors focus-ring"
                     title="Send WhatsApp summary (Tamil)"
                   >
@@ -941,6 +942,29 @@ export default function CustomerDetailPage() {
             });
             navigate('/customers');
           }}
+        />
+      )}
+
+      {/* WhatsApp reminder confirmation.
+          The reminder used to open WhatsApp on the first click. It now
+          confirms the number first — one wrong digit sends a customer's
+          balance, and optionally their unpaid bills, to a stranger. */}
+      {reminderLanguage && customer && (
+        <WhatsAppReminderDialog
+          isOpen={true}
+          onClose={() => setReminderLanguage(null)}
+          customerName={customer.name}
+          customerCode={customer.customer_code}
+          phone={customer.phone}
+          language={reminderLanguage}
+          message={buildAggregateReminderMessage(
+            customer.name,
+            totalOutstanding - (customer.advance_balance ?? 0),
+            reminderLanguage,
+          )}
+          rows={unpaidRowsFromEntries(entries)}
+          totalDue={totalOutstanding - (customer.advance_balance ?? 0)}
+          advanceAdjusted={customer.advance_balance ?? 0}
         />
       )}
 
