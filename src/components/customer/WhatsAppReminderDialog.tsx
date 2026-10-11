@@ -84,6 +84,10 @@ export function WhatsAppReminderDialog({
   const [imageError, setImageError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [built, setBuilt] = useState<{ key: string; result: LedgerAttachment } | null>(null)
+  // Set once the desktop share sheet has been opened: Windows resolves the
+  // share even when it had no app to offer, so the dialog stays put and
+  // offers the download rather than closing onto an error it cannot see.
+  const [sharedOnDesktop, setSharedOnDesktop] = useState(false)
 
   // Mirrors `built` so the build effect can check the cache without depending on it.
   const builtRef = useRef<{ key: string; result: LedgerAttachment } | null>(null)
@@ -125,6 +129,7 @@ export function WhatsAppReminderDialog({
       setBuilding(false)
       setImageError(null)
       setSending(false)
+      setSharedOnDesktop(false)
     } else {
       builtRef.current = null
       setBuilt(null)
@@ -218,7 +223,15 @@ export function WhatsAppReminderDialog({
       try {
         await navigator.share({ files: [file], text: message })
         notifySent()
-        onClose()
+        if (autoShare) {
+          onClose()
+          return
+        }
+        // Desktop: the OS reports success as soon as it has shown (or failed
+        // to show) its share sheet, so there is no way to tell a real send
+        // from "Windows found nothing to share to". Keep the dialog open
+        // with the download fallback instead of leaving a dead end.
+        setSharedOnDesktop(true)
         return
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
@@ -335,7 +348,14 @@ export function WhatsAppReminderDialog({
             </Button>
           </div>
 
-          {imageReady && formattedPhone && autoShare && (
+          {sharedOnDesktop && (
+            <Alert variant="info">
+              The share sheet was opened. If WhatsApp was not offered there it is not installed on this computer —
+              download the {noun} below and attach it in the chat with the paperclip.
+            </Alert>
+          )}
+
+          {imageReady && formattedPhone && (autoShare || sharedOnDesktop) && (
             <div className="text-center">
               <button
                 type="button"
