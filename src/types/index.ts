@@ -64,6 +64,21 @@ export interface Payment {
   created_at: string;
   staff_name?: string;
   attachments?: any[];
+  /**
+   * Staff-recorded payments start 'pending' and only count once an admin
+   * approves them; 'rejected' ones stay on record but never count. Rows from
+   * before the approval flow have no status and are approved.
+   */
+  status?: PaymentStatus;
+  review_note?: string | null;
+  reviewed_at?: string | null;
+}
+
+export type PaymentStatus = 'pending' | 'approved' | 'rejected';
+
+/** True when the payment counts towards balances (approved, or legacy with no status). */
+export function isApprovedPayment(p: { status?: string | null }): boolean {
+  return !p.status || p.status === 'approved';
 }
 
 export interface PaymentAllocation {

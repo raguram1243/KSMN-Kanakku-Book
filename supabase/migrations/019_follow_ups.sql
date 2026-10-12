@@ -1,17 +1,17 @@
-// ============================================
-// Follow-ups + credit limits + day-book (A1/A4/A5 backend)
-// ============================================
-// Frontend-first: FollowUpsPage/CreditLimits/DayBookPage work today on
-// localStorage fallbacks + existing APIs. After `supabase db push` (see
-// supabase/migrations/019_*.sql, 020_*.sql, 021_*.sql) and deploying the
-// follow-ups edge functions, set VITE_FOLLOWUPS_API=1 to use the server.
-//
-// Tables added by the migrations:
-// - follow_ups(id, customer_id, entry_id?, promised_date, note, status,
-//              created_by, created_at, updated_at)
-// - customers.credit_limit NUMERIC NULL  (warning-only limit, see A4 notes)
-// Helpers: get_day_book_stats(p_day DATE) for the Day-book page.
-// ============================================
+-- ============================================
+-- Follow-ups + credit limits + day-book (A1/A4/A5 backend)
+-- ============================================
+-- Frontend-first: FollowUpsPage/CreditLimits/DayBookPage work today on
+-- localStorage fallbacks + existing APIs. After `supabase db push` (see
+-- supabase/migrations/019_*.sql, 020_*.sql, 021_*.sql) and deploying the
+-- follow-ups edge functions, set VITE_FOLLOWUPS_API=1 to use the server.
+--
+-- Tables added by the migrations:
+-- - follow_ups(id, customer_id, entry_id?, promised_date, note, status,
+--              created_by, created_at, updated_at)
+-- - customers.credit_limit NUMERIC NULL  (warning-only limit, see A4 notes)
+-- Helpers: get_day_book_stats(p_day DATE) for the Day-book page.
+-- ============================================
 
 -- Follow-ups: who promised to pay, and when.
 CREATE TABLE IF NOT EXISTS follow_ups (

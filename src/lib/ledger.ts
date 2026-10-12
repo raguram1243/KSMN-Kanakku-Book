@@ -1,4 +1,4 @@
-import { CreditEntry, Payment } from '../types';
+import { CreditEntry, Payment, isApprovedPayment } from '../types';
 
 export interface LedgerTransaction {
   id: string;
@@ -11,17 +11,36 @@ export interface LedgerTransaction {
   balance: number;
   status?: string;
   payment_method?: string;
+  /**
+   * A pending or rejected payment: listed for the admin's information but it
+   * does not move the running balance and has no credit.
+   */
+  excluded?: boolean;
   originalData: CreditEntry | Payment;
 }
 
-export function buildLedgerTransactions(entries: CreditEntry[], payments: Payment[]): LedgerTransaction[] {
+/**
+ * Entries and payments in date order with a running balance.
+ *
+ * Only approved payments count. Pending / rejected payments are dropped unless
+ * `includeUnapproved` is set (the customer screen lists them, flagged
+ * `excluded`, so the admin can see what is waiting) — statements and other
+ * documents never show them.
+ */
+export function buildLedgerTransactions(
+  entries: CreditEntry[],
+  payments: Payment[],
+  options: { includeUnapproved?: boolean } = {},
+): LedgerTransaction[] {
   const transactions: LedgerTransaction[] = [];
   let runningBalance = 0;
+
+  const listedPayments = options.includeUnapproved ? payments : payments.filter(isApprovedPayment);
 
   // Combine entries and payments
   const allTransactions = [
     ...entries.map(e => ({ ...e, type: 'entry' as const })),
-    ...payments.map(p => ({ ...p, type: 'payment' as const }))
+    ...listedPayments.map(p => ({ ...p, type: 'payment' as const }))
   ];
 
   // Sort by date (oldest first)
@@ -33,9 +52,10 @@ export function buildLedgerTransactions(entries: CreditEntry[], payments: Paymen
 
   // Calculate running balance
   allTransactions.forEach(t => {
+    const excluded = t.type === 'payment' && !isApprovedPayment(t as Payment);
     if (t.type === 'entry') {
       runningBalance += Number(t.total_amount);
-    } else {
+    } else if (!excluded) {
       runningBalance -= Number(t.amount);
     }
 
@@ -67,9 +87,10 @@ export function buildLedgerTransactions(entries: CreditEntry[], payments: Paymen
       reference: t.type === 'entry' ? (t as CreditEntry).entry_code : (t as Payment).receipt_number || 'Payment',
       description,
       debit: t.type === 'entry' ? Number(t.total_amount) : 0,
-      credit: t.type === 'payment' ? Number(t.amount) : 0,
+      credit: t.type === 'payment' && !excluded ? Number(t.amount) : 0,
       balance: runningBalance,
-      status: t.type === 'entry' ? (t as CreditEntry).status : undefined,
+      status: t.type === 'entry' ? (t as CreditEntry).status : excluded ? (t as Payment).status : undefined,
+      excluded,
       payment_method: t.type === 'payment' ? (t as Payment).payment_method : undefined,
       originalData: t as CreditEntry | Payment
     });

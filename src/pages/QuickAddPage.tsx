@@ -3,11 +3,12 @@ import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Alert } from '../components/ui/Alert';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateCustomerQueries, invalidateEntryQueries } from '../hooks/useApi';
 import { api } from '../lib/api';
-import { formatCurrency, debugError } from '../lib/utils';
+import { formatCurrency, debugError, safeFileUrl } from '../lib/utils';
 import { Customer } from '../types';
 import { FileItem } from '../components/ui/MultiFileUpload';
 import { MultiFileUpload } from '../components/ui/MultiFileUpload';
@@ -39,15 +40,24 @@ interface LineItem {
 export default function QuickAddPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
-  const entryId = searchParams.get('entry_id');
+  // Staff may only add entries. Balances, credit limits, today's totals,
+  // editing an existing entry and AI Scan all call admin-only endpoints, so
+  // every one of them is skipped for staff (the server refuses them anyway).
+  const { isAdmin } = useAuth();
+  const entryId = isAdmin ? searchParams.get('entry_id') : null;
   const isEditMode = !!entryId;
   const [entryMode, setEntryMode] = useState<'detailed' | 'quick'>('quick');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [recentCustomers, setRecentCustomers] = useState<Customer[]>([]);
   const [todayStats, setTodayStats] = useState<{ todayEntriesCount: number; todayEntriesTotalSum: number } | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  // Staff arrive from the customer list with the row in router state (they
+  // cannot call get-customer); see the ?customer_id= effect below for admin.
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    () => (location.state as { customer?: Customer } | null)?.customer ?? null
+  );
   const [customerBalance, setCustomerBalance] = useState<number | null>(null);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', notes: '', customer_type: 'walk-in' as 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate' });
@@ -64,7 +74,9 @@ export default function QuickAddPage() {
   const [attachments, setAttachments] = useState<FileItem[]>([]);
   // The AI Scan photo is already in storage (it had to be uploaded to be
   // analysed), so it is carried over by URL rather than uploaded a second time.
-  const [scannedAttachment, setScannedAttachment] = useState<{ file_url: string; file_type: string } | null>(null);
+  // `file_url` is the stored identifier sent with the entry; `preview_url` is
+  // the short-lived signed link used to show the thumbnail (buckets are private).
+  const [scannedAttachment, setScannedAttachment] = useState<{ file_url: string; file_type: string; preview_url?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   // Drives the progress bar inside the two submit buttons; the `loading` flag
   // above still owns disabling and validation.
@@ -72,13 +84,16 @@ export default function QuickAddPage() {
   const saveEntry = useActionProgress();
   const [error, setError] = useState('');
   const [editPaidAmount, setEditPaidAmount] = useState<number | null>(null);
-  // Check for pre-selected customer from URL params
+  // Pre-selected customer. Admin links pass ?customer_id= and the customer is
+  // loaded from get-customer. Staff cannot call get-customer, so the staff
+  // customer list hands the row it already has over in router state.
   useEffect(() => {
     const customerId = searchParams.get('customer_id');
-    if (customerId) {
+    if (customerId && isAdmin) {
       loadPreSelectedCustomer(customerId);
     }
-  }, [searchParams]);
+  }, [searchParams, isAdmin]);
+
 
   // Edit mode: load existing entry data
   useEffect(() => {
@@ -149,8 +164,8 @@ export default function QuickAddPage() {
   // Load recent customers and stats on mount
   useEffect(() => {
     loadRecentCustomers();
-    loadTodayStats();
-  }, []);
+    if (isAdmin) loadTodayStats();
+  }, [isAdmin]);
 
   const loadPreSelectedCustomer = async (customerId: string) => {
     try {
@@ -252,13 +267,14 @@ export default function QuickAddPage() {
   };
 
   // Load customer balance when customer is selected
+  // Admin only: staff never see what a customer owes.
   useEffect(() => {
-    if (selectedCustomer) {
+    if (selectedCustomer && isAdmin) {
       loadCustomerBalance(selectedCustomer.id);
     } else {
       setCustomerBalance(null);
     }
-  }, [selectedCustomer]);
+  }, [selectedCustomer, isAdmin]);
 
   const loadCustomerBalance = async (customerId: string) => {
     try {
@@ -285,8 +301,11 @@ export default function QuickAddPage() {
 
     try {
       const totalAmount = getTotalAmount();
-      if (totalAmount <= 0) {
+      if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
         throw new Error('Total amount must be greater than 0');
+      }
+      if (totalAmount > 9_999_999_999.99) {
+        throw new Error('Total amount is too large');
       }
 
       const validLineItems = entryMode === 'detailed' ? getValidLineItems() : [];
@@ -311,10 +330,12 @@ export default function QuickAddPage() {
       );
 
       // Freshly uploaded files plus the AI Scan photo, which is already in
-      // storage and is carried over by URL.
+      // storage and is carried over by its stored URL (never the signed one).
       const entryAttachments = [
         ...uploadedAttachments,
-        ...(scannedAttachment ? [scannedAttachment] : []),
+        ...(scannedAttachment
+          ? [{ file_url: scannedAttachment.file_url, file_type: scannedAttachment.file_type }]
+          : []),
       ];
 
       // Create or update credit entry
@@ -397,6 +418,7 @@ export default function QuickAddPage() {
         setQuickAmount('');
         setLineItems([{ item_name: '', qty: 0, rate: 0, amount: 0 }]);
         setAttachments([]);
+        setScannedAttachment(null);
         setEntryNotes('');
 
                 const advanceApplied = createdEntryData.advance_applied || 0;
@@ -472,6 +494,7 @@ export default function QuickAddPage() {
           setScannedAttachment({
             file_url: scanResult.fileUrl,
             file_type: scanResult.fileType || 'image',
+            preview_url: scanResult.previewUrl,
           });
         }
 
@@ -489,7 +512,7 @@ export default function QuickAddPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{isEditMode ? 'Edit Credit Entry' : 'Add Credit Entry'}</h1>
-        {!isEditMode && <AIScanButton variant="primary" onScanComplete={applyScanResult} />}
+        {!isEditMode && isAdmin && <AIScanButton variant="primary" onScanComplete={applyScanResult} />}
       </div>
 
 
@@ -517,7 +540,7 @@ export default function QuickAddPage() {
                   ) : null}
                 </div>
               )}
-              {selectedCustomer.credit_limit && customerBalance !== null && (
+              {isAdmin && selectedCustomer.credit_limit && customerBalance !== null && (
                 (() => {
                   const currentAmt = entryMode === 'quick' ? Number(quickAmount || 0) : getTotalAmount();
                   const projected = customerBalance + currentAmt;
@@ -852,9 +875,9 @@ export default function QuickAddPage() {
                     Scanned document
                   </label>
                   <div className="flex items-center gap-3 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50">
-                    {scannedAttachment.file_type === 'image' ? (
+                    {scannedAttachment.file_type === 'image' && safeFileUrl(scannedAttachment.preview_url) ? (
                       <img
-                        src={scannedAttachment.file_url}
+                        src={safeFileUrl(scannedAttachment.preview_url)!}
                         alt="Scanned document"
                         className="h-16 w-16 object-cover rounded"
                       />

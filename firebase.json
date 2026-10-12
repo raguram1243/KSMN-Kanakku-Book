@@ -11,6 +11,37 @@
         "source": "**",
         "destination": "/index.html"
       }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+          { "key": "X-Frame-Options", "value": "DENY" },
+          { "key": "Permissions-Policy", "value": "camera=(self), microphone=(), geolocation=()" },
+          { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
+          { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://rmuyoderuasqbdirhvpq.supabase.co; connect-src 'self' https://rmuyoderuasqbdirhvpq.supabase.co; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "source": "/index.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      },
+      {
+        "source": "/",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      }
     ]
   }
 }

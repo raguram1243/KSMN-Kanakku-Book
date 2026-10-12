@@ -3,6 +3,7 @@ import { Menu, LogOut, RefreshCw, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AppLogo } from '../common/AppLogo';
+import { homePathFor } from '../../lib/roles';
 
 interface TopNavProps {
   onMenuClick: () => void;
@@ -10,6 +11,7 @@ interface TopNavProps {
 
 export function TopNav({ onMenuClick }: TopNavProps) {
   const { staff, logout } = useAuth();
+  const home = homePathFor(staff?.role);
 
   const { theme, toggleTheme } = useTheme();
 
@@ -28,7 +30,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
             </button>
 
             {/* Logo + Title */}
-                        <Link to="/dashboard" className="flex items-center space-x-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                        <Link to={home} className="flex items-center space-x-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
               <AppLogo size="sm" />
               <span className="hidden sm:inline text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">KSMN Kanakku-Book</span>
               <span className="sm:hidden text-xl font-bold text-gray-900 dark:text-white whitespace-nowrap">KSMN</span>

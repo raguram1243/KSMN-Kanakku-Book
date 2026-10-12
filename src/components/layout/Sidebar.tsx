@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, PlusCircle, Users, UserCog, CreditCard, Settings, BarChart3, Clock, BookOpen } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Users, UserCog, CreditCard, Settings, BarChart3, Clock, BookOpen, ClipboardCheck } from 'lucide-react';
+import { usePendingPaymentsCount } from '../../hooks/useApi';
 import { useAuth } from '../../context/AuthContext';
 import { useState } from 'react';
 import { AppLogo } from '../common/AppLogo';
@@ -14,8 +15,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { staff, isAdmin } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
   const isExpanded = isHovered || isOpen;
+  // Staff payments waiting for review; the query is disabled for staff.
+  const pendingCount = usePendingPaymentsCount(isAdmin).data ?? 0;
 
-  const navGroups = [
+  // `staffOnly` items are the staff-side equivalents of admin screens (staff
+  // record payments on a lean form that goes to admin for approval).
+  type NavItem = {
+    path: string;
+    label: string;
+    icon: typeof LayoutDashboard;
+    adminOnly: boolean;
+    staffOnly?: boolean;
+    badge?: number;
+  };
+  const navGroups: { label: string; items: NavItem[] }[] = [
     {
       label: '',
       items: [
@@ -27,6 +40,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       items: [
         { path: '/add-credit', label: 'Add Credit Entry', icon: PlusCircle, adminOnly: false },
         { path: '/payment-received', label: 'Payment Received', icon: CreditCard, adminOnly: true },
+        { path: '/add-payment', label: 'Add Payment', icon: CreditCard, adminOnly: false, staffOnly: true },
+        { path: '/approvals', label: 'Approvals', icon: ClipboardCheck, adminOnly: true, badge: pendingCount },
         { path: '/day-book', label: 'Day-book', icon: BookOpen, adminOnly: true },
         { path: '/follow-ups', label: 'Follow-ups', icon: Clock, adminOnly: true },
       ],
@@ -43,7 +58,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   ];
 
   const filteredNavGroups = navGroups
-    .map(group => ({ ...group, items: group.items.filter(item => !item.adminOnly || isAdmin) }))
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => (!item.adminOnly || isAdmin) && (!item.staffOnly || !isAdmin)),
+    }))
     .filter(group => group.items.length > 0);
 
   // Position of each visible item across all groups, used to stagger the phone drawer entrance.
@@ -142,7 +160,16 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     {isActive && (
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 max-md:hidden bg-primary-600 rounded-r transition-all duration-200" />
                     )}
-                    <Icon size={20} className="flex-shrink-0" />
+                    <span className="relative flex-shrink-0">
+                      <Icon size={20} />
+                      {/* Collapsed rail: a dot on the icon stands in for the count. */}
+                      {!!item.badge && (
+                        <span
+                          aria-hidden="true"
+                          className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-900 ${isExpanded ? 'hidden' : ''} lg:hidden`}
+                        />
+                      )}
+                    </span>
                     <span className={`
                       ml-3 whitespace-nowrap
                       transition-opacity duration-200
@@ -151,6 +178,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     `}>
                       {item.label}
                     </span>
+                    {!!item.badge && (
+                      <span
+                        className={`ml-auto min-w-[1.25rem] px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[11px] font-semibold leading-none text-center tabular-nums ${isExpanded ? 'inline-block' : 'hidden'} lg:inline-block`}
+                        aria-label={`${item.badge} waiting`}
+                      >
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    )}
                   </Link>
                   </div>
                 );

@@ -1,61 +1,51 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
+import { preflight, json, errorResponse, readJson, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (token.role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase, 'admin')
 
     const url = new URL(req.url)
     const staffId = url.searchParams.get('id')
     const force = url.searchParams.get('force') === 'true'
 
     if (!staffId) {
-      return new Response(
-        JSON.stringify({ error: 'Staff ID required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, 'Staff ID required')
     }
 
     // Prevent self-deletion
-    if (staffId === token.staff_id) {
-      return new Response(
-        JSON.stringify({ error: 'You cannot delete your own account' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (staffId === caller.staff_id) {
+      throw new HttpError(409, 'You cannot delete your own account')
     }
 
-    // Check if staff member has any records (credit_entries or customers)
+    const { data: target, error: targetError } = await supabase
+      .from('staff')
+      .select('id, role, active')
+      .eq('id', staffId)
+      .maybeSingle()
+
+    if (targetError) throw targetError
+    if (!target) throw new HttpError(404, 'Staff member not found')
+
+    // The last active admin must stay
+    if (target.role === 'admin' && target.active) {
+      const { count: otherAdmins, error: adminError } = await supabase
+        .from('staff')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'admin')
+        .eq('active', true)
+        .neq('id', staffId)
+      if (adminError) throw adminError
+      if (!otherAdmins) {
+        throw new HttpError(409, 'At least one active admin must remain')
+      }
+    }
+
+    // Check if staff member has any records (credit entries, customers, payments)
     const { count: entryCount } = await supabase
       .from('credit_entries')
       .select('*', { count: 'exact', head: true })
@@ -66,21 +56,24 @@ serve(async (req) => {
       .select('*', { count: 'exact', head: true })
       .eq('created_by', staffId)
 
-    const totalRecords = (entryCount || 0) + (customerCount || 0)
+    const { count: paymentCount } = await supabase
+      .from('payments')
+      .select('*', { count: 'exact', head: true })
+      .eq('created_by', staffId)
+
+    const totalRecords = (entryCount || 0) + (customerCount || 0) + (paymentCount || 0)
 
     if (totalRecords > 0 && !force) {
-      return new Response(
-        JSON.stringify({
-          error: 'This staff member has associated records',
-          warning: true,
-          details: {
-            creditEntries: entryCount || 0,
-            customers: customerCount || 0,
-            message: `This staff member created ${entryCount || 0} credit entries and ${customerCount || 0} customers. Deleting them will remove the audit trail of who logged what. Consider deactivating instead. To proceed with deletion anyway, use force=true.`,
-          },
-        }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return json(req, {
+        error: 'This staff member has associated records',
+        warning: true,
+        details: {
+          creditEntries: entryCount || 0,
+          customers: customerCount || 0,
+          payments: paymentCount || 0,
+          message: `This staff member created ${entryCount || 0} credit entries, ${customerCount || 0} customers and ${paymentCount || 0} payments. Deleting them will remove the audit trail of who logged what. Consider deactivating instead. To proceed with deletion anyway, use force=true.`,
+        },
+      }, 409)
     }
 
     // Delete the staff member
@@ -91,14 +84,8 @@ serve(async (req) => {
 
     if (deleteError) throw deleteError
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json(req, { success: true })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'delete-staff')
   }
 })

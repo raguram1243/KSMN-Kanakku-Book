@@ -1,12 +1,24 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
+import { preflight, corsHeaders, errorResponse, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
 import * as XLSX from 'https://esm.sh/xlsx@0.18.5'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+// Spreadsheet apps run text starting with = + - @ as a formula; prefix it so
+// a customer or note typed as "=HYPERLINK(...)" stays plain text in the export.
+function safeCell(value: unknown): unknown {
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) return `'${value}`
+  return value
+}
+
+function toCsv(data: any[]): string {
+  const headers = Object.keys(data[0]).join(',')
+  const rows = data.map(row =>
+    Object.values(row).map(val => {
+      const cell = safeCell(val)
+      return typeof cell === 'string' ? `"${cell.replace(/"/g, '""')}"` : cell
+    }).join(',')
+  )
+  return [headers, ...rows].join('\n')
 }
 
 // Human-readable timestamp for exports, e.g. "10-08-2026 14:32"
@@ -26,32 +38,11 @@ function prettifyEnum(value: string | null | undefined): string {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (token.role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = serviceClient()
+    await requireStaff(req, supabase, 'admin')
 
     const url = new URL(req.url)
     const format = url.searchParams.get('format') || 'xlsx'
@@ -61,12 +52,13 @@ serve(async (req) => {
     let filename = ''
 
       if (dataset === 'customers') {
-        const { data: customers } = await supabase
+        const { data: customers, error: customersError } = await supabase
           .from('customers')
           .select('customer_code, name, phone, address, customer_type, notes, created_at, staff:staff!customers_created_by_fkey(name)')
           .order('created_at', { ascending: false })
+        if (customersError) throw customersError
 
-        data = (customers || []).map(c => ({
+        data = ((customers || []) as any[]).map(c => ({
           'Customer Code': c.customer_code,
           'Name': c.name,
           'Phone': c.phone,
@@ -78,12 +70,13 @@ serve(async (req) => {
         }))
         filename = 'customers'
       } else if (dataset === 'entries') {
-        const { data: entries } = await supabase
+        const { data: entries, error: entriesError } = await supabase
           .from('credit_entries')
           .select('entry_code, total_amount, paid_amount, balance, status, description, created_at, customer:customers!credit_entries_customer_id_fkey(name, customer_code), staff:staff!credit_entries_created_by_fkey(name)')
           .order('created_at', { ascending: false })
+        if (entriesError) throw entriesError
 
-        data = (entries || []).map(e => ({
+        data = ((entries || []) as any[]).map(e => ({
           'Entry Code': e.entry_code,
           'Customer Name': e.customer?.name ?? '',
           'Customer Code': e.customer?.customer_code ?? '',
@@ -97,12 +90,14 @@ serve(async (req) => {
         }))
         filename = 'entries'
       } else if (dataset === 'payments') {
-        const { data: payments } = await supabase
+        const { data: payments, error: paymentsError } = await supabase
           .from('payments')
           .select('amount, payment_date, payment_method, receipt_number, notes, created_at, customer:customers!payments_customer_id_fkey(name, customer_code), staff:staff!payments_created_by_fkey(name)')
+          .eq('status', 'approved')
           .order('payment_date', { ascending: false })
+        if (paymentsError) throw paymentsError
 
-        data = (payments || []).map(p => ({
+        data = ((payments || []) as any[]).map(p => ({
           'Customer Name': p.customer?.name ?? '',
           'Customer Code': p.customer?.customer_code ?? '',
           'Amount': Number(p.amount) || 0,
@@ -114,12 +109,14 @@ serve(async (req) => {
           'Created By': p.staff?.name ?? '',
         }))
         filename = 'payments'
+      } else {
+        throw new HttpError(400, 'Unknown dataset')
       }
 
     if (data.length === 0) {
       return new Response(
         'No data available',
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'text/plain' } }
+        { status: 404, headers: { ...corsHeaders(req), 'Content-Type': 'text/plain' } }
       )
     }
 
@@ -132,24 +129,18 @@ serve(async (req) => {
 
         return new Response(xlsxBytes, {
           headers: {
-            ...corsHeaders,
+            ...corsHeaders(req),
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition': `attachment; filename="${filename}.xlsx"`,
           },
         })
       } catch (e) {
         // Fallback to CSV if XLSX generation fails
-        const headers = Object.keys(data[0]).join(',')
-        const rows = data.map(row => 
-          Object.values(row).map(val => 
-            typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
-          ).join(',')
-        )
-        const csv = [headers, ...rows].join('\n')
+        const csv = toCsv(data)
 
         return new Response(csv, {
           headers: {
-            ...corsHeaders,
+            ...corsHeaders(req),
             'Content-Type': 'text/csv',
             'Content-Disposition': `attachment; filename="${filename}.csv"`,
           },
@@ -157,26 +148,17 @@ serve(async (req) => {
       }
     } else {
       // CSV
-      const headers = Object.keys(data[0]).join(',')
-      const rows = data.map(row => 
-        Object.values(row).map(val => 
-          typeof val === 'string' ? `"${val.replace(/"/g, '""')}"` : val
-        ).join(',')
-      )
-      const csv = [headers, ...rows].join('\n')
+      const csv = toCsv(data)
 
       return new Response(csv, {
         headers: {
-          ...corsHeaders,
+          ...corsHeaders(req),
           'Content-Type': 'text/csv',
           'Content-Disposition': `attachment; filename="${filename}.csv"`,
         },
       })
     }
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'export-data')
   }
 })

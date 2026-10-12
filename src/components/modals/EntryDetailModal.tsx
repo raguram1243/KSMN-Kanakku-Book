@@ -5,7 +5,7 @@ import { Alert } from '../ui/Alert';
 import { HoldToDelete } from '../ui/HoldToDelete';
 import type { ActionStatus } from '../../hooks/useActionProgress';
 import { ImageLightbox } from '../common/ImageLightbox';
-import { formatCurrency, formatDateTime } from '../../lib/utils';
+import { formatCurrency, formatDateTime, safeFileUrl } from '../../lib/utils';
 import { CreditEntry, CreditEntryItem } from '../../types';
 import { useState } from 'react';
 
@@ -28,7 +28,10 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
 
   // Collect all image-type attachment URLs for the gallery
   const imageAttachments = (entry.attachments ?? []).filter((a: any) => a.file_type === 'image');
-  const imageUrls = imageAttachments.map((a: any) => a.file_url);
+  // Only links to our own storage are ever rendered (see safeFileUrl).
+  const imageUrls = imageAttachments
+    .map((a: any) => safeFileUrl(a.file_url))
+    .filter((u: string | null): u is string => !!u);
 
   const openLightbox = (fileUrl: string) => {
     const idx = imageUrls.indexOf(fileUrl);
@@ -198,18 +201,20 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
                       </div>
                     </div>
                     
-                    {att.file_type === 'image' ? (
+                    {!safeFileUrl(att.file_url) ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 italic">File unavailable</p>
+                    ) : att.file_type === 'image' ? (
                       <img
-                        src={att.file_url}
+                        src={safeFileUrl(att.file_url)!}
                         alt="Attachment"
                         className="w-full h-32 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => openLightbox(att.file_url)}
+                        onClick={() => openLightbox(safeFileUrl(att.file_url)!)}
                       />
                     ) : (
                       <div className="flex space-x-2">
                         <Button
                           size="sm"
-                          onClick={() => window.open(att.file_url, '_blank')}
+                          onClick={() => window.open(safeFileUrl(att.file_url)!, '_blank', 'noopener,noreferrer')}
                           className="flex-1"
                         >
                           👁️ Preview
@@ -219,7 +224,7 @@ export function EntryDetailModal({ entry, customerName, onClose, onModify, onDel
                           variant="secondary"
                           onClick={() => {
                             const link = document.createElement('a');
-                            link.href = att.file_url;
+                            link.href = safeFileUrl(att.file_url)!;
                             link.download = att.file_name || 'download';
                             link.click();
                           }}

@@ -1,13 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import * as bcrypt from 'https://deno.land/x/bcrypt/mod.ts'
+import * as bcrypt from 'https://deno.land/x/bcrypt@v0.4.1/mod.ts'
 import { SignJWT } from 'https://deno.land/x/jose@v5.2.0/index.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
+import { preflight, json, errorResponse, readJson, HttpError } from '../_shared/http.ts'
+import { serviceClient } from '../_shared/auth.ts'
 
 // Wait before answering, given the consecutive failures BEFORE this attempt:
 // 0 and 1 -> no wait, then 250ms doubling, capped at 8s. Never a block.
@@ -16,31 +11,32 @@ function loginDelayMs(previousFailures: number): number {
   return Math.min(8000, 250 * 2 ** (previousFailures - 2))
 }
 
+// Compared against when the name is unknown (or inactive) so the response time
+// does not reveal which names exist. Same cost factor as real PIN hashes.
+const DUMMY_PIN_HASH = bcrypt.hashSync('000000', bcrypt.genSaltSync(10))
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const { name, pin } = await req.json()
+    const body = await readJson(req)
+    const { name, pin } = body
 
     if (!name || !pin) {
-      return new Response(
-        JSON.stringify({ error: 'Name and PIN are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, 'Name and PIN are required')
+    }
+    if (typeof name !== 'string' || typeof pin !== 'string') {
+      throw new HttpError(400, 'Name and PIN must be text')
     }
 
     // Initialize Supabase client with service role key
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = serviceClient()
 
     // Progressive delay: every attempt for a name (real or not) is counted up
     // front and the wait grows with the consecutive failures before it. Delay
     // only, never a block. Any throttle error is ignored so a throttle outage
     // cannot become a login outage.
-    const throttleKey = String(name).trim().toLowerCase().slice(0, 100)
+    const throttleKey = name.trim().toLowerCase().slice(0, 100)
     try {
       const { data: previousFailures, error: throttleError } = await supabase
         .rpc('bump_login_throttle', { p_key: throttleKey })
@@ -60,17 +56,18 @@ serve(async (req) => {
       .select('id, name, pin_hash, role, active')
       .eq('name', name)
       .eq('active', true)
-      .single()
+      .maybeSingle()
 
-    if (staffError || !staff) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid credentials' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // A real database failure is not "wrong credentials"
+    if (staffError && staffError.code !== 'PGRST116') throw staffError
+
+    // Always run one bcrypt compare, against a dummy hash when there is no
+    // such staff member, so timing does not reveal which names exist.
+    // (Verify PIN using bcrypt, sync to avoid Worker usage in Edge Functions.)
+    const pinMatch = bcrypt.compareSync(pin, staff?.pin_hash ?? DUMMY_PIN_HASH) && !!staff
+    if (!staff) {
+      throw new HttpError(401, 'Invalid credentials')
     }
-
-    // Verify PIN using bcrypt (sync to avoid Worker usage in Edge Functions)
-    const pinMatch = bcrypt.compareSync(pin, staff.pin_hash)
     if (pinMatch) {
       // Correct PIN: clear the failure count (best effort)
       try {
@@ -80,10 +77,7 @@ serve(async (req) => {
       }
     }
     if (!pinMatch) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid credentials' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(401, 'Invalid credentials')
     }
 
     // Generate JWT token using custom app secret
@@ -101,21 +95,15 @@ serve(async (req) => {
       .setExpirationTime('24h')
       .sign(new TextEncoder().encode(jwtSecret))
 
-    return new Response(
-      JSON.stringify({
-        token,
-        staff: {
-          id: staff.id,
-          name: staff.name,
-          role: staff.role,
-        },
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json(req, {
+      token,
+      staff: {
+        id: staff.id,
+        name: staff.name,
+        role: staff.role,
+      },
+    })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'verify-pin')
   }
 })

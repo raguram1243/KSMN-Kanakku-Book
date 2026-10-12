@@ -111,7 +111,10 @@ export interface AIScanResult {
   extractedData: any;
   customerMatches: CustomerMatch[];
   confidence: Record<string, number>;
+  /** Stored (canonical) URL of the scanned file: what gets saved on the entry. */
   fileUrl?: string;
+  /** Short-lived signed link for showing the file; the bucket is private. */
+  previewUrl?: string;
   fileType?: 'image' | 'pdf';
   needsManualClassification?: boolean;
 }

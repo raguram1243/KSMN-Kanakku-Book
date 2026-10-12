@@ -1,53 +1,33 @@
-﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { preflight, json, errorResponse, readJson, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
+import { signRows } from '../_shared/storage.ts'
 import { getOverdueThreshold, daysSince } from '../_shared/overdue.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
-
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase, 'admin')
 
     const url = new URL(req.url)
     const customerId = url.searchParams.get('id')
 
     if (!customerId) {
-      return new Response(
-        JSON.stringify({ error: 'Customer ID required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, 'Customer ID required')
     }
 
-    const viewName = token.role === 'admin' ? 'customer_view_admin' : 'customer_view_staff'
     const { data: customer, error: customerError } = await supabase
-      .from(viewName)
+      .from('customer_view_admin')
       .select('*')
       .eq('id', customerId)
       .single()
 
-    if (customerError) throw customerError
+    if (customerError) {
+      if (customerError.code === 'PGRST116') throw new HttpError(404, 'Customer not found')
+      throw customerError
+    }
 
     const [entriesResult, settingsResult, customerTypeResult, advanceResult, paymentsResult] = await Promise.all([
       supabase.from('credit_entries').select(
@@ -57,7 +37,7 @@ serve(async (req) => {
       supabase.from('customers').select('customer_type, custom_overdue_days').eq('id', customerId).single(),
       supabase.from('customer_advance_balance').select('advance_balance').eq('customer_id', customerId).single(),
       supabase.from('payments').select(
-        'id, customer_id, amount, payment_date, payment_method, receipt_number, notes, created_by, created_at, staff:staff!payments_created_by_fkey(name)'
+        'id, customer_id, amount, payment_date, payment_method, receipt_number, notes, status, review_note, created_by, created_at, staff:staff!payments_created_by_fkey(name)'
       ).eq('customer_id', customerId).order('payment_date', { ascending: false }),
     ])
 
@@ -154,6 +134,11 @@ serve(async (req) => {
       }
     }
 
+    // Buckets are private: replace stored identifiers with short-lived signed links
+    await signRows(supabase, entriesWithStaff, 'photo_url')
+    for (const list of Object.values(attachmentsMap)) await signRows(supabase, list, 'file_url')
+    for (const list of Object.values(paymentAttachmentsMap)) await signRows(supabase, list, 'file_url')
+
     const paymentsWithStaff = payments.map((payment: any) => ({
       ...payment,
       staff_name: payment.staff?.name || null,
@@ -174,22 +159,16 @@ serve(async (req) => {
       advance_balance: advanceBalance,
     }
 
-    return new Response(
-      JSON.stringify({ 
-        customer: customerWithBalance, 
-        entries: entriesWithStaff.map((entry: any) => ({
-          ...entry,
-          items: itemsMap[entry.id] || [],
-          attachments: attachmentsMap[entry.id] || [],
-        })),
-        payments: paymentsWithStaff 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json(req, {
+      customer: customerWithBalance,
+      entries: entriesWithStaff.map((entry: any) => ({
+        ...entry,
+        items: itemsMap[entry.id] || [],
+        attachments: attachmentsMap[entry.id] || [],
+      })),
+      payments: paymentsWithStaff,
+    })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'get-customer')
   }
 })

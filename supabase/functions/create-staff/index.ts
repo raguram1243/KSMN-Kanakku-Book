@@ -1,56 +1,36 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
-import * as bcrypt from 'https://deno.land/x/bcrypt/mod.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
+import { preflight, json, errorResponse, readJson, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
+import * as bcrypt from 'https://deno.land/x/bcrypt@v0.4.1/mod.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase, 'admin')
 
-    if (token.role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    const { name, pin, role } = await req.json()
+    const body = await readJson(req)
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    const { pin, role } = body
 
     if (!name || !pin || !role) {
-      return new Response(
-        JSON.stringify({ error: 'Name, PIN, and role are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, 'Name, PIN, and role are required')
+    }
+
+    if (role !== 'admin' && role !== 'staff') {
+      throw new HttpError(400, 'Role must be admin or staff')
     }
 
     if (typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
-      return new Response(
-        JSON.stringify({ error: 'PIN must be 4 to 6 digits (numbers only)' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, 'PIN must be 4 to 6 digits (numbers only)')
+    }
+
+    // Login is by name, so two people with the same name (any capitalisation) would clash
+    const { data: existingNames, error: namesError } = await supabase.from('staff').select('name')
+    if (namesError) throw namesError
+    if ((existingNames || []).some((row: any) => String(row.name).trim().toLowerCase() === name.toLowerCase())) {
+      throw new HttpError(409, 'A staff member with this name already exists')
     }
 
     // Hash PIN using bcrypt (genSaltSync first, then hashSync)
@@ -70,14 +50,8 @@ serve(async (req) => {
 
     if (error) throw error
 
-    return new Response(
-      JSON.stringify({ staff }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json(req, { staff })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'create-staff')
   }
 })

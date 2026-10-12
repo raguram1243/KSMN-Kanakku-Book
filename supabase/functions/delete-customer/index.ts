@@ -1,49 +1,19 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
+import { preflight, json, errorResponse, readJson, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
 import { parseStorageUrl } from '../_shared/storage.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
-
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase, 'admin')
 
-    if (token.role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    const { customer_id } = await req.json()
+    const { customer_id } = await readJson(req)
 
     if (!customer_id) {
-      return new Response(
-        JSON.stringify({ error: 'Customer ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, 'Customer ID is required')
     }
 
     // Verify the customer exists (raises a clear error instead of a silent no-op)
@@ -54,7 +24,7 @@ serve(async (req) => {
       .single()
 
     if (customerErr) {
-      throw new Error('Customer not found')
+      throw new HttpError(404, 'Customer not found')
     }
 
     // Collect IDs of everything linked to this customer so we can grab the
@@ -90,7 +60,7 @@ serve(async (req) => {
         .from('payment_attachments')
         .select('file_url')
         .in('payment_id', paymentIdArray)
-            if (payAttErr) throw payAttErr
+      if (payAttErr) throw payAttErr
       fileUrls.push(...(payAtts || []).map((a: { file_url: string }) => a.file_url))
     }
 
@@ -124,18 +94,12 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        files_removed: filesRemoved,
-        files_skipped: filesSkipped,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json(req, {
+      success: true,
+      files_removed: filesRemoved,
+      files_skipped: filesSkipped,
+    })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'delete-customer')
   }
 })

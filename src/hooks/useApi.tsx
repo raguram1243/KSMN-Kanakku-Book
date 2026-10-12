@@ -44,6 +44,42 @@ export function invalidatePaymentQueries(qc: QueryClient, customerId?: string) {
   invalidateEntryQueries(qc, customerId);
   qc.invalidateQueries({ queryKey: ['payments-report'] });
   qc.invalidateQueries({ queryKey: ['recent-payments'] });
+  qc.invalidateQueries({ queryKey: ['pending-payments'] });
+}
+
+/**
+ * Pending staff payments awaiting admin approval.
+ *
+ * `count` feeds the nav badge and the dashboard alert: polled every minute and
+ * on window focus so the admin notices new submissions without reloading.
+ * Pass `enabled = isAdmin` — the endpoint is admin-only.
+ */
+export function usePendingPaymentsCount(enabled: boolean) {
+  return useQuery<number, Error>({
+    queryKey: ['pending-payments', 'count'],
+    queryFn: async () => {
+      const res = await api.countPendingPayments();
+      if (!res.ok) throw new Error('Failed to load pending payments');
+      const data = await res.json();
+      return Number(data.count) || 0;
+    },
+    enabled,
+    staleTime: 30_000,
+    refetchInterval: enabled ? 60_000 : false,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function usePendingPayments() {
+  return useQuery<any, Error, any, any>({
+    queryKey: ['pending-payments', 'list'],
+    queryFn: async () => {
+      const res = await api.listPendingPayments();
+      if (!res.ok) throw new Error('Failed to load pending payments');
+      return res.json();
+    },
+    refetchOnWindowFocus: true,
+  });
 }
 
 export function useDashboardStats() {
@@ -171,7 +207,9 @@ export function useDayBook(day: string) {
       const entries = entriesRes.ok ? await entriesRes.json() : {};
       const pays = payRes.ok ? await payRes.json() : {};
       const entryList: any[] = entries.entries ?? [];
-      const payList: any[] = pays.payments ?? [];
+      // Only approved payments are collections (the server already filters;
+      // this keeps the on-device fallback honest too).
+      const payList: any[] = (pays.payments ?? []).filter((p: any) => !p.status || p.status === 'approved');
       const credit = entryList.reduce((sum, e) => sum + Number(e.total_amount || 0), 0);
       const coll = payList.reduce((sum, p) => sum + Number(p.amount || 0), 0);
       const byMethod = new Map<string, { count: number; total: number }>();

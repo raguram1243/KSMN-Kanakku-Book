@@ -1,9 +1,8 @@
 // ============================================
 // Customer Matcher for Edge Function
 // ============================================
-// Matches extracted customer names with existing customers
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Matches extracted customer names with existing customers. Returns identity
+// fields only (never balances, advance or credit limit), so staff can receive it.
 
 export interface CustomerMatch {
   id: string;

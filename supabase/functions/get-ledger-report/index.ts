@@ -1,40 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
+import { preflight, json, errorResponse, readJson, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (token.role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase, 'admin')
 
     // Optional From/To date range (inclusive). When omitted the RPC
     // falls back to all-time totals, preserving the default behaviour.
@@ -44,10 +17,7 @@ serve(async (req) => {
 
     const isValidDate = (v: string | null) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v)
     if (!isValidDate(fromDate) || !isValidDate(toDate)) {
-      return new Response(
-        JSON.stringify({ error: 'from_date and to_date must be in YYYY-MM-DD format' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, 'from_date and to_date must be in YYYY-MM-DD format')
     }
 
     const rpcParams: Record<string, string> = {}
@@ -60,14 +30,8 @@ serve(async (req) => {
 
     const customers = Array.isArray(data) ? data : []
 
-    return new Response(
-      JSON.stringify({ customers }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json(req, { customers })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'get-ledger-report')
   }
 })

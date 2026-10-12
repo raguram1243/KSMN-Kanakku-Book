@@ -13,10 +13,11 @@ import { Skeleton, SkeletonCard, SkeletonChart, SkeletonListItem, SkeletonButton
 import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
 import { AgingReportWidget } from '../components/dashboard/AgingReportWidget';
 import { AIScanButton } from '../components/ai/AIScanButton';
-import { useDashboardStats, useDeleteEntry, useDeletePayment } from '../hooks/useApi';
+import { useDashboardStats, useDeleteEntry, useDeletePayment, usePendingPaymentsCount } from '../hooks/useApi';
 import { useToastStore } from '../store/toastStore';
 import { useActionProgress } from '../hooks/useActionProgress';
-import { IndianRupee, Users, AlertTriangle } from 'lucide-react';
+import { IndianRupee, Users, AlertTriangle, ClipboardCheck } from 'lucide-react';
+import { isApprovedPayment } from '../types';
 
 interface DashboardStats {
   totalOutstanding: number;
@@ -87,6 +88,7 @@ export function DashboardPage() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const statsQuery = useDashboardStats();
+  const pendingCount = usePendingPaymentsCount(isAdmin).data ?? 0;
   const deleteEntry = useDeleteEntry();
   const deletePayment = useDeletePayment();
   // The hold-to-delete confirmations in the two detail modals report their
@@ -117,14 +119,12 @@ export function DashboardPage() {
 
   const handlePaymentClick = async (paymentId: string) => {
     try {
-      // Fetch payment details - for now we'll create a minimal payment object
-      // In the future, you may want to add a dedicated get-payment endpoint
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-customer?id=${stats?.recentPayments.find(p => p.id === paymentId)?.customer_id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('ksmn_token')}`
-        }
-      });
-      
+      // No get-payment endpoint: read it off the customer. Goes through
+      // apiCall so an ended session logs out like every other request.
+      const customerId = stats?.recentPayments.find(p => p.id === paymentId)?.customer_id;
+      if (!customerId) return;
+      const response = await api.getCustomer(customerId);
+
       if (response.ok) {
         const data = await response.json();
         const payment = data.payments?.find((p: any) => p.id === paymentId);
@@ -245,6 +245,28 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
+
+      {/* Staff payments waiting for review. They count nowhere until approved,
+          so this sits above the numbers it will change. */}
+      {pendingCount > 0 && (
+        <Link
+          to="/approvals"
+          className="flex items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 hover:border-amber-300 dark:hover:border-amber-800 transition-colors focus-ring"
+        >
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+            <ClipboardCheck size={20} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-amber-900 dark:text-amber-100">
+              {pendingCount === 1 ? '1 payment is' : `${pendingCount} payments are`} waiting for your approval
+            </div>
+            <div className="text-sm text-amber-800 dark:text-amber-200">
+              Recorded by staff. Not counted in balances or reports until approved.
+            </div>
+          </div>
+          <span className="text-sm font-semibold text-amber-800 dark:text-amber-200 whitespace-nowrap">Review →</span>
+        </Link>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -631,7 +653,9 @@ export function DashboardPage() {
         <PaymentDetailModal
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
-          onModify={() => navigate(`/payment-received/${selectedPayment.customer_id}/edit/${selectedPayment.id}`)}
+          onModify={isApprovedPayment(selectedPayment)
+            ? () => navigate(`/payment-received/${selectedPayment.customer_id}/edit/${selectedPayment.id}`)
+            : undefined}
           deleteStatus={paymentDeleteProgress.status}
           onDelete={async () => {
             paymentDeleteProgress.start();
