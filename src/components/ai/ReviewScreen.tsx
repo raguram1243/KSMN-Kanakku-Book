@@ -387,7 +387,9 @@ function CreditDataReview({
         />
         <Input
           label="Phone Number"
-          type="text"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
           placeholder="Not detected"
           value={data.phone_number || ''}
           onChange={(e) => {

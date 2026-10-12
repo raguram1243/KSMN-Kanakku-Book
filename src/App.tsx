@@ -9,8 +9,6 @@ import { AppLayout } from './components/layout/AppLayout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CustomersPage } from './pages/CustomersPage';
-import { StaffManagementPage } from './pages/StaffManagementPage';
-import { SettingsPage } from './pages/SettingsPage';
 import { debugLog } from './lib/utils';
 import { homePathFor } from './lib/roles';
 
@@ -25,6 +23,9 @@ const DayBookPage = lazy(() => import('./pages/DayBookPage').then(m => ({ defaul
 const StaffPaymentPage = lazy(() => import('./pages/StaffPaymentPage'));
 const ApprovalsPage = lazy(() => import('./pages/ApprovalsPage'));
 const FollowUpsPage = lazy(() => import('./pages/FollowUpsPage').then(m => ({ default: m.FollowUpsPage })));
+// Admin-only and rarely opened: kept out of the first download.
+const StaffManagementPage = lazy(() => import('./pages/StaffManagementPage').then(m => ({ default: m.StaffManagementPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 
 function PageSkeleton() {
   return (
@@ -244,7 +245,9 @@ function AppRoutes() {
         path="/staff"
         element={
           <ProtectedRoute adminOnly>
-            <StaffManagementPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <StaffManagementPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -252,7 +255,9 @@ function AppRoutes() {
         path="/settings"
         element={
           <ProtectedRoute adminOnly>
-            <SettingsPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <SettingsPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />

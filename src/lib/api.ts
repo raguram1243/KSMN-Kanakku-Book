@@ -310,6 +310,20 @@ export const api = {
     })
   },
 
+  /**
+   * Saves a Print Bill picture/PDF as the entry's generated bill. The server
+   * replaces any earlier generated bill of that entry; uploaded photos are
+   * never touched.
+   */
+  uploadGeneratedBill: (file: File, entryId: string) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('attachment_type', 'entry')
+    formData.append('related_id', entryId)
+    formData.append('kind', 'generated_bill')
+    return apiCall('/upload-attachment', { method: 'POST', body: formData })
+  },
+
   // Staff payment approvals (admin)
   listPendingPayments: () =>
     apiCall('/list-pending-payments'),

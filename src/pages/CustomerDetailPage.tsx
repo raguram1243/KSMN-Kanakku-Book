@@ -1043,6 +1043,8 @@ export default function CustomerDetailPage() {
         <EntryDetailModal
           entry={selectedEntry}
           customerName={customer.name}
+          customerCode={customer.customer_code}
+          customerPhone={customer.phone}
           onClose={() => setSelectedEntry(null)}
           onModify={() => navigate(`/add-credit?entry_id=${selectedEntry.id}`)}
           deleteStatus={deleteEntry.status}
