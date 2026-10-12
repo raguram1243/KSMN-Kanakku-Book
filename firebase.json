@@ -21,7 +21,7 @@
           { "key": "X-Frame-Options", "value": "DENY" },
           { "key": "Permissions-Policy", "value": "camera=(self), microphone=(), geolocation=()" },
           { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
-          { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://rmuyoderuasqbdirhvpq.supabase.co; connect-src 'self' https://rmuyoderuasqbdirhvpq.supabase.co; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" }
+          { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://vulbnfrmuzrlgccexjbj.supabase.co; connect-src 'self' https://vulbnfrmuzrlgccexjbj.supabase.co; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" }
         ]
       },
       {

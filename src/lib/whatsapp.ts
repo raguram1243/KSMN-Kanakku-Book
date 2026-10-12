@@ -53,6 +53,22 @@ export function buildOverdueReminderMessage(
   return `Dear ${customerName}, this is a gentle reminder that your outstanding balance of ₹${amt} has been overdue since ${date}. We kindly request you to clear the payment at the earliest. Thank you for your continued business.\n- KSM Nataraja Nadar Firm`
 }
 
+// 4. Printed bill sent with its picture or PDF (Print Bill preview).
+// Deliberately no bill number and nothing about what is outstanding.
+export function buildBillMessage(
+  billDate: string, // already dd/mm/yyyy
+  total: number,
+  attachment: 'photo' | 'file',
+  language: ReminderLanguage
+): string {
+  const amt = formatAmount(total)
+  if (language === 'ta') {
+    const what = attachment === 'photo' ? 'புகைப்படத்தைப்' : 'கோப்பைப்'
+    return `${billDate}\nஇது தங்களது ₹${amt} தொகைக்கான பில் ஆகும். விவரங்களுக்கு இணைக்கப்பட்டுள்ள ${what} பார்க்கவும்.\nநன்றி - KSM Nataraja Nadar Firm`
+  }
+  return `${billDate}\nThis is your bill for ₹${amt}. Please see the attached ${attachment} for the details.\nThank you - KSM Nataraja Nadar Firm`
+}
+
 /**
  * Normalize a phone number for the WhatsApp `wa.me` deep link.
  *

@@ -20,7 +20,9 @@ import { DocumentClassifier } from '../services/ai/DocumentClassifier';
 import { useToastStore } from '../store/toastStore';
 import { ThemedSelect } from '../components/ui/ThemedSelect';
 import { useActionProgress } from '../hooks/useActionProgress';
-import { UserPlus, IndianRupee } from 'lucide-react';
+import { UserPlus, IndianRupee, Printer } from 'lucide-react';
+import { BillPreviewDialog } from '../components/bill/BillPreviewDialog';
+import { generateAndSaveBill, toBillItems, type GeneratedBill } from '../lib/billUpload';
 
 const CUSTOMER_TYPE_OPTIONS = [
   { value: 'walk-in', label: 'Walk-in' },
@@ -82,8 +84,15 @@ export default function QuickAddPage() {
   // above still owns disabling and validation.
   const createCustomer = useActionProgress();
   const saveEntry = useActionProgress();
+  // Progress for the Print Bill button (save, then make and store the bill).
+  const printBillProgress = useActionProgress();
   const [error, setError] = useState('');
   const [editPaidAmount, setEditPaidAmount] = useState<number | null>(null);
+  // Edit mode: what is needed to redraw the entry's bill after an update.
+  // Only entries that already have a generated bill get it redrawn.
+  const [editBillInfo, setEditBillInfo] = useState<{ entryCode: string; createdAt: string; hasGeneratedBill: boolean } | null>(null);
+  // The bill just made by Print Bill, shown in the preview dialog.
+  const [billPreview, setBillPreview] = useState<{ result: GeneratedBill; customerName: string; phone: string | null } | null>(null);
   // Pre-selected customer. Admin links pass ?customer_id= and the customer is
   // loaded from get-customer. Staff cannot call get-customer, so the staff
   // customer list hands the row it already has over in router state.
@@ -114,6 +123,11 @@ export default function QuickAddPage() {
         setEntryMode(entry.entry_mode);
         // Set paid amount for hint
         setEditPaidAmount(Number(entry.paid_amount) || 0);
+        setEditBillInfo({
+          entryCode: entry.entry_code,
+          createdAt: entry.created_at,
+          hasGeneratedBill: (entry.attachments || []).some((a: { kind?: string }) => a.kind === 'generated_bill'),
+        });
         // Prefill fields based on mode
         if (entry.entry_mode === 'quick') {
           setQuickDescription(entry.description || '');
@@ -288,16 +302,23 @@ export default function QuickAddPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => submitEntry(e, false);
+  // Print Bill: exactly the same save, then the bill is made, stored with the
+  // entry and shown. Detailed entries only.
+  const handlePrintBill = (e: React.FormEvent) => submitEntry(e, true);
+
+  const submitEntry = async (e: React.FormEvent, withBill: boolean) => {
     e.preventDefault();
     if (!selectedCustomer) {
       setError('Please select a customer');
       return;
     }
 
+    // Each button drives its own progress bar; everything else is shared.
+    const progress = withBill ? printBillProgress : saveEntry;
     setLoading(true);
     setError('');
-    saveEntry.start();
+    progress.start();
 
     try {
       const totalAmount = getTotalAmount();
@@ -377,6 +398,13 @@ export default function QuickAddPage() {
           title: 'Credit entry updated',
           description: 'Credit entry updated successfully',
         });
+
+        // The entry already had a printed bill: redraw it so it matches the
+        // edit. Photos and uploaded files are never touched.
+        if (entryMode === 'detailed' && editBillInfo?.hasGeneratedBill) {
+          await regenerateBill(entryId, validLineItems, selectedCustomer);
+          invalidateEntryQueries(queryClient, selectedCustomer.id);
+        }
         navigate(`/customers/${selectedCustomer.id}`);
       } else {
         // Create mode: create new entry
@@ -410,7 +438,35 @@ export default function QuickAddPage() {
 
         const createdEntryData = await entryResponse.json();
         const newEntry = createdEntryData.entry;
-        saveEntry.succeed();
+
+        // Print Bill: the entry is saved; make the bill from what was just
+        // entered (staff get no items back) before the form is cleared.
+        if (withBill && entryMode === 'detailed') {
+          const billCustomer = selectedCustomer;
+          try {
+            const result = await generateAndSaveBill(
+              {
+                entryCode: newEntry.entry_code,
+                billDate: newEntry.created_at || new Date().toISOString(),
+                customerName: billCustomer.name,
+                customerCode: billCustomer.customer_code,
+                phone: billCustomer.phone,
+                items: toBillItems(validLineItems),
+                total: Number(newEntry.total_amount) || totalAmount,
+              },
+              newEntry.id
+            );
+            setBillPreview({ result, customerName: billCustomer.name, phone: billCustomer.phone ?? null });
+            if (!result.saveError) invalidateEntryQueries(queryClient, billCustomer.id);
+          } catch (billErr) {
+            useToastStore.getState().addToast({
+              type: 'error',
+              title: 'Entry saved, but the bill could not be made',
+              description: billErr instanceof Error && billErr.message ? billErr.message : 'Open the entry later and use Print Bill.',
+            });
+          }
+        }
+        progress.succeed();
 
         // Reset form
         setSelectedCustomer(null);
@@ -437,10 +493,42 @@ export default function QuickAddPage() {
         }
       }
     } catch (err) {
-      saveEntry.fail();
+      progress.fail();
       setError(err instanceof Error ? err.message : 'Failed to create entry');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Admin edit of an entry that already had a generated bill: redraw it and
+  // replace the old one on the server. Never blocks the update itself.
+  const regenerateBill = async (id: string, items: LineItem[], customer: Customer) => {
+    if (!editBillInfo) return;
+    try {
+      const { saveError } = await generateAndSaveBill(
+        {
+          entryCode: editBillInfo.entryCode,
+          billDate: editBillInfo.createdAt,
+          customerName: customer.name,
+          customerCode: customer.customer_code,
+          phone: customer.phone,
+          items: toBillItems(items),
+          total: items.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+        },
+        id
+      );
+      if (saveError) throw new Error(saveError);
+      useToastStore.getState().addToast({
+        type: 'success',
+        title: 'Bill updated',
+        description: 'The printed bill now matches this entry.',
+      });
+    } catch (err) {
+      useToastStore.getState().addToast({
+        type: 'error',
+        title: 'Entry updated, but the bill was not',
+        description: `${err instanceof Error && err.message ? err.message : 'Please try again'}. Open the entry and use Print Bill.`,
+      });
     }
   };
 
@@ -918,9 +1006,36 @@ export default function QuickAddPage() {
               >
                 {isEditMode ? 'Update Credit Entry' : 'Save Credit Entry'}
               </Button>
+              {!isEditMode && entryMode === 'detailed' && (
+                <Button
+                  variant="secondary"
+                  onClick={handlePrintBill}
+                  disabled={loading || !selectedCustomer}
+                  className="w-full mt-3"
+                  loading={loading}
+                  progress={printBillProgress.status}
+                  progressLabel="Saving"
+                  progressExpectedMs={3000}
+                  progressIcon={<Printer size={16} />}
+                  size="lg"
+                >
+                  {!loading && <Printer size={18} className="mr-2" aria-hidden="true" />}
+                  Print Bill
+                </Button>
+              )}
             </div>
           </Card>
         </>
+      )}
+
+      {billPreview && (
+        <BillPreviewDialog
+          bill={billPreview.result.bill}
+          saveError={billPreview.result.saveError}
+          customerName={billPreview.customerName}
+          phone={billPreview.phone}
+          onClose={() => setBillPreview(null)}
+        />
       )}
     </div>
   );

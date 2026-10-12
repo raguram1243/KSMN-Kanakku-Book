@@ -1,0 +1,18 @@
+{
+  "hosting": {
+    "public": "public",
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" },
+          { "key": "Content-Security-Policy", "value": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" }
+        ]
+      }
+    ]
+  }
+}

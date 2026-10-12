@@ -114,6 +114,9 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
         />
         <Input
           label="Phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           required

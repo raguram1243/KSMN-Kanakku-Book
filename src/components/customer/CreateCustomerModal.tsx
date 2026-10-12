@@ -111,6 +111,9 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
         />
         <Input
           label="Phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="Phone number"

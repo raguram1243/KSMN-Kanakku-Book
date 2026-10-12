@@ -8,11 +8,11 @@ import {
   buildLedgerAttachment,
   PDF_THRESHOLD_ROWS,
   type LedgerAttachment,
-  type LedgerAttachmentKind,
   type LedgerImageInput,
   type LedgerImageRow,
 } from '../../lib/ledgerImage'
 import { useActionProgress } from '../../hooks/useActionProgress'
+import { canCopyImage, canShareFile, downloadBlob, looksLikePhoneOrTablet } from '../../lib/shareFile'
 import { useToastStore } from '../../store/toastStore'
 
 interface WhatsAppReminderDialogProps {
@@ -31,48 +31,6 @@ interface WhatsAppReminderDialogProps {
 }
 
 type SendRoute = 'auto' | 'share' | 'download' | 'copy'
-
-/** True when the browser says it can share this file through the native share sheet. */
-function canShareFile(file: File | null): boolean {
-  if (!file || typeof navigator === 'undefined') return false
-  try {
-    return !!navigator.canShare?.({ files: [file] })
-  } catch {
-    return false
-  }
-}
-
-/**
- * Can an image go on the clipboard? That is the quickest desktop route:
- * WhatsApp Web and the Windows app both accept a pasted image, so there is
- * no file to find. A PDF cannot go on a clipboard, so it still downloads.
- */
-function canCopyImage(kind: LedgerAttachmentKind): boolean {
-  if (kind !== 'png') return false
-  if (typeof ClipboardItem === 'undefined') return false
-  return typeof navigator !== 'undefined' && !!navigator.clipboard?.write
-}
-
-/** Phones and tablets: touch input plus a mobile-ish user agent (iPadOS reports as a Mac). */
-function looksLikePhoneOrTablet(): boolean {
-  if (typeof navigator === 'undefined') return false
-  if (!(navigator.maxTouchPoints > 0)) return false
-  const ua = navigator.userAgent || ''
-  return /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(ua) || /Macintosh/i.test(ua)
-}
-
-function downloadBlob(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  link.style.display = 'none'
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  // Revoke after the browser has had a chance to start the download.
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
 
 const subtleLinkClass =
   'text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline underline-offset-2 disabled:opacity-60 disabled:cursor-not-allowed focus-ring rounded'
