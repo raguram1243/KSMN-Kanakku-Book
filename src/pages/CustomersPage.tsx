@@ -13,6 +13,8 @@ import { CreateCustomerModal } from '../components/customer/CreateCustomerModal'
 import { useCustomers } from '../hooks/useApi';
 import { PaginationControls, PaginationSkeleton } from '../components/ui/PaginationControls';
 import { ThemedSelect } from '../components/ui/ThemedSelect';
+import { useAuth } from '../context/AuthContext';
+import { PlusCircle, CreditCard } from 'lucide-react';
 
 const PAGE_SIZE = 20;
 
@@ -60,8 +62,45 @@ function getOverdueStatus(customer: Customer): { isOverdue: boolean; label: stri
   return null
 }
 
+/**
+ * Staff view of one customer: name, code, phone and type only (that is all
+ * list-customers sends staff), plus shortcuts to add a bill or a payment for
+ * them. Staff cannot open the customer page, which is all balances.
+ */
+function StaffCustomerCard({ customer, compact }: { customer: Customer; compact: boolean }) {
+  const navigate = useNavigate();
+  const go = (path: string) => navigate(path, { state: { customer } });
+  return (
+    <Card>
+      <div className={compact ? 'flex flex-wrap items-center justify-between gap-3' : 'space-y-3'}>
+        <div className={compact ? 'flex-1 min-w-0' : ''}>
+          <div className="font-semibold text-gray-900 dark:text-white truncate">{customer.name}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {customer.customer_code}{compact && <> • {customer.phone}</>}
+          </div>
+          {!compact && <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">📞 {customer.phone}</div>}
+        </div>
+        <div className={`flex items-center gap-2 ${compact ? '' : 'justify-between pt-2 border-t border-gray-200 dark:border-gray-700'}`}>
+          <Badge variant={customer.customer_type === 'regular' ? 'info' : 'default'}>
+            {customer.customer_type}
+          </Badge>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={() => go('/add-credit')}>
+              <PlusCircle size={14} className="mr-1 inline" /> Bill
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => go('/add-payment')}>
+              <CreditCard size={14} className="mr-1 inline" /> Payment
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export function CustomersPage() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,22 +194,27 @@ export function CustomersPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-md flex-1 min-w-[180px]"
         />
-        <ThemedSelect
-          value={filter}
-          onChange={(value) => setFilter(value)}
-          options={FILTER_OPTIONS}
-          ariaLabel="Filter customers"
-          size="sm"
-          menuWidth={170}
-        />
-        <ThemedSelect
-          value={sortBy}
-          onChange={(value) => setSortBy(value as typeof sortBy)}
-          options={SORT_OPTIONS}
-          ariaLabel="Sort customers"
-          size="sm"
-          menuWidth={320}
-        />
+        {/* Balance filters and sorts are admin-only (staff get no balances). */}
+        {isAdmin && (
+          <>
+            <ThemedSelect
+              value={filter}
+              onChange={(value) => setFilter(value)}
+              options={FILTER_OPTIONS}
+              ariaLabel="Filter customers"
+              size="sm"
+              menuWidth={170}
+            />
+            <ThemedSelect
+              value={sortBy}
+              onChange={(value) => setSortBy(value as typeof sortBy)}
+              options={SORT_OPTIONS}
+              ariaLabel="Sort customers"
+              size="sm"
+              menuWidth={320}
+            />
+          </>
+        )}
         <Button variant="primary" size="sm" onClick={() => setShowCreateCustomer(true)}>
           + Add Customer
         </Button>
@@ -206,6 +250,12 @@ export function CustomersPage() {
               : 'No customers yet. Add your first customer to get started.'}
           </p>
         </Card>
+      ) : !isAdmin ? (
+        <div className={view === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
+          {customers.map(customer => (
+            <StaffCustomerCard key={customer.id} customer={customer} compact={view === 'list'} />
+          ))}
+        </div>
       ) : view === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {customers.map(customer => (
@@ -222,7 +272,7 @@ export function CustomersPage() {
                   <div className="space-y-1 text-sm">
                     <div className="text-gray-600 dark:text-gray-400">📞 {customer.phone}</div>
                     {customer.address && <div className="text-gray-600 dark:text-gray-400">📍 {customer.address}</div>}
-                    <div className="text-gray-500 dark:text-gray-400">Created: {formatDate(customer.created_at)}</div>
+                    {customer.created_at && <div className="text-gray-500 dark:text-gray-400">Created: {formatDate(customer.created_at)}</div>}
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t">
                     <div className="flex items-center space-x-2">

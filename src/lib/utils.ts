@@ -129,3 +129,38 @@ export function isSessionExpired(): boolean {
     return true;
   }
 }
+
+const SUPABASE_HOST = (() => {
+  try {
+    return new URL(import.meta.env.VITE_SUPABASE_URL as string).host;
+  } catch {
+    return null;
+  }
+})();
+
+/**
+ * The URL only if it is an https link to our own Supabase project, else null.
+ *
+ * Every attachment / photo link the app renders goes through this, so a
+ * planted `javascript:` or phishing link in a stored file_url can never become
+ * a clickable href or an <img src>. Callers render nothing (or "file
+ * unavailable") on null.
+ */
+export function safeFileUrl(url: string | null | undefined): string | null {
+  if (!url || !SUPABASE_HOST) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' || parsed.host !== SUPABASE_HOST) return null;
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
+
+/** Today's date on this device as YYYY-MM-DD (local time, not UTC). */
+export function todayLocalISO(): string {
+  const d = new Date();
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const day = d.getDate().toString().padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}

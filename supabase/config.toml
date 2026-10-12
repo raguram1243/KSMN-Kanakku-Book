@@ -520,3 +520,12 @@ verify_jwt = false
 
 [functions.record-reminder]
 verify_jwt = false
+
+[functions.list-pending-payments]
+verify_jwt = false
+
+[functions.approve-payment]
+verify_jwt = false
+
+[functions.reject-payment]
+verify_jwt = false

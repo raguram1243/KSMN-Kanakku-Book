@@ -7,9 +7,10 @@ import { Badge } from '../components/ui/Badge';
 import { StatusPill } from '../components/ui/StatusPill';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import { formatCurrency, formatDate, formatDateTime, debugError, getBalanceTone, getOverdueStatus } from '../lib/utils';
+import { formatCurrency, formatDate, formatDateTime, debugError, getBalanceTone, getOverdueStatus, safeFileUrl } from '../lib/utils';
 import { api } from '../lib/api';
-import { CreditEntry, Payment } from '../types';
+import { CreditEntry, Payment, isApprovedPayment } from '../types';
+import { PaymentStatusBadge } from '../components/payments/PaymentStatusBadge';
 import { EntryDetailModal } from '../components/modals/EntryDetailModal';
 import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
 import { Skeleton, SkeletonCard, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
@@ -185,9 +186,11 @@ export default function CustomerDetailPage() {
     await handleSaveOverdueDays();
   };
 
-  // Calculate ledger transactions (once, before filtering)
+  // Calculate ledger transactions (once, before filtering). Pending and
+  // rejected staff payments are listed so the admin can see them, but they
+  // carry no credit and leave the running balance alone.
   const ledgerTransactions = useMemo(() => {
-    return buildLedgerTransactions(entries, payments);
+    return buildLedgerTransactions(entries, payments, { includeUnapproved: true });
   }, [entries, payments]);
 
   // Apply filters (after balance calculation)
@@ -651,9 +654,13 @@ export default function CustomerDetailPage() {
                     <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                       {/* Legacy single photo fallback */}
                       {entry.photo_url && !(entry.attachments && entry.attachments.length > 0) && (
-                        <a href={entry.photo_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700">
-                          📎 View attached photo
-                        </a>
+                        safeFileUrl(entry.photo_url) ? (
+                          <a href={safeFileUrl(entry.photo_url)!} target="_blank" rel="noopener noreferrer" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700" onClick={(e) => e.stopPropagation()}>
+                            📎 View attached photo
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-500 dark:text-gray-400 italic">📎 Photo unavailable</span>
+                        )
                       )}
 
                       {/* New multi-file attachments */}
@@ -661,12 +668,13 @@ export default function CustomerDetailPage() {
                         <div className="space-y-2">
                           <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Attachments</div>
                           <div className="flex flex-wrap gap-2">
-                            {entry.attachments.map((att: any) => (
+                            {entry.attachments.map((att: any) => safeFileUrl(att.file_url) ? (
                               <a
                                 key={att.id}
-                                href={att.file_url}
+                                href={safeFileUrl(att.file_url)!}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
                                 className="inline-flex items-center space-x-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 hover:shadow-sm transition-all"
                               >
                                 {att.file_type === 'image' ? (
@@ -681,6 +689,13 @@ export default function CustomerDetailPage() {
                                   </>
                                 )}
                               </a>
+                            ) : (
+                              <span
+                                key={att.id}
+                                className="inline-flex items-center px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-500 dark:text-gray-400"
+                              >
+                                File unavailable
+                              </span>
                             ))}
                           </div>
                         </div>
@@ -733,9 +748,16 @@ export default function CustomerDetailPage() {
                         {payment.staff_name && (
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Recorded by: {payment.staff_name}</div>
                         )}
+                        {payment.status === 'rejected' && payment.review_note && (
+                          <div className="text-xs text-red-600 dark:text-red-400 mt-1">Reason: {payment.review_note}</div>
+                        )}
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(payment.amount)}</div>
+                        {/* Pending / rejected amounts are shown muted: they are not in any total. */}
+                        <div className={`text-lg font-bold ${isApprovedPayment(payment) ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500 line-through'}`}>
+                          {formatCurrency(payment.amount)}
+                        </div>
+                        <PaymentStatusBadge status={payment.status} className="mt-1" />
                       </div>
                     </div>
                   </div>
@@ -854,7 +876,9 @@ export default function CustomerDetailPage() {
                       {transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}
                     </td>
                     <td className={`px-3 py-2 text-right font-medium ${transaction.credit > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`}>
-                      {transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}
+                      {transaction.excluded
+                        ? <span className="line-through">{formatCurrency(Number((transaction.originalData as Payment).amount))}</span>
+                        : transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}
                     </td>
                     <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(transaction.balance)}</td>
                     <td className="px-3 py-2 text-center">
@@ -863,7 +887,9 @@ export default function CustomerDetailPage() {
                       </Badge>
                     </td>
                     <td className="px-3 py-2 text-center">
-                      {transaction.status && (
+                      {transaction.excluded ? (
+                        <PaymentStatusBadge status={transaction.status} />
+                      ) : transaction.status && (
                         <Badge variant={transaction.status === 'paid' ? 'success' : transaction.status === 'partial' ? 'warning' : 'danger'}>
                           {transaction.status}
                         </Badge>
@@ -922,15 +948,27 @@ export default function CustomerDetailPage() {
                         <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(transaction.credit)}</span>
                       </div>
                     )}
+                    {transaction.excluded && (
+                      <div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Amount: </span>
+                        <span className="text-sm font-medium text-gray-400 line-through">
+                          {formatCurrency(Number((transaction.originalData as Payment).amount))}
+                        </span>
+                      </div>
+                    )}
                     <div>
                       <span className="text-xs text-gray-500 dark:text-gray-400">Balance: </span>
                       <span className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(transaction.balance)}</span>
                     </div>
                   </div>
 
-                  {transaction.status && (
+                  {transaction.excluded ? (
                     <div className="pt-2 border-t">
-                      <StatusPill status={transaction.status} size="sm" />
+                      <PaymentStatusBadge status={transaction.status} />
+                    </div>
+                  ) : transaction.status && (
+                    <div className="pt-2 border-t">
+                      <StatusPill status={transaction.status as 'paid' | 'partial' | 'unpaid'} size="sm" />
                     </div>
                   )}
                 </div>
@@ -1038,7 +1076,11 @@ export default function CustomerDetailPage() {
         <PaymentDetailModal
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
-          onModify={() => navigate(`/payment-received/${customer.id}/edit/${selectedPayment.id}`)}
+          // Pending / rejected payments are not edited here: a pending one is
+          // reviewed on Approvals, a rejected one stays as it was. Delete still works.
+          onModify={isApprovedPayment(selectedPayment)
+            ? () => navigate(`/payment-received/${customer.id}/edit/${selectedPayment.id}`)
+            : undefined}
           deleteStatus={deletePayment.status}
                     onDelete={async () => {
             deletePayment.start();

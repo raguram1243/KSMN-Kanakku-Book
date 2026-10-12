@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight, ExternalLink, Download } from 'lucide-react';
+import { safeFileUrl } from '../../lib/utils';
 
 interface ImageLightboxProps {
   images: string[];
@@ -56,16 +57,20 @@ export function ImageLightbox({ images, initialIndex, onClose }: ImageLightboxPr
     };
   }, []);
 
-  const currentImage = images[currentIndex];
+  // Last line of defence: anything that is not a link to our own storage is
+  // never put into an <img src>, a new tab or a download link.
+  const currentImage = safeFileUrl(images[currentIndex]);
   const hasMultiple = images.length > 1;
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < images.length - 1;
 
   const handleOpenNewTab = () => {
-    window.open(currentImage, '_blank');
+    if (!currentImage) return;
+    window.open(currentImage, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownload = () => {
+    if (!currentImage) return;
     const link = document.createElement('a');
     link.href = currentImage;
     link.download = `attachment-${currentIndex + 1}`;
@@ -134,12 +139,16 @@ export function ImageLightbox({ images, initialIndex, onClose }: ImageLightboxPr
       )}
 
       {/* Image */}
-      <img
-        src={currentImage}
-        alt="Full size preview"
-        className="max-w-full max-h-full object-contain"
-        onClick={(e) => e.stopPropagation()}
-      />
+      {currentImage ? (
+        <img
+          src={currentImage}
+          alt="Full size preview"
+          className="max-w-full max-h-full object-contain"
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <p className="text-white/70 text-sm" onClick={(e) => e.stopPropagation()}>File unavailable</p>
+      )}
     </div>,
     document.body
   );

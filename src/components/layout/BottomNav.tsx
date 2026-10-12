@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { PlusCircle, CreditCard, Users, BookOpen, Menu } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { usePendingPaymentsCount } from '../../hooks/useApi';
 
 /**
  * Bottom tab bar for phones, in the spirit of the Rive sample's animated bar:
@@ -13,8 +14,8 @@ import { useAuth } from '../../context/AuthContext';
  * hamburger does.
  *
  * Roles are respected the same way the sidebar does it, so a staff member
- * sees only the tabs they can actually open — three, not five, because
- * Payment Received and Day-book are admin-only.
+ * sees only the tabs they can actually open: Add, Payment (the lean form that
+ * goes to admin for approval) and Customers.
  */
 
 interface BottomNavProps {
@@ -23,17 +24,20 @@ interface BottomNavProps {
 }
 
 const TABS = [
-  { path: '/add-credit', label: 'Add', icon: PlusCircle, adminOnly: false },
-  { path: '/payment-received', label: 'Payment', icon: CreditCard, adminOnly: true },
-  { path: '/customers', label: 'Customers', icon: Users, adminOnly: false },
-  { path: '/day-book', label: 'Day-book', icon: BookOpen, adminOnly: true },
+  { path: '/add-credit', label: 'Add', icon: PlusCircle, adminOnly: false, staffOnly: false },
+  { path: '/payment-received', label: 'Payment', icon: CreditCard, adminOnly: true, staffOnly: false },
+  { path: '/add-payment', label: 'Payment', icon: CreditCard, adminOnly: false, staffOnly: true },
+  { path: '/customers', label: 'Customers', icon: Users, adminOnly: false, staffOnly: false },
+  { path: '/day-book', label: 'Day-book', icon: BookOpen, adminOnly: true, staffOnly: false },
 ]
 
 export function BottomNav({ onMenuClick }: BottomNavProps) {
   const location = useLocation()
   const { isAdmin } = useAuth()
+  // Approvals has no tab of its own; the More button carries the count instead.
+  const pendingCount = usePendingPaymentsCount(isAdmin).data ?? 0
 
-  const tabs = TABS.filter(tab => !tab.adminOnly || isAdmin)
+  const tabs = TABS.filter(tab => (!tab.adminOnly || isAdmin) && (!tab.staffOnly || !isAdmin))
   // More is always last and always present: it is the way to everything else.
   const count = tabs.length + 1
   const activeIndex = tabs.findIndex(tab => location.pathname.startsWith(tab.path))
@@ -91,10 +95,20 @@ export function BottomNav({ onMenuClick }: BottomNavProps) {
         <button
           type="button"
           onClick={onMenuClick}
-          aria-label="Open menu"
+          aria-label={pendingCount > 0 ? `Open menu, ${pendingCount} payments waiting for approval` : 'Open menu'}
           className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] focus-ring rounded-xl"
         >
-          <Menu size={22} className="text-gray-500 dark:text-gray-400 transition-transform duration-300 ease-out active:scale-110" />
+          <span className="relative">
+            <Menu size={22} className="text-gray-500 dark:text-gray-400 transition-transform duration-300 ease-out active:scale-110" />
+            {pendingCount > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute -top-1.5 -right-2.5 min-w-[1.1rem] px-1 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-none text-center tabular-nums ring-2 ring-white dark:ring-gray-900"
+              >
+                {pendingCount > 99 ? '99+' : pendingCount}
+              </span>
+            )}
+          </span>
           <span className="text-[11px] leading-none font-medium text-gray-500 dark:text-gray-400">More</span>
         </button>
       </div>

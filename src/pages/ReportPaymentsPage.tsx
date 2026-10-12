@@ -68,7 +68,10 @@ export default function ReportPaymentsPage() {
 
   // Empty strings rather than null so every column sorts the same way.
   const rows: PaymentRow[] = useMemo(() => {
-    const payments: RawPayment[] = data?.payments ?? [];
+    // Pending / rejected staff payments are not collections.
+    const payments: RawPayment[] = (data?.payments ?? []).filter(
+      (p: RawPayment & { status?: string }) => !p.status || p.status === 'approved',
+    );
     return payments.map(p => ({
       id: p.id,
       payment_date: p.payment_date,

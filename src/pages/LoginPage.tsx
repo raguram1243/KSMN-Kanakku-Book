@@ -6,13 +6,25 @@ import { PasswordInput } from '../components/ui/PasswordInput';
 import { Alert } from '../components/ui/Alert';
 import { AppLogo } from '../components/common/AppLogo';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../lib/api';
+import { api, LOGOUT_REASON_KEY } from '../lib/api';
+import { homePathFor } from '../lib/roles';
 import { debugLog } from '../lib/utils';
 
 export function LoginPage() {
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  // Why the last session ended (deactivated, PIN changed, expired), set by
+  // apiCall just before it redirected here. Read once, then forgotten.
+  const [notice] = useState<string | null>(() => {
+    try {
+      const reason = sessionStorage.getItem(LOGOUT_REASON_KEY);
+      sessionStorage.removeItem(LOGOUT_REASON_KEY);
+      return reason;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -36,8 +48,10 @@ export function LoginPage() {
 
       debugLog('[Login] Calling login() with token and staff');
       login(data.token, data.staff);
-      debugLog('[Login] Navigating to /dashboard');
-      navigate('/dashboard');
+      // Staff have no dashboard; each role lands on its own home screen.
+      const home = homePathFor(data.staff?.role);
+      debugLog('[Login] Navigating to', home);
+      navigate(home);
     } catch (err) {
       debugLog('[Login] Error:', err);
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -79,6 +93,9 @@ export function LoginPage() {
               maxLength={20}
             />
 
+            {notice && !error && (
+              <Alert variant="warning">{notice}</Alert>
+            )}
             {error && (
               <Alert variant="error">{error}</Alert>
             )}

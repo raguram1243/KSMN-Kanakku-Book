@@ -4,8 +4,9 @@ import { Alert } from '../ui/Alert';
 import { HoldToDelete } from '../ui/HoldToDelete';
 import type { ActionStatus } from '../../hooks/useActionProgress';
 import { ImageLightbox } from '../common/ImageLightbox';
-import { formatCurrency, formatDateTime } from '../../lib/utils';
+import { formatCurrency, formatDateTime, safeFileUrl } from '../../lib/utils';
 import { Payment } from '../../types';
+import { PaymentStatusBadge } from '../payments/PaymentStatusBadge';
 import { useState } from 'react';
 
 interface PaymentDetailModalProps {
@@ -67,6 +68,21 @@ export function PaymentDetailModal({ payment, onClose, onModify, onDelete, delet
             <div className="text-sm text-gray-600 dark:text-gray-400">Payment Date & Time</div>
             <div className="font-semibold text-gray-900 dark:text-white">{formatDateTime(payment.payment_date)}</div>
           </div>
+
+          {/* Not counted yet / never: say so before the amount */}
+          {(payment.status === 'pending' || payment.status === 'rejected') && (
+            <Alert variant={payment.status === 'pending' ? 'warning' : 'error'}>
+              <div className="flex items-center gap-2">
+                <PaymentStatusBadge status={payment.status} />
+                <span>
+                  {payment.status === 'pending'
+                    ? 'Recorded by staff. Not counted in any balance until an admin approves it.'
+                    : 'Rejected by the admin. Not counted in any balance.'}
+                </span>
+              </div>
+              {payment.review_note && <p className="mt-1 text-sm">Reason: {payment.review_note}</p>}
+            </Alert>
+          )}
 
           {/* Amount */}
           <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
@@ -134,18 +150,20 @@ export function PaymentDetailModal({ payment, onClose, onModify, onDelete, delet
                       </div>
                     </div>
                     
-                    {att.file_type === 'image' ? (
+                    {!safeFileUrl(att.file_url) ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 italic">File unavailable</p>
+                    ) : att.file_type === 'image' ? (
                       <img
-                        src={att.file_url}
+                        src={safeFileUrl(att.file_url)!}
                         alt="Payment proof"
                         className="w-full h-32 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => setLightboxImage(att.file_url)}
+                        onClick={() => setLightboxImage(safeFileUrl(att.file_url)!)}
                       />
                     ) : (
                       <div className="flex space-x-2">
                         <Button
                           size="sm"
-                          onClick={() => window.open(att.file_url, '_blank')}
+                          onClick={() => window.open(safeFileUrl(att.file_url)!, '_blank', 'noopener,noreferrer')}
                           className="flex-1"
                         >
                           👁️ Preview
@@ -155,7 +173,7 @@ export function PaymentDetailModal({ payment, onClose, onModify, onDelete, delet
                           variant="secondary"
                           onClick={() => {
                             const link = document.createElement('a');
-                            link.href = att.file_url;
+                            link.href = safeFileUrl(att.file_url)!;
                             link.download = att.file_name || 'payment-proof';
                             link.click();
                           }}

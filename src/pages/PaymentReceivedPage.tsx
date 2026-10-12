@@ -74,6 +74,9 @@ export default function PaymentReceivedPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [advanceOnly, setAdvanceOnly] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  // Edit mode on a pending / rejected staff payment: those are reviewed on the
+  // Approvals screen, not edited here.
+  const [editBlocked, setEditBlocked] = useState(false);
 const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null>(null);
 
   // Refs to avoid stale closures in live-allocation effect
@@ -244,6 +247,14 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
         if (isEditMode && rawPaymentId) {
           // Edit mode: find the payment and its allocations
           const payment = (data.payments || []).find((p: any) => p.id === rawPaymentId);
+          if (payment && payment.status && payment.status !== 'approved') {
+            setEditBlocked(true);
+            setError(
+              payment.status === 'pending'
+                ? 'This payment is waiting for approval. Review it on the Approvals screen.'
+                : 'This payment was rejected and cannot be edited.'
+            );
+          }
           if (payment) {
             // Prefill payment fields
             loadedAmount = payment.amount?.toString() || '';
@@ -415,6 +426,8 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
       setError('Only admin can receive payments');
       return;
     }
+
+    if (editBlocked) return;
 
     const amount = parseFloat(paymentAmount);
     if (!amount || amount <= 0) {
@@ -972,7 +985,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
       <div className="flex space-x-3">
                 <Button
           onClick={handleOpenConfirm}
-          disabled={submitting || !paymentAmount || parseFloat(paymentAmount) <= 0}
+          disabled={submitting || editBlocked || !paymentAmount || parseFloat(paymentAmount) <= 0}
           className="flex-1"
           size="lg"
           loading={submitting}

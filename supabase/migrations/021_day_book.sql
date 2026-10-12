@@ -1,9 +1,9 @@
-// ============================================
-// A5: Day-book RPC — one row per calendar day.
-// Credit given vs collection, counts, advances.
-// Frontend falls back to get-today-stats + recent-payments client-side
-// until this migration is pushed.
-// ============================================
+-- ============================================
+-- A5: Day-book RPC — one row per calendar day.
+-- Credit given vs collection, counts, advances.
+-- Frontend falls back to get-today-stats + recent-payments client-side
+-- until this migration is pushed.
+-- ============================================
 
 CREATE OR REPLACE FUNCTION get_day_book_stats(p_day DATE)
 RETURNS JSONB

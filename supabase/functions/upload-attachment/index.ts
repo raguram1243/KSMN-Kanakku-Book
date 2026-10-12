@@ -1,98 +1,114 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
+import { preflight, json, errorResponse, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
+import { signUrl } from '../_shared/storage.ts'
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// The file extension comes from the MIME type, never from the uploaded filename
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+  'application/pdf': 'pdf',
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    try {
-      await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase)
 
     // Parse multipart/form-data
-    const formData = await req.formData()
-    const file = formData.get('file') as File | null
-    const attachmentType = formData.get('attachment_type') as string | null
-    const relatedId = formData.get('related_id') as string | null
+    let formData: FormData
+    try {
+      formData = await req.formData()
+    } catch {
+      throw new HttpError(400, 'Request must be multipart form data')
+    }
+    const file = formData.get('file')
+    const attachmentType = formData.get('attachment_type')
+    const relatedIdRaw = formData.get('related_id')
 
-    if (!file) {
-      return new Response(
-        JSON.stringify({ error: 'No file provided' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (!file || typeof file === 'string') {
+      throw new HttpError(400, 'No file provided')
     }
 
     // Server-side size check (original file size before any encoding)
     if (file.size > MAX_FILE_SIZE) {
-      return new Response(
-        JSON.stringify({ error: `File too large — max 4MB per file (got ${(file.size / 1024 / 1024).toFixed(2)}MB)` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, `File too large - max 4MB per file (got ${(file.size / 1024 / 1024).toFixed(2)}MB)`)
     }
 
-    if (!attachmentType || !['entry', 'payment'].includes(attachmentType)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid attachment_type (must be "entry" or "payment")' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (attachmentType !== 'entry' && attachmentType !== 'payment') {
+      throw new HttpError(400, 'Invalid attachment_type (must be "entry" or "payment")')
     }
 
-    // Determine bucket based on file type and attachment type
-    const bucket = file.type.startsWith('image/') ? 'entry-photos' : 'entry-docs'
+    // Only photos and PDFs are accepted
+    const mimeType = (file.type || '').toLowerCase()
+    const isImage = mimeType.startsWith('image/')
+    if (!isImage && mimeType !== 'application/pdf') {
+      throw new HttpError(400, 'Only images and PDF files can be uploaded')
+    }
+    const ext = EXTENSION_BY_MIME[mimeType] || (isImage ? 'img' : 'pdf')
+
+    // If related_id is given, the entry/payment must exist, and staff may only
+    // attach to something they created themselves.
+    const relatedId = typeof relatedIdRaw === 'string' && relatedIdRaw ? relatedIdRaw : null
+    const parentTable = attachmentType === 'entry' ? 'credit_entries' : 'payments'
+    if (relatedId) {
+      if (!UUID_RE.test(relatedId)) {
+        throw new HttpError(400, 'related_id must be a valid id')
+      }
+      const { data: parent, error: parentError } = await supabase
+        .from(parentTable)
+        .select('id, created_by')
+        .eq('id', relatedId)
+        .maybeSingle()
+      if (parentError) throw parentError
+      if (!parent) throw new HttpError(404, attachmentType === 'entry' ? 'Entry not found' : 'Payment not found')
+      if (caller.role !== 'admin' && parent.created_by !== caller.staff_id) {
+        throw new HttpError(403, 'You can only attach files to your own records')
+      }
+    }
+
+    // Determine bucket based on file type
+    const bucket = isImage ? 'entry-photos' : 'entry-docs'
 
     // Generate safe filename
-    const ext = file.name.split('.').pop() || 'bin'
     const safeName = `${Date.now()}-${crypto.randomUUID()}.${ext}`
 
     // Upload using service role key (bypasses RLS)
     const { error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(safeName, file, {
-        contentType: file.type,
+        contentType: mimeType,
         upsert: false,
       })
 
     if (uploadError) {
       console.error('Storage upload error:', uploadError)
-      return new Response(
-        JSON.stringify({ error: `Upload failed: ${uploadError.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(500, 'Upload failed. Please try again.')
     }
 
-    // Get public URL
+    // Canonical URL: an identifier only (the bucket is private)
     const { data: publicUrlData } = supabase.storage
       .from(bucket)
       .getPublicUrl(safeName)
 
     const publicUrl = publicUrlData.publicUrl
+    const fileType = isImage ? 'image' : 'pdf'
 
     // If related_id is provided, create the attachment record
     if (relatedId) {
       const tableName = attachmentType === 'entry' ? 'credit_entry_attachments' : 'payment_attachments'
       const foreignKey = attachmentType === 'entry' ? 'credit_entry_id' : 'payment_id'
-      const fileType = file.type.startsWith('image/') ? 'image' : 'pdf'
 
       const { error: attachError } = await supabase
         .from(tableName)
@@ -106,29 +122,21 @@ serve(async (req) => {
         console.error('Attachment record error:', attachError)
         // Try to clean up uploaded file
         await supabase.storage.from(bucket).remove([safeName])
-        return new Response(
-          JSON.stringify({ error: `Failed to save attachment record: ${attachError.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        throw new HttpError(500, 'Failed to save the attachment. Please try again.')
       }
     }
 
-    return new Response(
-      // `file_type` stays the coarse image|pdf bucket the attachment tables use.
-      // `mime_type` is the browser-reported type of the original File, passed
-      // through so callers (ai-scan) can label the bytes accurately instead of
-      // assuming a format.
-      JSON.stringify({
-        url: publicUrl,
-        file_type: file.type.startsWith('image/') ? 'image' : 'pdf',
-        mime_type: file.type || null,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    // `url` is the canonical identifier to store; `signed_url` is what to show.
+    // `file_type` stays the coarse image|pdf bucket the attachment tables use.
+    // `mime_type` is the type of the original File, passed through so callers
+    // (ai-scan) can label the bytes accurately instead of assuming a format.
+    return json(req, {
+      url: publicUrl,
+      signed_url: await signUrl(supabase, publicUrl),
+      file_type: fileType,
+      mime_type: mimeType,
+    })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'upload-attachment')
   }
 })

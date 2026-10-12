@@ -12,6 +12,7 @@ import { CustomersPage } from './pages/CustomersPage';
 import { StaffManagementPage } from './pages/StaffManagementPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { debugLog } from './lib/utils';
+import { homePathFor } from './lib/roles';
 
 const QuickAddPage = lazy(() => import('./pages/QuickAddPage'));
 const CustomerDetailPage = lazy(() => import('./pages/CustomerDetailPage'));
@@ -21,6 +22,8 @@ const ReportLayout = lazy(() => import('./components/reports/ReportLayout'));
 const ReportEntriesPage = lazy(() => import('./pages/ReportEntriesPage'));
 const ReportPaymentsPage = lazy(() => import('./pages/ReportPaymentsPage'));
 const DayBookPage = lazy(() => import('./pages/DayBookPage').then(m => ({ default: m.DayBookPage })));
+const StaffPaymentPage = lazy(() => import('./pages/StaffPaymentPage'));
+const ApprovalsPage = lazy(() => import('./pages/ApprovalsPage'));
 const FollowUpsPage = lazy(() => import('./pages/FollowUpsPage').then(m => ({ default: m.FollowUpsPage })));
 
 function PageSkeleton() {
@@ -78,15 +81,23 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
   }
 
   if (adminOnly && !isAdmin) {
-    debugLog('[Route] Access denied - adminOnly route but staff role is:', staff.role);
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-gray-600 dark:text-gray-400">Access denied. Admin only.</div>
-      </div>
-    );
+    // Staff following an old link or bookmark go back to a screen they can
+    // use rather than a dead end. The server refuses these endpoints anyway.
+    debugLog('[Route] adminOnly route, staff role is:', staff.role);
+    return <Navigate to={homePathFor(staff.role)} replace />;
   }
 
   return <AppLayout>{children}</AppLayout>;
+}
+
+/**
+ * Staff record payments on the lean form (saved pending, no allocation).
+ * Admin record them on Payment Received, where they allocate to bills.
+ */
+function StaffPaymentRoute() {
+  const { isAdmin } = useAuth();
+  if (isAdmin) return <Navigate to="/payment-received" replace />;
+  return <StaffPaymentPage />;
 }
 
 function AppRoutes() {
@@ -107,7 +118,7 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/login"
-        element={staff ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+        element={staff ? <Navigate to={homePathFor(staff.role)} replace /> : <LoginPage />}
       />
       <Route
         path="/dashboard"
@@ -138,7 +149,7 @@ function AppRoutes() {
       <Route
         path="/customers/:id"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute adminOnly>
             <Suspense fallback={<PageSkeleton />}>
               <CustomerDetailPage />
             </Suspense>
@@ -165,6 +176,26 @@ function AppRoutes() {
           <ProtectedRoute adminOnly>
             <Suspense fallback={<PageSkeleton />}>
               <PaymentReceivedPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/add-payment"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<PageSkeleton />}>
+              <StaffPaymentRoute />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/approvals"
+        element={
+          <ProtectedRoute adminOnly>
+            <Suspense fallback={<PageSkeleton />}>
+              <ApprovalsPage />
             </Suspense>
           </ProtectedRoute>
         }
@@ -225,7 +256,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to={homePathFor(staff?.role)} replace />} />
     </Routes>
   );
 }

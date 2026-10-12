@@ -34,8 +34,10 @@ export function normalizeLineItems(input: unknown): NormalizedLineItem[] {
 
     const item = raw as Record<string, unknown>
     const name = String(item.item_name ?? '').trim()
-    const qty = toNumber(item.qty)
-    const rate = toNumber(item.rate)
+    // Stored as NUMERIC(10,2): round now so a qty of 0.004 is dropped here
+    // instead of reaching the database as 0.00.
+    const qty = Math.round(toNumber(item.qty) * 100) / 100
+    const rate = Math.round(toNumber(item.rate) * 100) / 100
 
     if (!name) continue
     if (!(qty > 0)) continue

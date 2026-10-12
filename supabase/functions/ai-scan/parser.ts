@@ -70,11 +70,11 @@ function toConfidenceValue(value: any): number {
   return Math.max(0, Math.min(1, n));
 }
 
-function sanitizeConfidence(
+function sanitizeConfidence<T extends string>(
   source: any,
-  keys: string[]
-): Record<string, number> {
-  const result: Record<string, number> = {};
+  keys: T[]
+): Record<T, number> {
+  const result = {} as Record<T, number>;
   for (const key of keys) {
     result[key] =
       source && typeof source === 'object'

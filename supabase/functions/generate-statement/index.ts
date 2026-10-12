@@ -1,41 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
+import { preflight, corsHeaders, errorResponse, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
 import { PDFDocument, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
-
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (token.role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase, 'admin')
 
     const url = new URL(req.url)
     const customerId = url.searchParams.get('customer_id')
@@ -43,10 +16,7 @@ serve(async (req) => {
     const toDate = url.searchParams.get('to_date') || undefined
 
     if (!customerId) {
-      return new Response(
-        JSON.stringify({ error: 'Customer ID required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, 'Customer ID required')
     }
 
     // Fetch customer
@@ -56,7 +26,10 @@ serve(async (req) => {
       .eq('id', customerId)
       .single()
 
-    if (customerError) throw customerError
+    if (customerError) {
+      if (customerError.code === 'PGRST116') throw new HttpError(404, 'Customer not found')
+      throw customerError
+    }
 
     // Fetch entries
     let entriesQuery = supabase
@@ -72,13 +45,15 @@ serve(async (req) => {
       entriesQuery = entriesQuery.lte('created_at', toDate + 'T23:59:59')
     }
 
-    const { data: entries } = await entriesQuery
+    const { data: entries, error: entriesError } = await entriesQuery
+    if (entriesError) throw entriesError
 
     // Fetch payments
     let paymentsQuery = supabase
       .from('payments')
       .select('*')
       .eq('customer_id', customerId)
+      .eq('status', 'approved')
       .order('payment_date', { ascending: true })
 
     if (fromDate) {
@@ -88,7 +63,8 @@ serve(async (req) => {
       paymentsQuery = paymentsQuery.lte('payment_date', toDate)
     }
 
-    const { data: payments } = await paymentsQuery
+    const { data: payments, error: paymentsError } = await paymentsQuery
+    if (paymentsError) throw paymentsError
 
     // Fetch allocations for all payments
     const paymentIds = (payments || []).map(p => p.id)
@@ -213,17 +189,14 @@ serve(async (req) => {
 
     const pdfBytes = await pdfDoc.save()
 
-    return new Response(pdfBytes, {
+    return new Response(pdfBytes as any, {
       headers: {
-        ...corsHeaders,
+        ...corsHeaders(req),
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${customer.customer_code}_statement.pdf"`,
+        'Content-Disposition': `attachment; filename="${String(customer.customer_code).replace(/[^A-Za-z0-9_-]/g, '_')}_statement.pdf"`,
       },
     })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'generate-statement')
   }
 })

@@ -1,67 +1,34 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
+import { preflight, json, errorResponse, readJson, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
+import { cleanAttachments, signUrl } from '../_shared/storage.ts'
 import { normalizeLineItems, summarizeLineItems, toItemRows } from '../_shared/entry-items.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
-
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase, 'admin')
+
+    const { entry_id, description, total_amount, items, notes, attachments } = await readJson(req)
+
+    if (!entry_id || typeof entry_id !== 'string') {
+      throw new HttpError(400, 'Missing required fields')
     }
 
-    if (token.role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    const { entry_id, description, total_amount, items, notes, attachments } = await req.json()
-
-    if (!entry_id || total_amount === undefined) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Client-supplied file links must be our own uploads (validated before anything is written)
+    const newAttachments = cleanAttachments(attachments)
 
     // Fetch existing entry to get paid_amount
     const { data: existingEntry, error: fetchError } = await supabase
       .from('credit_entries')
       .select('paid_amount, entry_mode')
       .eq('id', entry_id)
-      .single()
+      .maybeSingle()
 
     if (fetchError) throw fetchError
-
-    // Validation: new amount can't be less than already paid
-    if (total_amount < existingEntry.paid_amount) {
-      return new Response(
-        JSON.stringify({ error: `New amount cannot be less than the amount already paid (₹${existingEntry.paid_amount})` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    if (!existingEntry) throw new HttpError(404, 'Entry not found')
 
     const isDetailed = existingEntry.entry_mode === 'detailed'
     // `items` absent means "leave the items alone"; an empty or unusable list
@@ -70,22 +37,41 @@ serve(async (req) => {
     const lineItems = itemsProvided ? normalizeLineItems(items) : []
 
     if (itemsProvided && lineItems.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'A detailed entry needs at least one item with a name and a quantity above zero' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new HttpError(400, 'A detailed entry needs at least one item with a name and a quantity above zero')
+    }
+
+    // Same rules as creation. A detailed total is computed from the normalized
+    // items, never taken from the client; a quick total must be a real amount.
+    // A detailed edit without items leaves the total (and items) untouched.
+    let newTotal: number | null = null
+    if (itemsProvided) {
+      newTotal = lineItems.reduce((sum, item) => sum + Math.round(item.qty * item.rate * 100) / 100, 0)
+      newTotal = Math.round(newTotal * 100) / 100
+    } else if (!isDetailed) {
+      if (typeof total_amount !== 'number' || !Number.isFinite(total_amount) || total_amount <= 0) {
+        throw new HttpError(400, 'Total amount must be a number greater than zero')
+      }
+      newTotal = Math.round(total_amount * 100) / 100
+    }
+    if (newTotal !== null && newTotal <= 0) {
+      throw new HttpError(400, 'Total amount must be greater than zero')
+    }
+
+    // Validation: new amount can't be less than already paid
+    if (newTotal !== null && newTotal < Number(existingEntry.paid_amount)) {
+      throw new HttpError(400, `New amount cannot be less than the amount already paid (₹${existingEntry.paid_amount})`)
     }
 
     // The description of a detailed entry is derived from its items, so it is
     // regenerated here; sending the old one back would let it go stale.
     const entryUpdate: Record<string, unknown> = {
-      total_amount,
-      notes: notes || null,
+      notes: typeof notes === 'string' && notes ? notes : null,
     }
+    if (newTotal !== null) entryUpdate.total_amount = newTotal
     if (itemsProvided) {
       entryUpdate.description = summarizeLineItems(lineItems) || null
     } else if (!isDetailed) {
-      entryUpdate.description = description || null
+      entryUpdate.description = typeof description === 'string' && description ? description : null
     }
 
     // Update the credit entry
@@ -128,22 +114,12 @@ serve(async (req) => {
     // Attachments added during the edit are appended to the entry. They have
     // already been uploaded to storage by this point, so dropping them here
     // would leave orphan files and lose the photo the user just attached.
-    if (Array.isArray(attachments) && attachments.length > 0) {
-      const attachmentRows = attachments
-        .filter((a: any) => a && a.file_url && a.file_type)
-        .map((a: any) => ({
-          credit_entry_id: entry_id,
-          file_url: a.file_url,
-          file_type: a.file_type,
-        }))
+    if (newAttachments.length > 0) {
+      const { error: attachError } = await supabase
+        .from('credit_entry_attachments')
+        .insert(newAttachments.map((a) => ({ credit_entry_id: entry_id, ...a })))
 
-      if (attachmentRows.length > 0) {
-        const { error: attachError } = await supabase
-          .from('credit_entry_attachments')
-          .insert(attachmentRows)
-
-        if (attachError) throw attachError
-      }
+      if (attachError) throw attachError
     }
 
     // Re-fetch the entry with updated generated columns
@@ -155,14 +131,10 @@ serve(async (req) => {
 
     if (refetchError) throw refetchError
 
-    return new Response(
-      JSON.stringify({ entry }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    entry.photo_url = await signUrl(supabase, entry.photo_url)
+
+    return json(req, { entry })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'update-entry')
   }
 })

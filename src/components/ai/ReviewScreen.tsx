@@ -21,7 +21,7 @@ import { CustomerMatcher } from '../../services/ai/CustomerMatcher';
 import { ExtractedCreditData, ExtractedPaymentData } from '../../services/ai/types';
 import { Customer } from '../../types';
 import { api } from '../../lib/api';
-import { formatCurrency } from '../../lib/utils';
+import { formatCurrency, safeFileUrl } from '../../lib/utils';
 
 interface ReviewScreenProps {
   onComplete: () => void;
@@ -31,6 +31,8 @@ interface ReviewScreenProps {
 export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
   const scanResult = useAIScanStore((state) => state.scanResult);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  // Shown via the signed link, and only if it really points at our storage.
+  const previewUrl = safeFileUrl(scanResult?.previewUrl);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
 
@@ -299,12 +301,14 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             This photo will be attached to the entry.
           </p>
-          {scanResult.fileType === 'image' ? (
+          {!previewUrl ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Preview unavailable.</p>
+          ) : scanResult.fileType === 'image' ? (
             <img
-              src={scanResult.fileUrl}
+              src={previewUrl}
               alt="Scanned document"
               className="w-full h-64 object-contain rounded-lg cursor-pointer"
-              onClick={() => setLightboxImage(scanResult.fileUrl || null)}
+              onClick={() => setLightboxImage(previewUrl)}
             />
           ) : (
             <div className="text-center py-8">
@@ -312,7 +316,7 @@ export function ReviewScreen({ onComplete, onBack }: ReviewScreenProps) {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => window.open(scanResult.fileUrl, '_blank')}
+                onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')}
               >
                 Open PDF
               </Button>

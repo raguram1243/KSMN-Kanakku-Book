@@ -10,6 +10,25 @@ function getAuthHeaders(): Record<string, string> {
   }
 }
 
+/** Key under which the reason for a forced logout is handed to the login page. */
+export const LOGOUT_REASON_KEY = 'ksmn_logout_reason'
+
+let endingSession = false
+
+/** Clear the saved session and go to /login, carrying the reason along. */
+function endSession(reason: string) {
+  if (endingSession) return
+  endingSession = true
+  try {
+    sessionStorage.setItem(LOGOUT_REASON_KEY, reason)
+  } catch {
+    // private mode: the redirect still happens, just without the message
+  }
+  localStorage.removeItem('ksmn_token')
+  localStorage.removeItem('ksmn_staff')
+  window.location.href = '/login'
+}
+
 async function apiCall(path: string, options: RequestInit = {}): Promise<Response> {
   const headers = getAuthHeaders()
   
@@ -27,14 +46,21 @@ async function apiCall(path: string, options: RequestInit = {}): Promise<Respons
     headers: finalHeaders,
   })
 
-  // Only a request that carried a session can have that session expire.
-  // isSessionExpired() is also true when there is no token at all, so without
-  // the `Authorization` check a wrong PIN on the login page (401, no token)
-  // reloaded /login and wiped the "Invalid credentials" message.
-  if (response.status === 401 && headers.Authorization && isSessionExpired()) {
-    localStorage.removeItem('ksmn_token')
-    localStorage.removeItem('ksmn_staff')
-    window.location.href = '/login'
+  // Only a request that carried a session can have that session end. The
+  // server now checks the staff row on every call, so a 401 here means the
+  // token expired, the account was deactivated, or the PIN / role changed
+  // ("Your session has ended"). Any of those: sign out cleanly and show the
+  // server's reason on the login page. Requests without a token (a wrong PIN
+  // on the login page) are left alone so their own error message survives.
+  if (response.status === 401 && headers.Authorization) {
+    const data = await response.clone().json().catch(() => ({} as { error?: string }))
+    endSession(
+      typeof data?.error === 'string' && data.error
+        ? data.error
+        : isSessionExpired()
+          ? 'Your session has expired. Please log in again.'
+          : 'Your session has ended. Please log in again.',
+    )
   }
 
   // For non-401 error responses, throw so callers' catch blocks can
@@ -169,6 +195,7 @@ export const api = {
     customer_id: string
     entry_mode: 'detailed' | 'quick'
     description?: string
+    /** Quick mode only; a detailed entry's total is computed by the server from its items. */
     total_amount: number
     items?: any[]
     photo_url?: string
@@ -189,7 +216,8 @@ export const api = {
     receipt_number?: string
     notes?: string
     idempotency_key?: string
-    allocations: any[]
+    /** Admin only. Staff payments are saved pending and must not carry allocations. */
+    allocations?: any[]
     attachments?: any[]
   }) =>
     apiCall('/record-payment', {
@@ -281,6 +309,29 @@ export const api = {
       },
     })
   },
+
+  // Staff payment approvals (admin)
+  listPendingPayments: () =>
+    apiCall('/list-pending-payments'),
+
+  countPendingPayments: () =>
+    apiCall('/list-pending-payments?count_only=true'),
+
+  approvePayment: (data: {
+    payment_id: string
+    allocations?: { credit_entry_id: string; allocated_amount: number }[]
+    note?: string
+  }) =>
+    apiCall('/approve-payment', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  rejectPayment: (data: { payment_id: string; note?: string }) =>
+    apiCall('/reject-payment', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   // Staff
   listStaff: () =>

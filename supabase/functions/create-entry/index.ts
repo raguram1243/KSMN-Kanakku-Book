@@ -1,190 +1,101 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
-import { normalizeLineItems, summarizeLineItems, toItemRows } from '../_shared/entry-items.ts'
+import { preflight, json, errorResponse, readJson, HttpError } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
+import { assertOwnFileUrl, cleanAttachments, signUrl } from '../_shared/storage.ts'
+import { normalizeLineItems, summarizeLineItems } from '../_shared/entry-items.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const MAX_TOTAL = 9_999_999_999.99
+
+function optionalText(value: unknown, field: string, max: number): string | null {
+  if (value === undefined || value === null || value === '') return null
+  if (typeof value !== 'string') throw new HttpError(400, `${field} must be text`)
+  const trimmed = value.trim()
+  if (trimmed.length > max) throw new HttpError(400, `${field} is too long (max ${max} characters)`)
+  return trimmed || null
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
-
+  if (req.method === 'OPTIONS') return preflight(req)
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed')
+
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase)
+    const body = await readJson(req)
+
+    const customerId = body.customer_id
+    if (typeof customerId !== 'string' || !UUID_RE.test(customerId)) {
+      throw new HttpError(400, 'Pick a customer')
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    const { customer_id, entry_mode, description, total_amount, items, photo_url, notes, attachments } = await req.json()
-
-    if (!customer_id || !entry_mode || !total_amount) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    const entryMode = body.entry_mode
+    if (entryMode !== 'quick' && entryMode !== 'detailed') {
+      throw new HttpError(400, 'entry_mode must be "quick" or "detailed"')
     }
 
     // A detailed entry is its line items. Saving one without them loses the
-    // breakdown for good — the totals survive but the items cannot be
-    // recovered — so refuse it here rather than storing a hollow entry.
-    const lineItems = normalizeLineItems(items)
-    if (entry_mode === 'detailed' && lineItems.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'A detailed entry needs at least one item with a name and a quantity above zero' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    // breakdown for good, so refuse it. Its total is computed by the database
+    // from the items; whatever total the browser sent is ignored.
+    const lineItems = normalizeLineItems(body.items)
+    if (entryMode === 'detailed' && lineItems.length === 0) {
+      throw new HttpError(400, 'A detailed entry needs at least one item with a name and a quantity above zero')
+    }
+    if (lineItems.length > 500) throw new HttpError(400, 'Too many items')
+
+    let total: number | null = null
+    if (entryMode === 'quick') {
+      total = Number(body.total_amount)
+      if (!Number.isFinite(total) || total <= 0) {
+        throw new HttpError(400, 'Amount must be a number greater than 0')
+      }
+      if (total > MAX_TOTAL) throw new HttpError(400, 'Amount is too large')
     }
 
     // Detailed entries have no description of their own, so lists, reports,
     // statements and reminders get a summary built from the items instead.
-    const entryDescription = entry_mode === 'detailed'
+    const description = entryMode === 'detailed'
       ? summarizeLineItems(lineItems)
-      : (description || null)
+      : optionalText(body.description, 'Description', 1000)
 
-    // Generate entry code using the database function
-    const { data: entryCode, error: codeError } = await supabase
-      .rpc('generate_entry_code', { p_customer_id: customer_id })
+    const notes = optionalText(body.notes, 'Notes', 2000)
+    const photoUrl = body.photo_url ? assertOwnFileUrl(body.photo_url, 'photo_url') : null
+    const attachments = cleanAttachments(body.attachments)
 
-    if (codeError) throw codeError
+    // One transaction: code, entry, items, attachments, advance applied.
+    const { data: result, error } = await supabase.rpc('create_credit_entry', {
+      p_customer_id: customerId,
+      p_entry_mode: entryMode,
+      p_description: description || null,
+      p_total_amount: total,
+      p_items: lineItems,
+      p_notes: notes,
+      p_photo_url: photoUrl,
+      p_attachments: attachments,
+      p_created_by: caller.staff_id,
+    })
+    if (error) throw error
 
-    // Create credit entry
-    const { data: entry, error: entryError } = await supabase
-      .from('credit_entries')
-      .insert({
-        entry_code: entryCode,
-        customer_id,
-        entry_mode,
-        description: entryDescription || null,
-        total_amount,
-        photo_url: photo_url || null,
-        notes: notes || null,
-        created_by: token.staff_id,
-      })
-      .select()
-      .single()
-
-    if (entryError) throw entryError
-
-    // Create attachments (multi-file)
-    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-      const attachmentRows = attachments
-        .filter((a: any) => a.file_url && a.file_type)
-        .map((a: any) => ({
-          credit_entry_id: entry.id,
-          file_url: a.file_url,
-          file_type: a.file_type,
-        }))
-
-      if (attachmentRows.length > 0) {
-        const { error: attachError } = await supabase
-          .from('credit_entry_attachments')
-          .insert(attachmentRows)
-
-        if (attachError) throw attachError
-      }
+    if (caller.role === 'admin') {
+      if (result?.entry?.photo_url) result.entry.photo_url = await signUrl(supabase, result.entry.photo_url)
+      return json(req, result)
     }
 
-    // Create line items for detailed mode, numbered so the order the shop
-    // keyed them in survives a later edit.
-    if (entry_mode === 'detailed' && lineItems.length > 0) {
-      const { error: itemsError } = await supabase
-        .from('credit_entry_items')
-        .insert(toItemRows(entry.id, lineItems))
-
-      // There is no transaction around these two inserts, so undo the entry
-      // rather than leave a detailed entry with no breakdown behind. Nothing
-      // can reference it yet; the cascade clears its attachment rows too.
-      if (itemsError) {
-        await supabase.from('credit_entries').delete().eq('id', entry.id)
-        throw itemsError
-      }
-    }
-
-    // Automatically apply any existing advance credit toward this new entry
-    // (only this entry — do NOT sweep across other customer entries here)
-    let advanceApplied = 0
-
-    const { data: advanceRow, error: advanceError } = await supabase
-      .from('customer_advance_balance')
-      .select('advance_balance')
-      .eq('customer_id', customer_id)
-      .single()
-
-    if (!advanceError && advanceRow && Number(advanceRow.advance_balance) > 0.01) {
-      const availableAdvance = Number(advanceRow.advance_balance) || 0
-      const entryBalance = Number(entry.total_amount)
-      advanceApplied = Math.min(availableAdvance, entryBalance)
-
-      if (advanceApplied > 0.01) {
-        // Fetch unallocated payments FIFO
-        const { data: unallocatedPayments, error: unallocError } = await supabase
-          .from('payment_unallocated')
-          .select('payment_id, unallocated_amount, payment_date')
-          .eq('customer_id', customer_id)
-          .gt('unallocated_amount', 0.01)
-          .order('payment_date', { ascending: true })
-
-        if (unallocError) throw unallocError
-
-        let remaining = advanceApplied
-        const allocationsToInsert: Array<{ payment_id: string; credit_entry_id: string; allocated_amount: number }> = []
-
-        for (const payment of (unallocatedPayments || [])) {
-          if (remaining <= 0.01) break
-
-          const available = Number(payment.unallocated_amount)
-          const allocation = Math.min(available, remaining)
-          remaining -= allocation
-
-          allocationsToInsert.push({
-            payment_id: payment.payment_id,
-            credit_entry_id: entry.id,
-            allocated_amount: allocation,
-          })
-        }
-
-        if (allocationsToInsert.length > 0) {
-          const { error: insertError } = await supabase
-            .from('payment_allocations')
-            .insert(allocationsToInsert)
-
-          if (insertError) throw insertError
-        }
-      }
-    }
-
-    // Re-select the entry so the response reflects updated paid_amount / balance / status
-    const { data: updatedEntry, error: refetchError } = await supabase
-      .from('credit_entries')
-      .select('*')
-      .eq('id', entry.id)
-      .single()
-
-    if (refetchError) throw refetchError
-
-    return new Response(
-      JSON.stringify({ entry: updatedEntry, advance_applied: advanceApplied }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    // Staff get an echo of the bill they entered, nothing about what is paid
+    // or owed.
+    const e = (result?.entry ?? {}) as Record<string, unknown>
+    return json(req, {
+      entry: {
+        id: e.id,
+        entry_code: e.entry_code,
+        customer_id: e.customer_id,
+        entry_mode: e.entry_mode,
+        description: e.description ?? null,
+        total_amount: e.total_amount,
+        created_at: e.created_at,
+      },
+    })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'create-entry')
   }
 })

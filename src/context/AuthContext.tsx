@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { Staff, JWTPayload } from '../types';
 import { debugLog } from '../lib/utils';
+import { queryClient } from '../hooks/useApi';
 
 interface AuthContextType {
   staff: Staff | null;
@@ -53,6 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     debugLog('[Auth] login() called with staff:', newStaff.name, 'role:', newStaff.role);
     localStorage.setItem('ksmn_token', newToken);
     localStorage.setItem('ksmn_staff', JSON.stringify(newStaff));
+    // A shared shop phone goes staff -> admin -> staff; cached pages from the
+    // previous login (staff rows have no balances) must not be reused.
+    queryClient.clear();
     setToken(newToken);
     setStaff(newStaff);
     debugLog('[Auth] State updated, token and staff set');
@@ -62,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     debugLog('[Auth] logout() called');
     localStorage.removeItem('ksmn_token');
     localStorage.removeItem('ksmn_staff');
+    queryClient.clear();
     setToken(null);
     setStaff(null);
   };

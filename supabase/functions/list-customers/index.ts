@@ -1,33 +1,17 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { verifyToken } from '../_shared/jwt-utils.ts'
+import { preflight, json, errorResponse } from '../_shared/http.ts'
+import { serviceClient, requireStaff } from '../_shared/auth.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-}
+// Staff may search customers but must never see money: they get these fields only.
+const STAFF_FIELDS = 'id, customer_code, name, phone, customer_type'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    let token
-    try {
-      token = await verifyToken(authHeader)
-    } catch (authError) {
-      return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = serviceClient()
+    const caller = await requireStaff(req, supabase)
+    const isAdmin = caller.role === 'admin'
 
     // Parse params
     const url = new URL(req.url)
@@ -38,8 +22,9 @@ serve(async (req) => {
     const limit = limitParam ? parseInt(limitParam) : 5
     const pageParam = url.searchParams.get('page')
     const pageSizeParam = url.searchParams.get('pageSize')
-    const filterParam = url.searchParams.get('filter') || 'all'
-    const sortParam = url.searchParams.get('sort') || 'name_asc'
+    // Balance filters and sorts are admin-only; staff always get the plain name list
+    const filterParam = isAdmin ? (url.searchParams.get('filter') || 'all') : 'all'
+    const sortParam = isAdmin ? (url.searchParams.get('sort') || 'name_asc') : 'name_asc'
     const page = pageParam ? parseInt(pageParam) : 1
     const pageSize = pageSizeParam ? parseInt(pageSizeParam) : 50
 
@@ -69,10 +54,11 @@ serve(async (req) => {
       }
 
       if (orderedCustomerIds.length > 0) {
-        const { data: fetchedCustomers, error: fetchError } = await supabase
+        const { data: fetchedRows, error: fetchError } = await supabase
           .from('customer_view_staff')
-          .select('*')
+          .select(isAdmin ? '*' : STAFF_FIELDS)
           .in('id', orderedCustomerIds)
+        const fetchedCustomers = (fetchedRows || []) as any[]
 
         if (fetchError) throw fetchError
 
@@ -82,8 +68,8 @@ serve(async (req) => {
           .filter(Boolean)
       }
 
-      // Attach balances for the recency list (single aggregate query)
-      if (customers.length > 0) {
+      // Attach balances for the recency list (single aggregate query), admin only
+      if (isAdmin && customers.length > 0) {
         const customerIds = customers.map((c: any) => c.id)
         const { data: balanceRows } = await supabase
           .from('credit_entries')
@@ -122,7 +108,7 @@ serve(async (req) => {
         }))
       }
     } else {
-      // Main paginated path — delegate sorting + pagination to the
+      // Main paginated path - delegate sorting + pagination to the
       // list_customers RPC so balances are computed across the full
       // dataset and sorted BEFORE the page slice is taken.
       const { data, error } = await supabase.rpc('list_customers', {
@@ -134,11 +120,11 @@ serve(async (req) => {
       })
       if (error) throw error
 
-      // total_count is returned on every row by the RPC — capture it
+      // total_count is returned on every row by the RPC - capture it
       // from the raw response BEFORE mapping, since mapped objects drop it.
       const totalCount = data && data.length > 0 ? Number(data[0].total_count) || 0 : 0
 
-      customers = (data || []).map((row: any) => ({
+      customers = (data || []).map((row: any) => isAdmin ? ({
         id: row.id,
         customer_code: row.customer_code,
         name: row.name,
@@ -151,25 +137,18 @@ serve(async (req) => {
         balance: Number(row.balance) || 0,
         advance_balance: Number(row.advance_balance) || 0,
         oldest_unpaid_date: row.oldest_unpaid_date || null,
+      }) : ({
+        id: row.id,
+        customer_code: row.customer_code,
+        name: row.name,
+        phone: row.phone,
+        customer_type: row.customer_type,
       }))
       total = totalCount
     }
 
-    if (customers.length === 0) {
-      return new Response(
-        JSON.stringify({ customers: [], total: 0, page, pageSize, view, filter: filterParam }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    return new Response(
-      JSON.stringify({ customers, total, page, pageSize, view, filter: filterParam }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return json(req, { customers, total, page, pageSize, view, filter: filterParam })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return errorResponse(req, error, 'list-customers')
   }
 })

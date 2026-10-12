@@ -19,6 +19,14 @@ import { aiService } from '../../services/ai/AIService';
 import { ProcessingStep } from '../../services/ai/types';
 import { api } from '../../lib/api';
 
+/** A file already in storage: stored URL, signed preview link and type. */
+interface ScanTarget {
+  file_url: string;
+  preview_url?: string;
+  file_type: string;
+  mime_type?: string;
+}
+
 interface AIScanModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -35,7 +43,7 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
   const [error, setError] = useState<string | null>(null);
   // Where the photo already lives in storage, kept so a failed scan can be
   // retried without uploading the same image a second time.
-  const [uploaded, setUploaded] = useState<{ file_url: string; file_type: string; mime_type?: string } | null>(null);
+  const [uploaded, setUploaded] = useState<ScanTarget | null>(null);
   // Synchronous guard: `uploading` is state, so two fast clicks can both pass
   // the disabled check before React re-renders and fire two scans.
   const inFlight = useRef(false);
@@ -50,7 +58,7 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
   }, [isOpen, clearScan]);
 
   /** Runs the scan against an image already in storage. Shared by first run and retry. */
-  const runScan = async (target: { file_url: string; file_type: string; mime_type?: string }) => {
+  const runScan = async (target: ScanTarget) => {
     setPhase('processing');
     setIsScanning(true);
 
@@ -63,7 +71,9 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
     );
 
     if (!scanResult) throw new Error('No scan result received');
-    setScanResult(scanResult);
+    // Keep our own copy of the stored URL (what the entry saves) and the
+    // signed link (what the review screen shows) rather than trusting echoes.
+    setScanResult({ ...scanResult, fileUrl: target.file_url, previewUrl: target.preview_url });
     setPhase('review');
   };
 
@@ -114,8 +124,9 @@ export function AIScanModal({ isOpen, onClose, onComplete }: AIScanModalProps) {
       }
 
       const result = await response.json();
-      const target = {
+      const target: ScanTarget = {
         file_url: result.url,
+        preview_url: result.signed_url,
         file_type: result.file_type,
         // Real MIME type of the original File, so ai-scan can label the bytes
         // accurately rather than assuming JPEG.
