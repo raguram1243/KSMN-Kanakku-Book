@@ -6,6 +6,8 @@ import { normalizeLineItems, summarizeLineItems } from '../_shared/entry-items.t
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_TOTAL = 9_999_999_999.99
+// Same customer + same total inside this window is treated as a possible duplicate.
+const DUPLICATE_WINDOW_MINUTES = 10
 
 function optionalText(value: unknown, field: string, max: number): string | null {
   if (value === undefined || value === null || value === '') return null
@@ -61,6 +63,32 @@ serve(async (req) => {
     const notes = optionalText(body.notes, 'Notes', 2000)
     const photoUrl = body.photo_url ? assertOwnFileUrl(body.photo_url, 'photo_url') : null
     const attachments = cleanAttachments(body.attachments)
+
+    // A double tap or a bill keyed in twice shows up as the same customer and
+    // the same total within minutes. Ask before saving it again; the client
+    // resends with confirm_duplicate once the user says it is a real second bill.
+    if (body.confirm_duplicate !== true) {
+      const expectedTotal = entryMode === 'quick'
+        ? total!
+        : lineItems.reduce((sum, i) => sum + Math.round(i.qty * i.rate * 100) / 100, 0)
+      const since = new Date(Date.now() - DUPLICATE_WINDOW_MINUTES * 60_000).toISOString()
+      const { data: recent, error: recentError } = await supabase
+        .from('credit_entries')
+        .select('entry_code, total_amount, created_at')
+        .eq('customer_id', customerId)
+        .eq('total_amount', Math.round(expectedTotal * 100) / 100)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (recentError) throw recentError
+      if (recent && recent.length > 0) {
+        return json(req, {
+          error: 'A bill with the same amount was just saved for this customer',
+          code: 'possible_duplicate',
+          duplicate: recent[0],
+        }, 409)
+      }
+    }
 
     // One transaction: code, entry, items, attachments, advance applied.
     const { data: result, error } = await supabase.rpc('create_credit_entry', {

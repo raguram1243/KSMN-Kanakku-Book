@@ -1,11 +1,14 @@
-import { useQuery, useMutation, useQueryClient, QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, QueryClient, keepPreviousData } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { api } from '../lib/api';
+import { offlinePersister, shouldSaveQuery, OFFLINE_CACHE_MAX_AGE, OFFLINE_CACHE_VERSION } from '../lib/offlineCache';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 60_000,
-      gcTime: 5 * 60_000,
+      // Must be at least the saved-cache max age, or restored data is dropped at once.
+      gcTime: OFFLINE_CACHE_MAX_AGE,
       refetchOnWindowFocus: false,
       retry: 1,
     },
@@ -14,9 +17,17 @@ export const queryClient = new QueryClient({
 
 export function ApiProvider({ children }: { children: React.ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister: offlinePersister,
+        maxAge: OFFLINE_CACHE_MAX_AGE,
+        buster: OFFLINE_CACHE_VERSION,
+        dehydrateOptions: { shouldDehydrateQuery: shouldSaveQuery },
+      }}
+    >
       {children}
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 

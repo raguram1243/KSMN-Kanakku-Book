@@ -4,6 +4,8 @@ import { TopNav } from './TopNav';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { Toaster } from '../ui/Toaster';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { WifiOff } from 'lucide-react';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -12,9 +14,16 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const online = useOnlineStatus();
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <TopNav onMenuClick={() => setSidebarOpen(true)} />
+      {!online && (
+        <div role="status" className="sticky top-0 z-40 flex items-center justify-center gap-2 bg-amber-100 px-4 py-2 text-sm font-medium text-amber-900 dark:bg-amber-900/60 dark:text-amber-100">
+          <WifiOff size={16} />
+          Offline: showing the last loaded data. Saving is turned off until you reconnect.
+        </div>
+      )}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       {/* Main content - shifted right on desktop to accommodate collapsed sidebar */}

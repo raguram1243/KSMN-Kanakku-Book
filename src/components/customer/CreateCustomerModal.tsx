@@ -10,6 +10,8 @@ import { Customer } from '../../types';
 import { ThemedSelect } from '../ui/ThemedSelect';
 import { useActionProgress } from '../../hooks/useActionProgress';
 import { UserPlus } from 'lucide-react';
+import { DuplicateCustomerWarning } from './DuplicateCustomerWarning';
+import type { SimilarCustomer } from './DuplicateCustomerWarning';
 
 export type CustomerType = 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate';
 
@@ -40,6 +42,8 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const create = useActionProgress();
+  // Set when the server found the same phone or a very alike name; the next submit confirms.
+  const [similar, setSimilar] = useState<SimilarCustomer[] | null>(null);
 
   // Seed from the caller when opening, and clear everything when dismissed.
   useEffect(() => {
@@ -47,6 +51,7 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
       setName(initialName ?? '');
       setPhone(initialPhone ?? '');
       setError('');
+      setSimilar(null);
     } else {
       setName('');
       setPhone('');
@@ -54,6 +59,7 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
       setNotes('');
       setCustomerType('regular');
       setError('');
+      setSimilar(null);
     }
   }, [isOpen, initialName, initialPhone]);
 
@@ -73,7 +79,18 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
         address: address || undefined,
         customer_type: customerType,
         notes: notes || undefined,
+        confirm_duplicate: similar !== null,
       });
+
+      if (response.status === 409) {
+        const dup = await response.json().catch(() => ({}));
+        if (dup.code === 'possible_duplicate') {
+          create.reset();
+          setSimilar(dup.matches ?? []);
+          return;
+        }
+        throw new Error(dup.error || 'Failed to create customer');
+      }
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -101,10 +118,11 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
             {error}
           </Alert>
         )}
+        {similar && similar.length > 0 && <DuplicateCustomerWarning matches={similar} />}
         <Input
           label="Customer Name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => { setName(e.target.value); setSimilar(null); }}
           placeholder="Customer name"
           required
           autoFocus
@@ -115,7 +133,7 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
           inputMode="tel"
           autoComplete="tel"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => { setPhone(e.target.value); setSimilar(null); }}
           placeholder="Phone number"
           required
         />
@@ -156,7 +174,7 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
             progressLabel="Creating"
             progressIcon={<UserPlus size={14} />}
           >
-            Create Customer
+            {similar ? 'Create anyway' : 'Create Customer'}
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={loading}>
             Cancel

@@ -21,6 +21,9 @@ import { useToastStore } from '../store/toastStore';
 import { ThemedSelect } from '../components/ui/ThemedSelect';
 import { useActionProgress } from '../hooks/useActionProgress';
 import { UserPlus, IndianRupee, Printer } from 'lucide-react';
+import { Modal } from '../components/ui/Modal';
+import { DuplicateCustomerWarning } from '../components/customer/DuplicateCustomerWarning';
+import type { SimilarCustomer } from '../components/customer/DuplicateCustomerWarning';
 import { BillPreviewDialog } from '../components/bill/BillPreviewDialog';
 import { generateAndSaveBill, toBillItems, type GeneratedBill } from '../lib/billUpload';
 
@@ -62,6 +65,12 @@ export default function QuickAddPage() {
   );
   const [customerBalance, setCustomerBalance] = useState<number | null>(null);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
+  // Same phone / very alike name found when creating a customer; the next submit confirms.
+  const [similarCustomers, setSimilarCustomers] = useState<SimilarCustomer[] | null>(null);
+  // Same customer and total saved minutes ago; asks before saving the bill again.
+  const [duplicateBill, setDuplicateBill] = useState<{
+    entry_code: string; total_amount: number; created_at: string; withBill: boolean
+  } | null>(null);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', address: '', notes: '', customer_type: 'walk-in' as 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate' });
   
   // Quick mode fields
@@ -225,7 +234,17 @@ export default function QuickAddPage() {
     createCustomer.start();
 
     try {
-      const response = await api.createCustomer(newCustomer);
+      const response = await api.createCustomer({ ...newCustomer, confirm_duplicate: similarCustomers !== null });
+
+      if (response.status === 409) {
+        const dup = await response.json().catch(() => ({}));
+        if (dup.code === 'possible_duplicate') {
+          createCustomer.reset();
+          setSimilarCustomers(dup.matches ?? []);
+          return;
+        }
+        throw new Error(dup.error || 'Failed to create customer');
+      }
 
       if (!response.ok) {
         const data = await response.json();
@@ -237,6 +256,7 @@ export default function QuickAddPage() {
       invalidateCustomerQueries(queryClient);
       setSelectedCustomer(data.customer);
       setShowCreateCustomer(false);
+      setSimilarCustomers(null);
       setSearchQuery('');
       setSearchResults([]);
     } catch (err) {
@@ -307,7 +327,7 @@ export default function QuickAddPage() {
   // entry and shown. Detailed entries only.
   const handlePrintBill = (e: React.FormEvent) => submitEntry(e, true);
 
-  const submitEntry = async (e: React.FormEvent, withBill: boolean) => {
+  const submitEntry = async (e: { preventDefault: () => void }, withBill: boolean, confirmDuplicate = false) => {
     e.preventDefault();
     if (!selectedCustomer) {
       setError('Please select a customer');
@@ -427,7 +447,20 @@ export default function QuickAddPage() {
           entryData.notes = entryNotes;
         }
 
+        if (confirmDuplicate) entryData.confirm_duplicate = true;
+
         const entryResponse = await api.createEntry(entryData);
+
+        // Same customer and total saved minutes ago: nothing was written, ask first.
+        if (entryResponse.status === 409) {
+          const dup = await entryResponse.json().catch(() => ({}));
+          if (dup.code === 'possible_duplicate' && dup.duplicate) {
+            progress.reset();
+            setDuplicateBill({ ...dup.duplicate, withBill });
+            return;
+          }
+          throw new Error(dup.error || 'Failed to create entry');
+        }
 
         if (!entryResponse.ok) {
           const data = await entryResponse.json();
@@ -757,13 +790,13 @@ export default function QuickAddPage() {
                 <Input
                   label="Customer Name"
                   value={newCustomer.name}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                  onChange={(e) => { setNewCustomer({ ...newCustomer, name: e.target.value }); setSimilarCustomers(null); }}
                   required
                 />
                 <Input
                   label="Phone"
                   value={newCustomer.phone}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                  onChange={(e) => { setNewCustomer({ ...newCustomer, phone: e.target.value }); setSimilarCustomers(null); }}
                   required
                 />
                 <Input
@@ -793,6 +826,27 @@ export default function QuickAddPage() {
                     menuWidth={250}
                   />
                 </div>
+                {similarCustomers && similarCustomers.length > 0 && (
+                  <DuplicateCustomerWarning
+                    matches={similarCustomers}
+                    onUse={(m) => {
+                      setSelectedCustomer({
+                        id: m.id,
+                        customer_code: m.code,
+                        name: m.name,
+                        phone: m.phone ?? '',
+                        customer_type: 'regular',
+                        last_entry_seq: 0,
+                        created_by: '',
+                        created_at: '',
+                      });
+                      setShowCreateCustomer(false);
+                      setSimilarCustomers(null);
+                      setSearchQuery('');
+                      setSearchResults([]);
+                    }}
+                  />
+                )}
                 <div className="flex space-x-2">
                   <Button
                     type="submit"
@@ -803,9 +857,9 @@ export default function QuickAddPage() {
                     progressLabel="Creating"
                     progressIcon={<UserPlus size={14} />}
                   >
-                    Create Customer
+                    {similarCustomers ? 'Create anyway' : 'Create Customer'}
                   </Button>
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setShowCreateCustomer(false)}>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => { setShowCreateCustomer(false); setSimilarCustomers(null); }}>
                     Cancel
                   </Button>
                 </div>
@@ -1027,6 +1081,33 @@ export default function QuickAddPage() {
           </Card>
         </>
       )}
+
+      <Modal isOpen={!!duplicateBill} onClose={() => setDuplicateBill(null)} title="Possible duplicate bill" size="sm">
+        {duplicateBill && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              A bill for {formatCurrency(Number(duplicateBill.total_amount))} ({duplicateBill.entry_code}) was
+              saved for this customer {Math.max(1, Math.round((Date.now() - new Date(duplicateBill.created_at).getTime()) / 60000))} min
+              ago. Is this a second bill?
+            </p>
+            <div className="flex space-x-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  const again = duplicateBill.withBill;
+                  setDuplicateBill(null);
+                  void submitEntry({ preventDefault: () => {} }, again, true);
+                }}
+              >
+                Save anyway
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setDuplicateBill(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {billPreview && (
         <BillPreviewDialog

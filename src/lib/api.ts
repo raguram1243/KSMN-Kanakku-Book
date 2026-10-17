@@ -1,4 +1,5 @@
 import { isSessionExpired } from './utils';
+import { clearOfflineCache } from './offlineCache';
 
 const API_BASE = import.meta.env.VITE_SUPABASE_URL as string
 
@@ -26,10 +27,16 @@ function endSession(reason: string) {
   }
   localStorage.removeItem('ksmn_token')
   localStorage.removeItem('ksmn_staff')
+  clearOfflineCache()
   window.location.href = '/login'
 }
 
 async function apiCall(path: string, options: RequestInit = {}): Promise<Response> {
+  // Offline mode is read-only: saving needs the server (balances, codes and
+  // approvals are decided there), and nothing is queued for later.
+  if (!navigator.onLine && (options.method ?? 'GET') !== 'GET') {
+    throw new Error('You are offline. Reconnect to save changes.')
+  }
   const headers = getAuthHeaders()
   
   // Only set Content-Type: application/json for non-FormData requests
@@ -187,6 +194,8 @@ export const api = {
     address?: string
     customer_type?: 'walk-in' | 'regular' | 'contractor' | 'wholesale' | 'corporate'
     notes?: string
+    /** Set once the user has seen the possible-duplicate warning and chose to go ahead. */
+    confirm_duplicate?: boolean
   }) =>
     apiCall('/create-customer', {
       method: 'POST',
@@ -204,6 +213,8 @@ export const api = {
     photo_url?: string
     notes?: string
     attachments?: any[]
+    /** Set once the user has seen the possible-duplicate warning and chose to go ahead. */
+    confirm_duplicate?: boolean
   }) =>
     apiCall('/create-entry', {
       method: 'POST',
