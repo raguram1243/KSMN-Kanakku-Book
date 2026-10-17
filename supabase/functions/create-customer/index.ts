@@ -20,6 +20,21 @@ serve(async (req) => {
       throw new HttpError(400, 'Name and phone are required')
     }
 
+    // Two accounts for one person split what they owe, so look for the same
+    // phone or a very alike name first and let the user confirm (migration 036).
+    if (body.confirm_duplicate !== true) {
+      const { data: similar, error: similarError } = await supabase
+        .rpc('find_similar_customers', { p_name: name, p_phone: phone })
+      if (similarError) throw similarError
+      if (Array.isArray(similar) && similar.length > 0) {
+        return json(req, {
+          error: 'A similar customer already exists',
+          code: 'possible_duplicate',
+          matches: similar,
+        }, 409)
+      }
+    }
+
     // Generate customer code using the database function
     const { data: customerCode, error: codeError } = await supabase
       .rpc('generate_customer_code')

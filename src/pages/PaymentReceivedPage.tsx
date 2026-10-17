@@ -510,7 +510,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           throw new Error(data.error || 'Failed to update payment');
         }
 
-        savePayment.succeed();
+        await savePayment.succeed();
         invalidatePaymentQueries(queryClient, customerId ?? undefined);
 
                 setShowConfirmDialog(false);
@@ -547,7 +547,7 @@ const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState<string | null
           throw new Error(data.error || 'Failed to create payment');
         }
 
-        savePayment.succeed();
+        await savePayment.succeed();
         invalidatePaymentQueries(queryClient, customerId ?? undefined);
 
         const data = await paymentResponse.json();

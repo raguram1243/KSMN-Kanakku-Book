@@ -57,7 +57,7 @@ export function DeleteCustomerModal({ customer, isOpen, onClose, onDeleted }: De
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to delete customer');
       }
-      remove.succeed();
+      await remove.succeed();
       invalidateCustomerQueries(queryClient, customer.id);
       onDeleted();
     } catch (err) {

@@ -1,242 +1,188 @@
 # KSMN Kanaku-Book
 
-A credit/udhaar ledger tracker for KSM Nataraja Nadar Firm - building materials retail shop.
+A credit/udhaar ledger for KSM Nataraja Nadar Firm, a building-materials shop. It replaces the paper credit book: bills given on credit, payments received, who owes what, and who to chase.
 
-## Tech Stack
+The original build spec is in [`KSMN-Kanaku-Book-Spec.md`](KSMN-Kanaku-Book-Spec.md). This file describes the app as it is now.
 
-- **Frontend**: React + Vite + TypeScript
-- **Styling**: Tailwind CSS
-- **Backend**: Supabase (PostgreSQL)
-- **Auth**: Custom PIN-based authentication with JWT
-- **Hosting**: Firebase Hosting
+## Tech stack
 
-## Project Structure
+| Part | What |
+|---|---|
+| Front end | React 18, Vite, TypeScript, Tailwind CSS, React Query, Zustand |
+| Back end | Supabase: Postgres plus Deno edge functions in `supabase/functions` |
+| Auth | Name + PIN. `verify-pin` issues our own JWT (signed with `APP_JWT_SECRET`), not Supabase Auth |
+| Hosting | Firebase Hosting (`dist/`) |
+| Files | Supabase Storage (bills, photos, payment proofs) |
+| AI Scan | Google Gemini, called from the `ai-scan` edge function |
+
+The browser never talks to Postgres. Every read and write goes through an edge function, which checks the token **and** the staff row on each call (`_shared/auth.ts`). Row-level security is locked down (migrations 002, 025, 032) and SQL helper functions are callable by `service_role` only.
+
+## Project layout
 
 ```
-KSMN Kanakku-book/
-├── supabase/
-│   ├── migrations/
-│   │   └── 001_schema.sql          # Database schema, RLS policies, functions
-│   └── functions/
-│       └── verify-pin/
-│           └── index.ts             # Edge function for PIN verification
-├── src/
-│   ├── components/
-│   │   ├── ui/                      # Reusable UI components
-│   │   └── layout/                  # Layout components
-│   ├── context/
-│   │   └── AuthContext.tsx          # Authentication context
-│   ├── lib/
-│   │   ├── supabase.ts              # Supabase client & auth helpers
-│   │   └── utils.ts                 # Utility functions
-│   ├── pages/                       # Page components
-│   ├── types/
-│   │   └── index.ts                 # TypeScript interfaces
-│   ├── App.tsx
-│   └── main.tsx
-├── public/
-│   └── KSMN_logo.png                # Company logo
-├── firebase.json                    # Firebase Hosting config
-├── .firebaserc                      # Firebase project config
-├── .env.example                     # Environment variables template
-└── package.json
+src/
+  pages/            One file per screen (Dashboard, Customers, QuickAdd, PaymentReceived, ...)
+  components/       ui/ (buttons, modals, inputs), layout/, modals/, customer/, dashboard/, ...
+  hooks/            useApi.tsx (React Query hooks + cache invalidation), useActionProgress, ...
+  lib/              api.ts (all edge-function calls), utils, PDF/CSV/bill/receipt helpers, offlineCache
+  context/          AuthContext, ThemeContext
+  services/ai/      AI Scan client (invoice / payment extraction)
+public/             Icons, manifest, sw.js (offline shell)
+supabase/
+  migrations/       001 ... 036, applied in order
+  functions/        One folder per edge function, plus _shared/
+  config.toml       Per-function settings (see "Adding an edge function")
+scripts/region-move Notes and SQL used for the Seoul to Mumbai database move
 ```
 
-## Setup Instructions
+## Roles
 
-### 1. Clone and Install Dependencies
+- **Staff**: add customers, add credit entries (detailed or quick), and send payments. A staff payment is saved as *pending* and counts nowhere until an admin approves it. Staff never see balances or totals. They land on Add Credit Entry.
+- **Admin**: everything staff can do, plus the dashboard, customer ledgers, Payment Received (allocate to bills), Approvals, Day-book, Follow-ups, Reports, Staff management and Settings. They land on the Dashboard.
+
+Staff are individual people with their own PIN. Changing a PIN or role signs that person out everywhere.
+
+## Features
+
+- **Customers**: codes `KSMN-0001`, types (walk-in, regular, contractor, wholesale, corporate), credit limit, custom overdue days, advance balance, last reminder.
+- **Credit entries**: codes `KSMN-0001-1`, detailed (line items) or quick (one amount), photos and files, Print Bill for detailed entries.
+- **Payments**: methods, receipt numbers, proofs, FIFO suggestion with manual allocation, advance (unallocated) balance, idempotency key against double-submits.
+- **Approvals**: admin reviews staff payments and approves (with allocation) or rejects.
+- **Dashboard**: total outstanding (receivable), customer split, weekly credit vs collection chart, top debtors, top customers this month, aging buckets, alerts.
+- **Day-book, Reports, exports**: by day (IST), entries and payments reports, CSV/PDF export, a daily backup CSV pulled by the admin's device.
+- **Follow-ups and WhatsApp**: reminders, statements and receipts shared over WhatsApp.
+- **AI Scan**: photo or PDF of a bill or payment slip is read into a draft entry or payment, with customer matching.
+- **Safety nets**: a possible-duplicate warning when the same customer gets the same bill total within 10 minutes, and when a new customer shares a phone number or a very alike name with an existing one.
+- **Offline (read-only)**: the app opens with no network and shows the last loaded data. See below.
+
+## Setup
+
+### 1. Install
 
 ```bash
 npm install
 ```
 
-### 2. Set Up Supabase
+### 2. Supabase project
 
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to Project Settings → API to get your:
-   - Project URL
-   - Anon/Public Key
-3. Create a `.env` file in the root directory:
+1. Create a project at [supabase.com](https://supabase.com). Pick the region closest to the shop.
+2. Create `.env` in the repo root. The front end needs only the project URL:
 
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   ```
+
+3. Apply **every** file in `supabase/migrations/` in numeric order (SQL Editor, or `supabase db push` after `supabase link`). Newer files assume the older ones.
+
+### 3. Edge function secrets
+
+```bash
+supabase link --project-ref your-project-id
+supabase secrets set APP_JWT_SECRET=a-long-random-string
+supabase secrets set GEMINI_API_KEY=your-google-ai-studio-key
 ```
 
-4. Run the database migration:
-   - Go to Supabase Dashboard → SQL Editor
-   - Copy and paste the contents of `supabase/migrations/001_schema.sql`
-   - Execute the SQL
+| Secret | Needed for |
+|---|---|
+| `APP_JWT_SECRET` | Signing and checking login tokens. Required. |
+| `GEMINI_API_KEY` | AI Scan. Get one from [Google AI Studio](https://aistudio.google.com/apikey). |
+| `GEMINI_MODEL` | Optional. Overrides the default model. If scans fail with "model no longer available", open `<project-url>/functions/v1/ai-scan/health` to see which models your key can use, then set one here and redeploy. |
+| `ALLOWED_ORIGINS` | Optional. Comma-separated site origins allowed to call the functions. Defaults to the Firebase site and localhost. Set it if the site gets a custom domain. |
 
-### 3. Set Up Supabase Edge Functions
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided to edge functions by Supabase itself.
 
-1. Install Supabase CLI: `npm install -g supabase`
-2. Link your project: `supabase link --project-ref your-project-id`
-3. Set required secrets:
-   ```bash
-   supabase secrets set APP_JWT_SECRET=your-jwt-secret-key-here
-   supabase secrets set GEMINI_API_KEY=your-google-ai-studio-key-here
+> **Never** put the Gemini key, the JWT secret or the service-role key in a `VITE_` variable. Vite copies those into the public JavaScript bundle.
+
+### 4. Deploy the edge functions
+
+```bash
+supabase functions deploy
+```
+
+### 5. First admin
+
+The migration creates an admin row without a usable PIN. Set one in the SQL Editor with a bcrypt hash (10 rounds):
+
+```sql
+UPDATE staff SET pin_hash = '$2a$10$your-bcrypt-hash-here' WHERE name = 'Admin';
+```
+
+After that, add staff from the Staff page in the app.
+
+### 6. Firebase Hosting
+
+```bash
+npm install -g firebase-tools
+firebase login
+# put your project id in .firebaserc
+npm run deploy      # builds, then firebase deploy
+```
+
+`firebase.json` sets the security headers, including a Content-Security-Policy that names the Supabase project URL. If you move to a new Supabase project, update that URL there too.
+
+### 7. Run locally
+
+```bash
+npm run dev         # http://localhost:5173
+```
+
+## Everyday commands
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server |
+| `npm run build` | Type-check (`tsc`) and build to `dist/` |
+| `npm run lint` | ESLint (warnings are expected; it should report 0 errors) |
+| `npm run preview` | Serve the production build locally |
+| `npm run deploy` | Build and deploy to Firebase |
+
+There is no automated test suite yet.
+
+## Changing the backend
+
+### Adding a database migration
+
+1. Add `supabase/migrations/NNN_short_name.sql`, the next number in sequence. Never edit a migration that has already been applied; add a new one.
+2. If it creates a SQL function that only edge functions should call, finish with the same lockdown the recent ones use:
+
+   ```sql
+   REVOKE EXECUTE ON FUNCTION my_fn(...) FROM PUBLIC, anon, authenticated;
+   GRANT EXECUTE ON FUNCTION my_fn(...) TO service_role;
    ```
-   `GEMINI_API_KEY` powers the AI Scan feature. Get one from
-   [Google AI Studio](https://aistudio.google.com/apikey). Optionally set
-   `GEMINI_MODEL` to override the default `gemini-3.6-flash`.
 
-   If scans fail with "this model is no longer available", Google has retired
-   that model for new keys. `GET <project-url>/functions/v1/ai-scan/health`
-   lists the models your key can actually use; set one with
-   `supabase secrets set GEMINI_MODEL=<model-id>` and redeploy.
+3. Apply it to the live project (SQL Editor or `supabase db push`) **before** deploying code that calls it.
 
-   > **Never** put this key in a `VITE_`-prefixed variable. Vite inlines
-   > those into the JavaScript bundle, which would publish your key to
-   > every visitor. It belongs in Supabase secrets (and, for local
-   > development only, in the gitignored `.env`).
-4. Deploy all edge functions:
-   ```bash
-   supabase functions deploy
-   ```
+### Adding an edge function
 
-**Note:** These functions use their own JWT tokens via `APP_JWT_SECRET` (not Supabase Auth), so the `verify_jwt = false` config blocks must be present in `supabase/config.toml`. See the mandatory step below.
-
-#### ⚠️ Mandatory Step When Adding New Edge Functions
-
-Every new edge function **must** have a matching config block in `supabase/config.toml`:
+Every function uses our own JWT, so it needs this block in `supabase/config.toml`, otherwise Supabase's gateway rejects every request with 401 before the function runs:
 
 ```toml
 [functions.<function-name>]
 verify_jwt = false
 ```
 
-This is required because all edge functions in this project use custom `APP_JWT_SECRET` tokens (verified internally via `_shared/jwt-utils.ts`), not Supabase Auth. Without this block, Supabase's platform gateway will reject requests with 401 before the function code even runs.
+Checklist:
 
-**Checklist when creating a new function:**
-- [ ] Create the function directory under `supabase/functions/<name>/`
-- [ ] Add the `[functions.<name>]` block with `verify_jwt = false` to `supabase/config.toml`
-- [ ] Deploy the function: `supabase functions deploy <name>`
-- [ ] Verify it appears in `supabase functions list` with `ACTIVE` status
+- [ ] Create `supabase/functions/<name>/index.ts`. Start with `requireStaff(req, supabase)`, or `requireStaff(req, supabase, 'admin')` for admin-only.
+- [ ] Add the `[functions.<name>]` block above. A GitHub Action (`edge-functions-check.yml`) fails the push if it is missing.
+- [ ] Add the call to `src/lib/api.ts` (and a React Query hook in `src/hooks/useApi.tsx` if it is a read).
+- [ ] `supabase functions deploy <name>`
+- [ ] Confirm it shows `ACTIVE` in `supabase functions list`.
 
-### 4. Set Up Firebase Hosting
+Staff responses must never include balances or other financial fields; see `create-entry` and `create-customer` for how they trim the reply by role.
 
-1. Install Firebase CLI: `npm install -g firebase-tools`
-2. Login: `firebase login`
-3. Initialize project (if not already done):
-   ```bash
-   firebase init hosting
-   ```
-4. Update `.firebaserc` with your Firebase project ID
-5. Build and deploy:
-   ```bash
-   npm run deploy
-   ```
+## Offline (read-only) mode
 
-### 5. Create First Admin User
-
-After running the migration, a default admin user is created with a placeholder PIN. You need to set the PIN:
-
-**Option 1: Via Supabase SQL Editor**
-```sql
--- Hash the PIN "admin123" (use bcrypt to generate hash)
-UPDATE staff 
-SET pin_hash = '$2a$10$your-bcrypt-hash-here'
-WHERE name = 'Admin';
-```
-
-**Option 2: Via the app (after setting up edge function)**
-- The edge function will handle PIN verification
-- You can create additional staff members via the Staff Management page
-
-**Option 2: Via the app (after setting up edge function)**
-- The edge function will handle PIN verification
-- You can create additional staff members via the Staff Management page
-
-### 6. Run Development Server
-
-```bash
-npm run dev
-```
-
-Visit `http://localhost:5173` to see the app.
-
-## Features
-
-### Role-Based Access
-
-**Staff:**
-- Add new customers
-- Add credit entries (detailed or quick mode)
-- View customer list (no financial data)
-- View entry list (no amounts/balances)
-
-**Admin:**
-- Full dashboard with statistics
-- View balances, totals, and overdue entries
-- Record payments and allocate to entries
-- Manage staff members (add/deactivate/reset PINs)
-- All staff permissions
-
-### Screens
-
-1. **Login** - PIN-based authentication
-2. **Dashboard** (Admin) - Total outstanding, top debtors, overdue entries, recent activity
-3. **Add Credit** - Create new credit entries with detailed/quick modes
-4. **Customers** - Search and view customer list
-5. **Customer Detail** - View customer info and entry history
-6. **Payment Received** (Admin) - Allocate payments to entries with FIFO auto-suggestion
-7. **Staff Management** (Admin) - Add/deactivate staff, reset PINs
-
-### Data Model
-
-- **Customers**: Sequential customer codes (KSMN-0001, KSMN-0002...)
-- **Credit Entries**: Per-customer sequential entry codes (KSMN-0001-1, KSMN-0001-2...)
-- **Payments**: Record payments with allocation to specific entries
-- **Staff**: Individual PINs with role-based access
-
-### Security
-
-- PIN hashing with bcrypt (10 rounds)
-- JWT-based sessions (24h expiry)
-- All data access goes through edge functions (no direct Postgres access from frontend)
-- Role-based authorization enforced in edge functions
-- Staff view excludes financial columns at database level
-- Server-side PIN verification via Edge Function
-
-## Configuration
-
-### Overdue Thresholds
-
-Default overdue periods (configurable via app_settings table):
-- Walk-in customers: 30 days
-- Regular customers: 45 days
-
-Admin can modify these values in the database.
-
-## Development
-
-### Build
-
-```bash
-npm run build
-```
-
-### Preview Production Build
-
-```bash
-npm run preview
-```
-
-### Deploy to Firebase
-
-```bash
-npm run deploy
-```
+- `public/sw.js` caches the app shell and built JS/CSS, so the app opens with no network.
+- `src/lib/offlineCache.ts` saves React Query's cache to the device (up to 24 hours, matching the login). Offline, pages show the last data they loaded, and a banner says so.
+- Saving is switched off offline (`apiCall` refuses writes with "You are offline"). Nothing is queued, because balances, codes and approvals are decided on the server.
+- A page never opened on this device cannot load offline, since its code is fetched on first visit.
+- The saved data is wiped on logout, when a session expires or ends, and when the app opens with no session. Reports are not saved.
 
 ## Notes
 
-- All monetary values are stored as NUMERIC(12,2) in the database
-- Customer codes are generated using a Postgres sequence (thread-safe)
-- Entry codes use row-level locking to prevent race conditions
-- Photo uploads use Supabase Storage (bucket: `entry-photos`)
-- No offline support - assumes reliable internet connection
-
-## Support
-
-For issues or questions, contact the development team.
+- Money is `NUMERIC(12,2)`.
+- Customer codes come from a Postgres sequence; entry codes use row locking, so both are safe under simultaneous saves.
+- "Today" and "this month" are in Asia/Kolkata everywhere.
+- Overdue thresholds default to 30 days (walk-in) and 45 days (regular) and are held in `app_settings`; each customer can override their own.
+- Region move notes (Seoul to Mumbai) are in `scripts/region-move/README.md`.

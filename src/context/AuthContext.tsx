@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 import { Staff, JWTPayload } from '../types';
 import { debugLog } from '../lib/utils';
 import { queryClient } from '../hooks/useApi';
+import { clearOfflineCache } from '../lib/offlineCache';
 
 interface AuthContextType {
   staff: Staff | null;
@@ -40,6 +41,7 @@ function readStoredSession(): { token: string; staff: Staff } | null {
   }
   localStorage.removeItem('ksmn_token');
   localStorage.removeItem('ksmn_staff');
+  clearOfflineCache();
   return null;
 }
 
@@ -56,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('ksmn_staff', JSON.stringify(newStaff));
     // A shared shop phone goes staff -> admin -> staff; cached pages from the
     // previous login (staff rows have no balances) must not be reused.
+    clearOfflineCache();
     queryClient.clear();
     setToken(newToken);
     setStaff(newStaff);
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     debugLog('[Auth] logout() called');
     localStorage.removeItem('ksmn_token');
     localStorage.removeItem('ksmn_staff');
+    clearOfflineCache();
     queryClient.clear();
     setToken(null);
     setStaff(null);

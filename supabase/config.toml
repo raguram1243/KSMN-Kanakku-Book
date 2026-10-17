@@ -529,3 +529,6 @@ verify_jwt = false
 
 [functions.reject-payment]
 verify_jwt = false
+
+[functions.get-top-customers]
+verify_jwt = false

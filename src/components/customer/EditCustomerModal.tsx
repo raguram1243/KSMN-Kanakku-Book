@@ -78,7 +78,7 @@ export function EditCustomerModal({ customer, isOpen, onClose, onSaved }: EditCu
       }
 
       const data = await response.json();
-      save.succeed();
+      await save.succeed();
       invalidateCustomerQueries(queryClient, customer.id);
       onSaved(data.customer);
       onClose();

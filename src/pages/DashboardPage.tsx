@@ -11,9 +11,10 @@ import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
 import { CustomerLedgerModal } from '../components/modals/CustomerLedgerModal';
 import { Skeleton, SkeletonCard, SkeletonChart, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
 import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
+import { WeeklyTrendChart } from '../components/dashboard/WeeklyTrendChart';
 import { AgingReportWidget } from '../components/dashboard/AgingReportWidget';
 import { AIScanButton } from '../components/ai/AIScanButton';
-import { useDashboardStats, useDeleteEntry, useDeletePayment, usePendingPaymentsCount } from '../hooks/useApi';
+import { useTopCustomersMonth, useDashboardStats, useDeleteEntry, useDeletePayment, usePendingPaymentsCount } from '../hooks/useApi';
 import { useToastStore } from '../store/toastStore';
 import { useActionProgress } from '../hooks/useActionProgress';
 import { IndianRupee, Users, AlertTriangle, ClipboardCheck } from 'lucide-react';
@@ -99,6 +100,7 @@ export function DashboardPage() {
   const addToast = useToastStore((s) => s.addToast);
   const [selectedEntry, setSelectedEntry] = useState<EntryDetail | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const topCustomers = useTopCustomersMonth();
   const [selectedDebtorId, setSelectedDebtorId] = useState<string | null>(null);
 
   const stats = statsQuery.data as DashboardStats | undefined;
@@ -236,12 +238,6 @@ export function DashboardPage() {
   const withDuesPct = splitBase > 0 ? Math.round((split.withDues / splitBase) * 100) : 0;
   const showSplit = splitCounted > 0;
 
-  // Calculate max value for chart scaling
-  const maxChartValue = Math.max(
-    ...(stats.last30Days ?? []).map(d => Math.max(d.credit_given, d.collection)),
-    1 // Avoid division by zero
-  );
-
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
@@ -276,7 +272,7 @@ export function DashboardPage() {
               <IndianRupee size={20} />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Outstanding</div>
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Outstanding (Receivable)</div>
               <div className="mt-0.5 text-2xl font-bold tnum text-gray-900 dark:text-white">
                 {formatCurrency(stats.totalOutstanding)}
               </div>
@@ -371,44 +367,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Daily Bar Chart */}
-        <div className="overflow-x-auto">
-          <div className="flex space-x-1 min-w-[600px] h-40">
-            {(stats.last30Days ?? []).map(day => (
-              <div key={day.date} className="flex-1 flex flex-col items-center justify-end">
-                <div className="relative w-full flex items-end space-x-0.5 h-32">
-                  {/* Credit Given (indigo) */}
-                  <div
-                    className="flex-1 bg-indigo-500 dark:bg-indigo-400 rounded-t hover:bg-indigo-600 dark:hover:bg-indigo-300 transition-colors cursor-pointer"
-                    style={{ height: `${(day.credit_given / maxChartValue) * 100}%`, minHeight: '2px' }}
-                    title={`${new Date(day.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} — Credit: ${formatCurrency(day.credit_given)}`}
-                  />
-                  {/* Collection (emerald) */}
-                  <div
-                    className="flex-1 bg-emerald-500 dark:bg-emerald-400 rounded-t hover:bg-emerald-600 dark:hover:bg-emerald-300 transition-colors cursor-pointer"
-                    style={{ height: `${(day.collection / maxChartValue) * 100}%`, minHeight: '2px' }}
-                    title={`${new Date(day.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} — Collection: ${formatCurrency(day.collection)}`}
-                  />
-                </div>
-                <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 whitespace-nowrap">
-                  {new Date(day.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="flex items-center justify-center space-x-6 mt-4 text-sm">
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-indigo-500 dark:bg-indigo-400 rounded"></div>
-            <span className="text-gray-700 dark:text-gray-300">Credit Given</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-emerald-500 dark:bg-emerald-400 rounded"></div>
-            <span className="text-gray-700 dark:text-gray-300">Collection</span>
-          </div>
-        </div>
+        <WeeklyTrendChart days={stats.last30Days ?? []} />
       </Card>
 
       {/* Quick Actions */}
@@ -502,31 +461,75 @@ export function DashboardPage() {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Top Debtors */}
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Debtors</h2>
+          {(stats.topDebtors ?? []).length === 0 ? (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No outstanding balances.</p>
+          ) : (
+            <div className="space-y-3">
+              {(stats.topDebtors ?? []).map((debtor: any) => (
+                <button
+                  key={debtor.id}
+                  onClick={() => setSelectedDebtorId(debtor.id)}
+                  className="flex items-center justify-between py-2 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded px-2 -mx-2 transition-colors w-full text-left focus-ring"
+                >
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white">{debtor.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{debtor.code}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(debtor.balance)}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+
+      {/* Top Customers This Month */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Debtors</h2>
-        {(stats.topDebtors ?? []).length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-sm">No outstanding balances.</p>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Top Customers This Month</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">By credit given since the 1st</p>
+        {topCustomers.isLoading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : topCustomers.isError ? (
+          <p className="text-sm text-red-600 dark:text-red-400">Could not load this list.</p>
+        ) : (topCustomers.data?.customers ?? []).length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No credit given yet this month.</p>
         ) : (
           <div className="space-y-3">
-            {(stats.topDebtors ?? []).map((debtor: any) => (
-              <button
-                key={debtor.id}
-                onClick={() => setSelectedDebtorId(debtor.id)}
-                className="flex items-center justify-between py-2 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded px-2 -mx-2 transition-colors w-full text-left focus-ring"
-              >
-                <div>
-                  <div className="font-medium text-gray-900 dark:text-white">{debtor.name}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{debtor.code}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(debtor.balance)}</div>
-                </div>
-              </button>
-            ))}
+            {(topCustomers.data.customers as any[]).map((c, i) => {
+              const top = Number(topCustomers.data.customers[0].credit_given) || 1;
+              const share = topCustomers.data.monthTotal > 0
+                ? Math.round((c.credit_given / topCustomers.data.monthTotal) * 100)
+                : 0;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedDebtorId(c.id)}
+                  className="w-full text-left rounded px-2 -mx-2 py-2 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors focus-ring"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-medium text-gray-900 dark:text-white truncate">{i + 1}. {c.name}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {c.code} · {c.bills} {c.bills === 1 ? 'bill' : 'bills'} · {share}% of month
+                      </div>
+                    </div>
+                    <div className="font-semibold tnum text-indigo-700 dark:text-indigo-300 whitespace-nowrap">{formatCurrency(c.credit_given)}</div>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div className="h-full rounded-full bg-indigo-500 dark:bg-indigo-400" style={{ width: `${(c.credit_given / top) * 100}%` }} />
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </Card>
+      </div>
 
       {/* Alerts */}
       <Card>
@@ -634,7 +637,7 @@ export function DashboardPage() {
             entryDeleteProgress.start();
             try {
               await deleteEntry.mutateAsync(selectedEntry.entry.id as any);
-              entryDeleteProgress.succeed();
+              await entryDeleteProgress.succeed();
               setSelectedEntry(null);
             } catch (err) {
               entryDeleteProgress.fail();
@@ -661,7 +664,7 @@ export function DashboardPage() {
             paymentDeleteProgress.start();
             try {
               await deletePayment.mutateAsync(selectedPayment.id as any);
-              paymentDeleteProgress.succeed();
+              await paymentDeleteProgress.succeed();
               setSelectedPayment(null);
             } catch (err) {
               paymentDeleteProgress.fail();
