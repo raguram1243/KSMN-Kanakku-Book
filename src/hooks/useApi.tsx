@@ -82,6 +82,18 @@ export function usePendingPayments() {
   });
 }
 
+/** Top customers by credit given this month. Under 'dashboard' so every bill/payment change refreshes it. */
+export function useTopCustomersMonth() {
+  return useQuery<any, Error, any, any>({
+    queryKey: ['dashboard', 'top-customers'],
+    queryFn: async () => {
+      const res = await api.getTopCustomers();
+      if (!res.ok) throw new Error('Failed to load top customers');
+      return res.json();
+    },
+  });
+}
+
 export function useDashboardStats() {
   return useQuery<any, Error, any, any>({
     queryKey: ['dashboard'],

@@ -140,6 +140,9 @@ export const api = {
   getTodayStats: () =>
     apiCall('/get-today-stats'),
 
+  getTopCustomers: () =>
+    apiCall('/get-top-customers'),
+
   getRecentPayments: () =>
     apiCall('/get-recent-payments'),
 

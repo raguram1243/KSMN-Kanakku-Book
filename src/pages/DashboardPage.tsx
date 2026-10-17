@@ -14,7 +14,7 @@ import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
 import { WeeklyTrendChart } from '../components/dashboard/WeeklyTrendChart';
 import { AgingReportWidget } from '../components/dashboard/AgingReportWidget';
 import { AIScanButton } from '../components/ai/AIScanButton';
-import { useDashboardStats, useDeleteEntry, useDeletePayment, usePendingPaymentsCount } from '../hooks/useApi';
+import { useTopCustomersMonth, useDashboardStats, useDeleteEntry, useDeletePayment, usePendingPaymentsCount } from '../hooks/useApi';
 import { useToastStore } from '../store/toastStore';
 import { useActionProgress } from '../hooks/useActionProgress';
 import { IndianRupee, Users, AlertTriangle, ClipboardCheck } from 'lucide-react';
@@ -100,6 +100,7 @@ export function DashboardPage() {
   const addToast = useToastStore((s) => s.addToast);
   const [selectedEntry, setSelectedEntry] = useState<EntryDetail | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const topCustomers = useTopCustomersMonth();
   const [selectedDebtorId, setSelectedDebtorId] = useState<string | null>(null);
 
   const stats = statsQuery.data as DashboardStats | undefined;
@@ -460,31 +461,75 @@ export function DashboardPage() {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Top Debtors */}
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Debtors</h2>
+          {(stats.topDebtors ?? []).length === 0 ? (
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No outstanding balances.</p>
+          ) : (
+            <div className="space-y-3">
+              {(stats.topDebtors ?? []).map((debtor: any) => (
+                <button
+                  key={debtor.id}
+                  onClick={() => setSelectedDebtorId(debtor.id)}
+                  className="flex items-center justify-between py-2 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded px-2 -mx-2 transition-colors w-full text-left focus-ring"
+                >
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white">{debtor.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{debtor.code}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(debtor.balance)}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+
+      {/* Top Customers This Month */}
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Debtors</h2>
-        {(stats.topDebtors ?? []).length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-sm">No outstanding balances.</p>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Top Customers This Month</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">By credit given since the 1st</p>
+        {topCustomers.isLoading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : topCustomers.isError ? (
+          <p className="text-sm text-red-600 dark:text-red-400">Could not load this list.</p>
+        ) : (topCustomers.data?.customers ?? []).length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No credit given yet this month.</p>
         ) : (
           <div className="space-y-3">
-            {(stats.topDebtors ?? []).map((debtor: any) => (
-              <button
-                key={debtor.id}
-                onClick={() => setSelectedDebtorId(debtor.id)}
-                className="flex items-center justify-between py-2 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded px-2 -mx-2 transition-colors w-full text-left focus-ring"
-              >
-                <div>
-                  <div className="font-medium text-gray-900 dark:text-white">{debtor.name}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{debtor.code}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(debtor.balance)}</div>
-                </div>
-              </button>
-            ))}
+            {(topCustomers.data.customers as any[]).map((c, i) => {
+              const top = Number(topCustomers.data.customers[0].credit_given) || 1;
+              const share = topCustomers.data.monthTotal > 0
+                ? Math.round((c.credit_given / topCustomers.data.monthTotal) * 100)
+                : 0;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedDebtorId(c.id)}
+                  className="w-full text-left rounded px-2 -mx-2 py-2 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors focus-ring"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-medium text-gray-900 dark:text-white truncate">{i + 1}. {c.name}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {c.code} · {c.bills} {c.bills === 1 ? 'bill' : 'bills'} · {share}% of month
+                      </div>
+                    </div>
+                    <div className="font-semibold tnum text-indigo-700 dark:text-indigo-300 whitespace-nowrap">{formatCurrency(c.credit_given)}</div>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                    <div className="h-full rounded-full bg-indigo-500 dark:bg-indigo-400" style={{ width: `${(c.credit_given / top) * 100}%` }} />
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </Card>
+      </div>
 
       {/* Alerts */}
       <Card>
