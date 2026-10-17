@@ -11,6 +11,7 @@ import { PaymentDetailModal } from '../components/modals/PaymentDetailModal';
 import { CustomerLedgerModal } from '../components/modals/CustomerLedgerModal';
 import { Skeleton, SkeletonCard, SkeletonChart, SkeletonListItem, SkeletonButton } from '../components/ui/Skeleton';
 import { useWhatsAppCustomer } from '../hooks/useWhatsAppCustomer';
+import { WeeklyTrendChart } from '../components/dashboard/WeeklyTrendChart';
 import { AgingReportWidget } from '../components/dashboard/AgingReportWidget';
 import { AIScanButton } from '../components/ai/AIScanButton';
 import { useDashboardStats, useDeleteEntry, useDeletePayment, usePendingPaymentsCount } from '../hooks/useApi';
@@ -236,12 +237,6 @@ export function DashboardPage() {
   const withDuesPct = splitBase > 0 ? Math.round((split.withDues / splitBase) * 100) : 0;
   const showSplit = splitCounted > 0;
 
-  // Calculate max value for chart scaling
-  const maxChartValue = Math.max(
-    ...(stats.last30Days ?? []).map(d => Math.max(d.credit_given, d.collection)),
-    1 // Avoid division by zero
-  );
-
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
@@ -276,7 +271,7 @@ export function DashboardPage() {
               <IndianRupee size={20} />
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Outstanding</div>
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Outstanding (Receivable)</div>
               <div className="mt-0.5 text-2xl font-bold tnum text-gray-900 dark:text-white">
                 {formatCurrency(stats.totalOutstanding)}
               </div>
@@ -371,44 +366,7 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Daily Bar Chart */}
-        <div className="overflow-x-auto">
-          <div className="flex space-x-1 min-w-[600px] h-40">
-            {(stats.last30Days ?? []).map(day => (
-              <div key={day.date} className="flex-1 flex flex-col items-center justify-end">
-                <div className="relative w-full flex items-end space-x-0.5 h-32">
-                  {/* Credit Given (indigo) */}
-                  <div
-                    className="flex-1 bg-indigo-500 dark:bg-indigo-400 rounded-t hover:bg-indigo-600 dark:hover:bg-indigo-300 transition-colors cursor-pointer"
-                    style={{ height: `${(day.credit_given / maxChartValue) * 100}%`, minHeight: '2px' }}
-                    title={`${new Date(day.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} — Credit: ${formatCurrency(day.credit_given)}`}
-                  />
-                  {/* Collection (emerald) */}
-                  <div
-                    className="flex-1 bg-emerald-500 dark:bg-emerald-400 rounded-t hover:bg-emerald-600 dark:hover:bg-emerald-300 transition-colors cursor-pointer"
-                    style={{ height: `${(day.collection / maxChartValue) * 100}%`, minHeight: '2px' }}
-                    title={`${new Date(day.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} — Collection: ${formatCurrency(day.collection)}`}
-                  />
-                </div>
-                <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 whitespace-nowrap">
-                  {new Date(day.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="flex items-center justify-center space-x-6 mt-4 text-sm">
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-indigo-500 dark:bg-indigo-400 rounded"></div>
-            <span className="text-gray-700 dark:text-gray-300">Credit Given</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-emerald-500 dark:bg-emerald-400 rounded"></div>
-            <span className="text-gray-700 dark:text-gray-300">Collection</span>
-          </div>
-        </div>
+        <WeeklyTrendChart days={stats.last30Days ?? []} />
       </Card>
 
       {/* Quick Actions */}
@@ -634,7 +592,7 @@ export function DashboardPage() {
             entryDeleteProgress.start();
             try {
               await deleteEntry.mutateAsync(selectedEntry.entry.id as any);
-              entryDeleteProgress.succeed();
+              await entryDeleteProgress.succeed();
               setSelectedEntry(null);
             } catch (err) {
               entryDeleteProgress.fail();
@@ -661,7 +619,7 @@ export function DashboardPage() {
             paymentDeleteProgress.start();
             try {
               await deletePayment.mutateAsync(selectedPayment.id as any);
-              paymentDeleteProgress.succeed();
+              await paymentDeleteProgress.succeed();
               setSelectedPayment(null);
             } catch (err) {
               paymentDeleteProgress.fail();

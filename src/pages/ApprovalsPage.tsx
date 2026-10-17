@@ -271,7 +271,7 @@ function ApproveModal({ payment, onClose }: { payment: PendingPayment; onClose: 
         throw new Error(data.error || 'Failed to approve the payment');
       }
       const data = await res.json();
-      save.succeed();
+      await save.succeed();
       invalidatePaymentQueries(queryClient, payment.customer_id);
       const leftover = Number(data.advance_remaining ?? advanceLeft);
       useToastStore.getState().addToast({
@@ -439,7 +439,7 @@ function RejectModal({ payment, onClose }: { payment: PendingPayment; onClose: (
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Failed to reject the payment');
       }
-      save.succeed();
+      await save.succeed();
       invalidatePaymentQueries(queryClient, payment.customer_id);
       useToastStore.getState().addToast({
         type: 'info',

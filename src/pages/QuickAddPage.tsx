@@ -233,7 +233,7 @@ export default function QuickAddPage() {
       }
 
       const data = await response.json();
-      createCustomer.succeed();
+      await createCustomer.succeed();
       invalidateCustomerQueries(queryClient);
       setSelectedCustomer(data.customer);
       setShowCreateCustomer(false);
@@ -390,7 +390,7 @@ export default function QuickAddPage() {
           throw new Error(data.error || 'Failed to update entry');
         }
 
-        saveEntry.succeed();
+        await saveEntry.succeed();
         invalidateEntryQueries(queryClient, selectedCustomer.id);
 
                         useToastStore.getState().addToast({
@@ -466,7 +466,7 @@ export default function QuickAddPage() {
             });
           }
         }
-        progress.succeed();
+        await progress.succeed();
 
         // Reset form
         setSelectedCustomer(null);

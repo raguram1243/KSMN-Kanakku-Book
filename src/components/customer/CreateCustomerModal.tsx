@@ -81,7 +81,7 @@ export function CreateCustomerModal({ isOpen, onClose, onCreated, initialName, i
       }
 
       const data = await response.json();
-      create.succeed();
+      await create.succeed();
       invalidateCustomerQueries(queryClient);
       onCreated(data.customer);
       onClose();

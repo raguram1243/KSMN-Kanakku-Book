@@ -1052,7 +1052,7 @@ export default function CustomerDetailPage() {
             deleteEntry.start();
             try {
               await api.deleteEntry(selectedEntry.id);
-              deleteEntry.succeed();
+              await deleteEntry.succeed();
               setSelectedEntry(null);
               invalidateEntryQueries(queryClient, id);
               customerQuery.refetch();
@@ -1088,7 +1088,7 @@ export default function CustomerDetailPage() {
             deletePayment.start();
             try {
               await api.deletePayment(selectedPayment.id);
-              deletePayment.succeed();
+              await deletePayment.succeed();
               setSelectedPayment(null);
               invalidatePaymentQueries(queryClient, id);
               customerQuery.refetch();

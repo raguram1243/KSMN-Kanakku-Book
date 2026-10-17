@@ -18,10 +18,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  *   const save = useActionProgress()
  *   ...
  *   save.start()
- *   try { await mutate(); save.succeed() } catch (e) { save.fail(); ... }
+ *   try { await mutate(); await save.succeed(); closeOrNavigate() } catch (e) { save.fail(); ... }
  *
  * `succeed` holds the finished state briefly so the tick is actually seen,
- * then returns to idle. `fail` holds until the next `start`, so a failed
+ * then returns to idle. It returns a promise that resolves once the tick has
+ * been on screen; await it before anything that removes the button (closing
+ * a modal, navigating, resetting the form), or the bar is cut off near 90%. `fail` holds until the next `start`, so a failed
  * button stays visibly failed while the user reads the error toast.
  */
 
@@ -29,6 +31,13 @@ export type ActionStatus = 'idle' | 'running' | 'done' | 'error';
 
 /** Long enough to register the tick, short enough not to delay a redirect. */
 const DONE_HOLD_MS = 900;
+
+/**
+ * How long `succeed()` keeps its promise pending. Callers that close a modal
+ * or navigate right after a save `await` it, so the button is still on screen
+ * while the bar runs to 100% and the tick appears.
+ */
+const SUCCESS_SHOW_MS = 800;
 
 export function useActionProgress(doneHoldMs: number = DONE_HOLD_MS) {
   const [status, setStatus] = useState<ActionStatus>('idle');
@@ -51,10 +60,11 @@ export function useActionProgress(doneHoldMs: number = DONE_HOLD_MS) {
     setStatus('running');
   }, []);
 
-  const succeed = useCallback(() => {
+  const succeed = useCallback((): Promise<void> => {
     clear();
     setStatus('done');
     timer.current = setTimeout(() => setStatus('idle'), doneHoldMs);
+    return new Promise(resolve => setTimeout(resolve, SUCCESS_SHOW_MS));
   }, [doneHoldMs]);
 
   const fail = useCallback(() => {

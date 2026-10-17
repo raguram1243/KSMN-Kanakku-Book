@@ -175,7 +175,7 @@ export default function StaffPaymentPage() {
       }
       const data = await response.json();
 
-      save.succeed();
+      await save.succeed();
       setSent({
         customerName: customer.name,
         amount: Number(data.payment?.amount ?? value),

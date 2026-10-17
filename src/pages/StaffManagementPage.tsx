@@ -154,7 +154,7 @@ export function StaffManagementPage() {
         throw new Error(data.error || 'Failed to delete staff');
       }
 
-      removeStaff.succeed();
+      await removeStaff.succeed();
       setShowDeleteModal(false);
       setSelectedStaff(null);
       setDeleteWarning(null);
